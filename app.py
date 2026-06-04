@@ -185,39 +185,36 @@ COMPANIES_DATA = [
 TARGET_DOMAINS = [comp["domain"] for comp in COMPANIES_DATA]
 
 # ==========================================
-# 4. 헤더 레이아웃 및 탭 매운맛 렌더링
+# 4. 헤더 및 탭 시스템 배치
 # ==========================================
 st.markdown("<div class='main-title'>🏢 ARCHI-DIRECT</div>", unsafe_allow_html=True)
 st.markdown("<div class='sub-title'>글로벌 & 국내 100대 대형 건축설계사무소 통합 아카이브 시스템</div>", unsafe_allow_html=True)
 
 tab_search, tab_directory = st.tabs(["🔍 프로젝트 정밀 리서치 엔진", "🏢 100대 대형사 공식 디렉토리 (10×10)"])
 
-# ── [탭 2] 10×10 인라인 하드코딩 그리드 (세로 정렬 절대 방지) ──
+# ── [탭 2] ★ 완벽한 순정 st.columns 기반 10x10 격자 구현 (절대 안깨짐) ──
 with tab_directory:
-    st.markdown("<p style='font-size:0.85rem; color:#6C757D; margin-bottom:10px;'>설계사무소를 클릭하면 공식 홈페이지로 즉시 새 창 이동합니다.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.85rem; color:#6C757D; margin-bottom:15px;'>각 버튼을 누르면 공식 웹사이트 메인페이지가 새 창으로 열립니다.</p>", unsafe_allow_html=True)
     
-    # 전체를 감싸는 부모 태그에 직접 인라인 CSS 스타일 주입하여 10칸 그리드를 강제 고정합니다.
-    html_buffer = """
-    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; padding: 10px 0px; width: 100%;">
-    """
-    
-    for comp in COMPANIES_DATA:
-        display_letter = comp["name"][0]
-        site_url = f"https://www.{comp['domain']}"
+    # 100개 요소를 10개씩 쪼개어 가로 행을 순차적으로 빌드
+    for i in range(0, len(COMPANIES_DATA), 10):
+        chunk_10 = COMPANIES_DATA[i:i+10]
         
-        # 내부 카드 요소 하나하나에도 직접 인라인 스타일을 먹여 리액트/웹킷 렌더러의 왜곡을 방지
-        html_buffer += f"""
-        <a href="{site_url}" target="_blank" style="text-decoration: none; width: 100%;">
-            <div style="border: 1px solid #E9ECEF; padding: 10px 2px; text-align: center; border-radius: 2px; background-color: #F8F9FA; height: 75px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <div style="font-family: monospace; font-size: 0.9rem; font-weight: 700; background-color: #111111; color: #FFFFFF; width: 24px; height: 24px; line-height: 24px; margin-bottom: 4px; border-radius: 2px; text-transform: uppercase;">{display_letter}</div>
-                <div style="font-size: 0.7rem; font-weight: 500; color: #212529; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px;">{comp['name']}</div>
-            </div>
-        </a>
-        """
-    html_buffer += "</div>"
-    
-    # 샌드박스를 찢고 들어가는 전체 원샷 HTML 출력
-    st.markdown(html_buffer, unsafe_allow_html=True)
+        # Streamlit 순정 10열 레이아웃 생성
+        cols = st.columns(10)
+        
+        for idx, comp in enumerate(chunk_10):
+            with cols[idx]:
+                display_letter = comp["name"][0].upper()
+                site_url = f"https://www.{comp['domain']}"
+                
+                # 가독성과 통일성을 살린 미니멀 텍스트박스 형태의 새창이동 링크 버튼 배치
+                st.link_button(
+                    label=f"[{display_letter}] {comp['name']}",
+                    url=site_url,
+                    use_container_width=True,
+                    help=f"{comp['name']} 공식 홈페이지 이동"
+                )
 
 # ── [탭 1] 실시간 검색 인터페이스 ──
 with tab_search:
@@ -382,4 +379,4 @@ if search_button:
                         
         except Exception as e:
             progress_bar.empty()
-            status_box.error(f"프로ces 진행 중 내부 오류가 발생했습니다: {str(e)}")
+            status_box.error(f"프로세스 진행 중 내부 오류가 발생했습니다: {str(e)}")
