@@ -5,7 +5,7 @@ import json
 import time
 
 # ==========================================
-# 1. 페이지 설정 및 미니멀 건축가 스타일 UI
+# 1. 페이지 설정 및 기본 미니멀 스타일 UI
 # ==========================================
 st.set_page_config(
     page_title="ARCHI-DIRECT // 100대 글로벌 대형사 프로젝트 링크 링커",
@@ -34,59 +34,6 @@ st.markdown("""
             color: #868E96;
             margin-bottom: 1.5rem;
         }
-        
-        /* 10 x 10 완벽 매트릭스 그리드 스타일 */
-        .logo-grid {
-            display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            gap: 6px;
-            padding: 10px 0px;
-        }
-        .logo-card {
-            border: 1px solid #E9ECEF;
-            padding: 8px 2px;
-            text-align: center;
-            border-radius: 2px;
-            background-color: #F8F9FA;
-            transition: all 0.15s ease;
-            height: 75px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        .logo-card:hover {
-            border-color: #111111;
-            background-color: #FFFFFF;
-        }
-        .logo-box {
-            font-family: monospace;
-            font-size: 0.9rem;
-            font-weight: 700;
-            background-color: #111111;
-            color: #FFFFFF;
-            width: 24px;
-            height: 24px;
-            line-height: 24px;
-            margin-bottom: 4px;
-            border-radius: 2px;
-            text-transform: uppercase;
-        }
-        .logo-name {
-            font-size: 0.7rem;
-            font-weight: 500;
-            color: #212529;
-            width: 100%;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            padding: 0 2px;
-        }
-        .logo-link {
-            text-decoration: none;
-        }
-        
-        /* 결과물 카드 스타일 */
         .project-card {
             background-color: #FFFFFF;
             padding: 20px 0px;
@@ -132,7 +79,7 @@ gemini_api_key = st.sidebar.text_input("Gemini API Key", type="password")
 tavily_api_key = st.sidebar.text_input("Tavily API Key", type="password")
 
 # ==========================================
-# 3. 데이터 구조 정의 (정확히 100개사 명단)
+# 3. 100대 대형 건축사무소 데이터 세팅
 # ==========================================
 COMPANIES_DATA = [
     {"name": "Gensler", "domain": "gensler.com"},
@@ -238,46 +185,52 @@ COMPANIES_DATA = [
 TARGET_DOMAINS = [comp["domain"] for comp in COMPANIES_DATA]
 
 # ==========================================
-# 4. 메인 타이틀 및 탭 배치 (UI 구성)
+# 4. 헤더 레이아웃 및 탭 매운맛 렌더링
 # ==========================================
 st.markdown("<div class='main-title'>🏢 ARCHI-DIRECT</div>", unsafe_allow_html=True)
 st.markdown("<div class='sub-title'>글로벌 & 국내 100대 대형 건축설계사무소 통합 아카이브 시스템</div>", unsafe_allow_html=True)
 
-# 최상단에 고정식으로 2개의 탭 배치
 tab_search, tab_directory = st.tabs(["🔍 프로젝트 정밀 리서치 엔진", "🏢 100대 대형사 공식 디렉토리 (10×10)"])
 
-# ── [탭 2] 10×10 매트릭스 대시보드 ──
+# ── [탭 2] 10×10 인라인 하드코딩 그리드 (세로 정렬 절대 방지) ──
 with tab_directory:
     st.markdown("<p style='font-size:0.85rem; color:#6C757D; margin-bottom:10px;'>설계사무소를 클릭하면 공식 홈페이지로 즉시 새 창 이동합니다.</p>", unsafe_allow_html=True)
-    st.markdown("<div class='logo-grid'>", unsafe_allow_html=True)
+    
+    # 전체를 감싸는 부모 태그에 직접 인라인 CSS 스타일 주입하여 10칸 그리드를 강제 고정합니다.
+    html_buffer = """
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; padding: 10px 0px; width: 100%;">
+    """
+    
     for comp in COMPANIES_DATA:
         display_letter = comp["name"][0]
         site_url = f"https://www.{comp['domain']}"
-        st.markdown(f"""
-            <a href="{site_url}" target="_blank" class="logo-link">
-                <div class="logo-card">
-                    <div class="logo-box">{display_letter}</div>
-                    <div class="logo-name" title="{comp['name']}">{comp['name']}</div>
-                </div>
-            </a>
-        """, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        
+        # 내부 카드 요소 하나하나에도 직접 인라인 스타일을 먹여 리액트/웹킷 렌더러의 왜곡을 방지
+        html_buffer += f"""
+        <a href="{site_url}" target="_blank" style="text-decoration: none; width: 100%;">
+            <div style="border: 1px solid #E9ECEF; padding: 10px 2px; text-align: center; border-radius: 2px; background-color: #F8F9FA; height: 75px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <div style="font-family: monospace; font-size: 0.9rem; font-weight: 700; background-color: #111111; color: #FFFFFF; width: 24px; height: 24px; line-height: 24px; margin-bottom: 4px; border-radius: 2px; text-transform: uppercase;">{display_letter}</div>
+                <div style="font-size: 0.7rem; font-weight: 500; color: #212529; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px;">{comp['name']}</div>
+            </div>
+        </a>
+        """
+    html_buffer += "</div>"
+    
+    # 샌드박스를 찢고 들어가는 전체 원샷 HTML 출력
+    st.markdown(html_buffer, unsafe_allow_html=True)
 
-# ── [탭 1] 실시간 검색 인터페이스 (핵심 제어 영역) ──
+# ── [탭 1] 실시간 검색 인터페이스 ──
 with tab_search:
-    # 폼(Form) 구조를 탈피하여 세션 상태와 완전 연동되는 독립 인풋 컴포넌트 마운트
     search_keyword = st.text_input(
         "검색할 건축 키워드 혹은 컨셉을 입력하세요 (국문 입력 시 영문 자동 교차 검색)", 
         placeholder="예: 천창",
         key="search_input_field"
     )
     search_button = st.button("프로젝트 및 썸네일 찾기", type="primary")
-
-    # 결과를 상시 고정 렌더링하기 위한 스코프 컨테이너 생성
     result_container = st.container()
 
 # ==========================================
-# 5. 비동기/동기 크롤링 프로세스 트리거 (세션 세이프)
+# 5. 크롤링 및 가공 처리 파트
 # ==========================================
 if search_button:
     if not gemini_api_key or not tavily_api_key:
@@ -289,16 +242,15 @@ if search_button:
         progress_bar = st.progress(0)
         
         try:
-            # AI 및 크롤러 백엔드 세팅
             genai.configure(api_key=gemini_api_key)
             model = genai.GenerativeModel('gemini-2.5-flash')
             tavily_client = TavilyClient(api_key=tavily_api_key)
             
-            # 1단계: 번역 레이어 가동
+            # 번역 가동
             status_box.markdown("🔄 **글로벌 검색을 위한 영문 키워드 매핑 및 번역 중...**")
             progress_bar.progress(10)
             
-            translation_prompt = f"입력된 건축 용어를 글로벌 웹 검색에 적합한 영문 건축 기술 명사 단어로 변환하세요. 다른 군더더기 없이 오직 번역된 단어만 결과로 출력하세요.\n입력: {search_keyword}"
+            translation_prompt = "입력된 건축 용어를 글로벌 웹 검색에 적합한 영문 건축 기술 명사 단어로 변환하세요. 설명문 없이 오직 번역된 단어만 결과로 출력하세요.\n입력: " + search_keyword
             translation_res = model.generate_content(translation_prompt).text.strip()
             
             keywords_pool = [search_keyword.strip(), translation_res]
@@ -307,7 +259,7 @@ if search_button:
             all_raw_results = []
             all_collected_images = []
             
-            # 2단계: 100대사 사이트 청크 전수조사 루프 (에러 및 400자 락 원천 제어)
+            # 도메인 세그먼테이션 순차 스캔
             chunk_size = 12
             chunks = [TARGET_DOMAINS[i:i + chunk_size] for i in range(0, len(TARGET_DOMAINS), chunk_size)]
             search_query_string = f"({search_keyword} OR \"{translation_res}\")"
@@ -334,7 +286,7 @@ if search_button:
                 
             progress_bar.progress(80)
             
-            # 3단계: 정제 전 원본 드롭다운 뷰 레이아웃 출력
+            # 원본 데이터 풀 아카이브
             with st.expander("📥 AI 필터링 전 실시간 크롤링 원본 데이터 풀 (드롭다운)", expanded=False):
                 st.markdown("<div class='raw-container'>", unsafe_allow_html=True)
                 if not all_raw_results:
@@ -349,7 +301,6 @@ if search_button:
                 status_box.warning("100대 설계사 아카이브 내에서 매칭되는 결과를 찾지 못했습니다.")
                 progress_bar.empty()
             else:
-                # 4단계: 개별 프로젝트 단위 딥링크 검증 필터 컨디셔닝
                 status_box.markdown("🤖 **메인/목록 페이지 제외 및 개별 프로젝트 상세 딥링크와 썸네일 매핑 중...**")
                 progress_bar.progress(90)
                 
@@ -394,7 +345,6 @@ if search_button:
                 status_box.empty()
                 progress_bar.empty()
                 
-                # ── [최종 결과 세션 컨테이너 렌더링 스코프] ──
                 with result_container:
                     st.markdown(f"### 🔗 '{search_keyword}' 관련 대형사 개별 프로젝트 직행 링크 및 썸네일 ({len(cleaned_projects)}건)")
                     st.markdown("---")
@@ -432,4 +382,4 @@ if search_button:
                         
         except Exception as e:
             progress_bar.empty()
-            status_box.error(f"프로세스 진행 중 내부 통신 오류가 발생했습니다: {str(e)}")
+            status_box.error(f"프로ces 진행 중 내부 오류가 발생했습니다: {str(e)}")
