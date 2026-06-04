@@ -14,6 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# [최종 해법] 모든 st.link_button 및 일반 버튼의 높이를 60px 큰 기준으로 고정하는 마법의 와이드 픽셀 CSS
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
@@ -35,18 +36,32 @@ st.markdown("""
             margin-bottom: 1.5rem;
         }
         
-        /* 100대사 버튼 높이를 두 줄 기준으로 강제 고정하는 CSS */
-        div[data-testid="stHorizontalBlock"] div[data-testid="element-container"] button {
+        /* 🔥 Streamlit 내 모든 컴포넌트 스택의 버튼 높이를 강제 락(Lock) */
+        div[data-testid="stComponentStack"] button,
+        div[data-testid="element-container"] button,
+        div[data-testid="stHorizontalBlock"] button,
+        .stLinkButton a,
+        .stLinkButton button,
+        .stButton button {
             height: 60px !important;
-            display: flex !important;
+            min-height: 60px !important;
+            max-height: 60px !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
             text-align: center !important;
-            padding: 5px !important;
+            padding: 2px !important;
         }
-        div[data-testid="stHorizontalBlock"] div[data-testid="element-container"] p {
-            font-size: 0.8rem !important;
+        
+        /* 줄바꿈 시 레이아웃 밖으로 글자가 터져 나가지 않도록 폰트 규격 고정 */
+        div[data-testid="element-container"] p,
+        div[data-testid="stHorizontalBlock"] p,
+        .stLinkButton p,
+        .stButton p {
+            font-size: 0.78rem !important;
             line-height: 1.2 !important;
+            font-weight: 700 !important;
+            margin: 0 !important;
         }
 
         .project-card {
@@ -91,21 +106,17 @@ st.markdown("""
 # ==========================================
 st.sidebar.markdown("### 🔑 SECURITY ACCESS")
 
-# 마스터 패스워드 입력창
 access_password = st.sidebar.text_input("마스터 비밀번호 입력", type="password", help="지정된 4자리 비밀번호를 입력하면 API 키가 자동 마운트됩니다.")
 
-# 기본값 공백 설정
 gemini_api_key = ""
 tavily_api_key = ""
 
-# 비밀번호 매칭 검증 단계 (7306 확인 시 저장해두신 키 자동 입력)
 if access_password == "7306":
     gemini_api_key = "AQ.Ab8RN6Ia2WOGCX8MlAegM_VJx1GQagag1Y_AsrSK0fxrr2BZRg"
     tavily_api_key = "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"
     st.sidebar.success("✅ API 키 자동 마운트 완료")
 elif access_password != "":
     st.sidebar.error("❌ 비밀번호가 올바르지 않습니다.")
-    # 비밀번호가 틀렸을 때는 직접 수동으로 입력할 수 있는 비상 창 노출
     gemini_api_key = st.sidebar.text_input("Gemini API Key 수동 입력", type="password")
     tavily_api_key = st.sidebar.text_input("Tavily API Key 수동 입력", type="password")
 else:
@@ -227,7 +238,7 @@ st.markdown("<div class='sub-title'>글로벌 & 국내 100대 대형 건축설�
 
 tab_search, tab_directory = st.tabs(["🔍 프로젝트 정밀 리서치 엔진", "🏢 100대 대형사 공식 디렉토리 (10×10)"])
 
-# ── [탭 2] 두 줄 높이 일치형 10x10 격자 디렉토리 ──
+# ── [탭 2] 정밀 60px 일치형 순정 격자 대시보드 ──
 with tab_directory:
     st.markdown("<p style='font-size:0.85rem; color:#6C757D; margin-bottom:15px;'>각 버튼을 누르면 공식 웹사이트 메인페이지가 새 창으로 열립니다.</p>", unsafe_allow_html=True)
     
