@@ -16,7 +16,7 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght=300;400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
         html, body, [data-testid="stAppViewContainer"] {
             font-family: 'Noto Sans KR', sans-serif;
             background-color: #FFFFFF;
@@ -34,20 +34,26 @@ st.markdown("""
             color: #868E96;
             margin-bottom: 1.5rem;
         }
-        /* 로고 그리드 스타일 */
+        
+        /* ★ [핵심 변경] 완벽한 10 x 10 매트릭스 그리드 레이아웃 스펙 */
         .logo-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 8px;
             padding: 15px 0px;
         }
         .logo-card {
             border: 1px solid #E9ECEF;
-            padding: 12px;
+            padding: 10px 4px;
             text-align: center;
-            border-radius: 3px;
+            border-radius: 2px;
             background-color: #F8F9FA;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
+            height: 85px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
         .logo-card:hover {
             border-color: #111111;
@@ -55,28 +61,31 @@ st.markdown("""
         }
         .logo-box {
             font-family: monospace;
-            font-size: 1.1rem;
+            font-size: 0.95rem;
             font-weight: 700;
             background-color: #111111;
             color: #FFFFFF;
-            width: 40px;
-            height: 40px;
-            line-height: 40px;
-            margin: 0 auto 8px auto;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            margin-bottom: 6px;
             border-radius: 2px;
             text-transform: uppercase;
         }
         .logo-name {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: 500;
             color: #212529;
+            width: 100%;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            padding: 0 4px;
         }
         .logo-link {
             text-decoration: none;
         }
+        
         /* 프로젝트 결과 스타일 */
         .project-card {
             background-color: #FFFFFF;
@@ -125,9 +134,9 @@ tavily_api_key = st.sidebar.text_input("Tavily API Key", type="password")
 st.sidebar.markdown("---")
 st.sidebar.markdown("""
 <div style='font-size: 0.8rem; color: #868E96; line-height: 1.5;'>
-<strong>ARCHI-DIRECT v4.0</strong><br>
-- 100대 대형 건축사무소 인덱싱 탭 대시보드 내장<br>
-- 개별 프로젝트 직행 링크 및 이미지 실시간 필터링
+<strong>ARCHI-DIRECT v4.5</strong><br>
+- 10×10 매트릭스 디렉토리 뷰 포맷팅 적용<br>
+- 단일 대형사 개별 프로젝트 고속 딥링크 추출 및 크롤링
 </div>
 """, unsafe_allow_html=True)
 
@@ -138,12 +147,11 @@ st.markdown("<div class='main-title'>🏢 ARCHI-DIRECT</div>", unsafe_allow_html
 st.markdown("<div class='sub-title'>글로벌 & 국내 100대 대형 건축설계사무소 통합 아카이브 시스템</div>", unsafe_allow_html=True)
 
 # ==========================================
-# 4. 100대 대형 건축사무소 도메인 및 매핑 딕셔너리
+# 4. 100대 대형 건축사무소 도메인 및 매핑 데이터 (정확히 100개사)
 # ==========================================
-# UI 탭 출력을 위한 한글/영문 식별 이름 매핑 데이터 구조
 COMPANIES_DATA = [
     {"name": "Gensler", "domain": "gensler.com"},
-    {"name": "Perkins&Will", "domain": "perkinswill.com"},
+    {"name": "Perkins+Will", "domain": "perkinswill.com"},
     {"name": "HOK", "domain": "hok.com"},
     {"name": "SOM", "domain": "som.com"},
     {"name": "Foster+Partners", "domain": "fosterandpartners.com"},
@@ -243,24 +251,22 @@ COMPANIES_DATA = [
     {"name": "종합건축사사무소 가람", "domain": "zoaa.co.kr"}
 ]
 
-# 검색 쿼리 파싱을 위해 도메인만 추출한 서브 배열 분리
 TARGET_DOMAINS = [comp["domain"] for comp in COMPANIES_DATA]
 
 # ==========================================
-# 5. [신규 추가] 헤더 하단 탭 시스템 UI 정의
+# 5. 탭 구성 레이아웃 시스템
 # ==========================================
-tab_search, tab_directory = st.tabs(["🔍 프로젝트 정밀 리서치 엔진", "🏢 100대 대형사 공식 디렉토리"])
+tab_search, tab_directory = st.tabs(["🔍 프로젝트 정밀 리서치 엔진", "🏢 100대 대형사 공식 디렉토리 (10×10)"])
 
-# ── [탭 2] 100대 대형사 메인페이지 바로가기 디렉토리 구성 ──
+# ── [탭 2] 10×10 매트릭스 디렉토리 ──
 with tab_directory:
-    st.markdown("<p style='font-size:0.9rem; color:#6C757D; margin-bottom:15px;'>각 설계사무소를 클릭하면 공식 웹사이트 메인페이지로 바로 연결됩니다.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.9rem; color:#6C757D; margin-bottom:10px;'>설계사무소를 클릭하면 공식 메인페이지로 즉시 새 창 이동합니다.</p>", unsafe_allow_html=True)
     
     st.markdown("<div class='logo-grid'>", unsafe_allow_html=True)
     for comp in COMPANIES_DATA:
         display_letter = comp["name"][0]
         site_url = f"https://www.{comp['domain']}"
         
-        # HTML 앵커 태그를 활용해 미니멀 로고 카드 리스트 생성
         st.markdown(f"""
             <a href="{site_url}" target="_blank" class="logo-link">
                 <div class="logo-card">
@@ -271,7 +277,7 @@ with tab_directory:
         """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ── [탭 1] 기존 핵심 실시간 검색 인터페이스 구성 ──
+# ── [탭 1] 실시간 검색 인터페이스 ──
 with tab_search:
     search_keyword = st.text_input(
         "검색할 건축 키워드 혹은 컨셉을 입력하세요 (국문 입력 시 영문 자동 교차 검색)", 
@@ -282,7 +288,7 @@ with tab_search:
     search_button = st.button("프로젝트 및 썸네일 찾기", type="primary")
 
     # ==========================================
-    # 6. 실행 및 크롤링 엔진 로직
+    # 6. 실시간 크롤링 및 가공 엔진
     # ==========================================
     if search_button:
         if not gemini_api_key or not tavily_api_key:
@@ -298,13 +304,12 @@ with tab_search:
                 model = genai.GenerativeModel('gemini-2.5-flash')
                 tavily_client = TavilyClient(api_key=tavily_api_key)
                 
-                # 번역 모듈 작동
                 status_box.markdown("🔄 **글로벌 검색을 위한 영문 키워드 매핑 및 번역 중...**")
                 progress_bar.progress(10)
                 
                 translation_prompt = f"""
                 입력된 건축 용어를 글로벌 웹 검색에 적합한 영문 건축 기술 명사 단어로 변환하세요. 
-                문장이나 설명 없이 오직 번역된 영문 단어만 출력하세요.
+                설명문 없이 오직 번역된 단어만 결과로 출력하세요.
                 입력: {search_keyword}
                 """
                 translation_res = model.generate_content(translation_prompt).text.strip()
@@ -315,7 +320,7 @@ with tab_search:
                 all_raw_results = []
                 all_collected_images = []
                 
-                # 100대 설계사 청크 루프 전수조사 (12개 단위 분할 호출)
+                # 도메인 세그멘테이션 청크 스캔
                 chunk_size = 12
                 chunks = [TARGET_DOMAINS[i:i + chunk_size] for i in range(0, len(TARGET_DOMAINS), chunk_size)]
                 search_query_string = f"({search_keyword} OR \"{translation_res}\")"
@@ -342,7 +347,7 @@ with tab_search:
                     
                 progress_bar.progress(80)
                 
-                # 정제 전 원본 풀 드롭다운 노출
+                # 정제 전 원본 드롭다운
                 with st.expander("📥 AI 필터링 전 실시간 크롤링 원본 데이터 풀 (드롭다운)", expanded=False):
                     st.markdown("<div class='raw-container'>", unsafe_allow_html=True)
                     if not all_raw_results:
@@ -360,7 +365,6 @@ with tab_search:
                     status_box.markdown("🤖 **메인/목록 페이지 제외 및 개별 프로젝트 상세 딥링크와 썸네일 매핑 중...**")
                     progress_bar.progress(90)
                     
-                    # 딥링크 유효 검증용 AI 정제 지침 프로그래밍
                     filter_prompt = f"""
                     당신은 건축 아카이브 정밀 정제 엔진입니다.
                     다음 제공된 크롤링 데이터 풀에서 사용자가 입력한 단어셋({keywords_pool})과 매칭되는 결과 중, 
@@ -402,7 +406,6 @@ with tab_search:
                     status_box.empty()
                     progress_bar.empty()
                     
-                    # 최종 포트폴리오 결과 렌더링
                     st.markdown(f"### 🔗 '{search_keyword}' 관련 대형사 개별 프로젝트 직행 링크 및 썸네일 ({len(cleaned_projects)}건)")
                     st.markdown("---")
                     
