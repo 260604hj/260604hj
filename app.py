@@ -406,5 +406,3 @@ if search_button:
         except Exception as e:
             progress_bar.empty()
             status_box.error(f"프로세스 진행 중 내부 오류가 발생했습니다: {str(e)}")
-
-```
