@@ -34,6 +34,21 @@ st.markdown("""
             color: #868E96;
             margin-bottom: 1.5rem;
         }
+        
+        /* 100대사 버튼 높이를 두 줄 기준으로 강제 고정하는 CSS */
+        div[data-testid="stHorizontalBlock"] div[data-testid="element-container"] button {
+            height: 60px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            padding: 5px !important;
+        }
+        div[data-testid="stHorizontalBlock"] div[data-testid="element-container"] p {
+            font-size: 0.8rem !important;
+            line-height: 1.2 !important;
+        }
+
         .project-card {
             background-color: #FFFFFF;
             padding: 20px 0px;
@@ -72,11 +87,31 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 사이드바 API Key 설정
+# 2. 사이드바 API Key 보안 인증 우회 제어 레이어
 # ==========================================
-st.sidebar.markdown("### 🔑 API CREDENTIALS")
-gemini_api_key = st.sidebar.text_input("Gemini API Key", type="password")
-tavily_api_key = st.sidebar.text_input("Tavily API Key", type="password")
+st.sidebar.markdown("### 🔑 SECURITY ACCESS")
+
+# 마스터 패스워드 입력창
+access_password = st.sidebar.text_input("마스터 비밀번호 입력", type="password", help="지정된 4자리 비밀번호를 입력하면 API 키가 자동 마운트됩니다.")
+
+# 기본값 공백 설정
+gemini_api_key = ""
+tavily_api_key = ""
+
+# 비밀번호 매칭 검증 단계 (7306 확인 시 저장해두신 키 자동 입력)
+if access_password == "7306":
+    gemini_api_key = "AQ.Ab8RN6Ia2WOGCX8MlAegM_VJx1GQagag1Y_AsrSK0fxrr2BZRg"
+    tavily_api_key = "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"
+    st.sidebar.success("✅ API 키 자동 마운트 완료")
+elif access_password != "":
+    st.sidebar.error("❌ 비밀번호가 올바르지 않습니다.")
+    # 비밀번호가 틀렸을 때는 직접 수동으로 입력할 수 있는 비상 창 노출
+    gemini_api_key = st.sidebar.text_input("Gemini API Key 수동 입력", type="password")
+    tavily_api_key = st.sidebar.text_input("Tavily API Key 수동 입력", type="password")
+else:
+    st.sidebar.info("💡 비밀번호 4자리를 입력하시거나, 아래에 개별 API Key를 수동으로 직접 입력하셔도 구동됩니다.")
+    gemini_api_key = st.sidebar.text_input("Gemini API Key 수동 입력", type="password")
+    tavily_api_key = st.sidebar.text_input("Tavily API Key 수동 입력", type="password")
 
 # ==========================================
 # 3. 100대 대형 건축사무소 데이터 세팅
@@ -192,11 +227,10 @@ st.markdown("<div class='sub-title'>글로벌 & 국내 100대 대형 건축설�
 
 tab_search, tab_directory = st.tabs(["🔍 프로젝트 정밀 리서치 엔진", "🏢 100대 대형사 공식 디렉토리 (10×10)"])
 
-# ── [탭 2] 순정 컴포넌트 기반 10x10 볼드체 텍스트 그리드 ──
+# ── [탭 2] 두 줄 높이 일치형 10x10 격자 디렉토리 ──
 with tab_directory:
     st.markdown("<p style='font-size:0.85rem; color:#6C757D; margin-bottom:15px;'>각 버튼을 누르면 공식 웹사이트 메인페이지가 새 창으로 열립니다.</p>", unsafe_allow_html=True)
     
-    # 10개씩 끊어 행 빌드
     for i in range(0, len(COMPANIES_DATA), 10):
         chunk_10 = COMPANIES_DATA[i:i+10]
         cols = st.columns(10)
@@ -204,8 +238,6 @@ with tab_directory:
         for idx, comp in enumerate(chunk_10):
             with cols[idx]:
                 site_url = f"https://www.{comp['domain']}"
-                
-                # 머리글자 심볼 제거, 이름을 볼드체 처리하고 width 가득 채워 박스 크기 일치화
                 st.link_button(
                     label=f"**{comp['name']}**",
                     url=site_url,
@@ -228,7 +260,7 @@ with tab_search:
 # ==========================================
 if search_button:
     if not gemini_api_key or not tavily_api_key:
-        st.error("⚠️ 시작하기 전에 사이드바에 Gemini API Key와 Tavily API Key를 모두 입력해주세요.")
+        st.error("⚠️ 인증이 만료되었거나 API Key가 비어있습니다. 사이드바에 마스터 비밀번호를 정확히 기입했는지 재차 확인바랍니다.")
     elif not search_keyword.strip():
         st.warning("⚠️ 검색어를 입력해주세요.")
     else:
@@ -374,3 +406,5 @@ if search_button:
         except Exception as e:
             progress_bar.empty()
             status_box.error(f"프로세스 진행 중 내부 오류가 발생했습니다: {str(e)}")
+
+```
