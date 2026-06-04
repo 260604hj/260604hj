@@ -133,7 +133,7 @@ if search_button:
                 
                 # 4-2. Gemini 모델 설정 (1.5 Flash 활용)
                 genai.configure(api_key=gemini_api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 
                 # 프롬프트 엔지니어링 (Strict JSON 출력 유도 및 할루시네이션 방지)
                 prompt = f"""
