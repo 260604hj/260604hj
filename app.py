@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# [최종 해법] 모든 st.link_button 및 일반 버튼의 높이를 60px 큰 기준으로 고정하는 마법의 와이드 픽셀 CSS
+# 모든 st.link_button 및 일반 버튼의 높이를 60px 큰 기준으로 고정하는 마법의 와이드 픽셀 CSS
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
@@ -36,7 +36,7 @@ st.markdown("""
             margin-bottom: 1.5rem;
         }
         
-        /* 🔥 Streamlit 내 모든 컴포넌트 스택의 버튼 높이를 강제 락(Lock) */
+        /* 100대사 매트릭스 버튼 높이 60px 강제 고정 */
         div[data-testid="stComponentStack"] button,
         div[data-testid="element-container"] button,
         div[data-testid="stHorizontalBlock"] button,
@@ -53,7 +53,6 @@ st.markdown("""
             padding: 2px !important;
         }
         
-        /* 줄바꿈 시 레이아웃 밖으로 글자가 터져 나가지 않도록 폰트 규격 고정 */
         div[data-testid="element-container"] p,
         div[data-testid="stHorizontalBlock"] p,
         .stLinkButton p,
@@ -91,6 +90,16 @@ st.markdown("""
             color: #495057;
             margin-top: 8px;
             line-height: 1.5;
+        }
+        .match-score {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #E03131;
+            background-color: #FFF5F5;
+            padding: 2px 6px;
+            border-radius: 2px;
+            display: inline-block;
+            margin-left: 8px;
         }
         .raw-container {
             background-color: #F8F9FA;
@@ -238,7 +247,7 @@ st.markdown("<div class='sub-title'>글로벌 & 국내 100대 대형 건축설�
 
 tab_search, tab_directory = st.tabs(["🔍 프로젝트 정밀 리서치 엔진", "🏢 100대 대형사 공식 디렉토리 (10×10)"])
 
-# ── [탭 2] 정밀 60px 일치형 순정 격자 대시보드 ──
+# ── [탭 2] 10x10 격자 대시보드 ──
 with tab_directory:
     st.markdown("<p style='font-size:0.85rem; color:#6C757D; margin-bottom:15px;'>각 버튼을 누르면 공식 웹사이트 메인페이지가 새 창으로 열립니다.</p>", unsafe_allow_html=True)
     
@@ -252,8 +261,7 @@ with tab_directory:
                 st.link_button(
                     label=f"**{comp['name']}**",
                     url=site_url,
-                    use_container_width=True,
-                    help=f"{comp['name']} 공식 홈페이지 이동"
+                    use_container_width=True
                 )
 
 # ── [탭 1] 실시간 검색 인터페이스 ──
@@ -267,7 +275,7 @@ with tab_search:
     result_container = st.container()
 
 # ==========================================
-# 5. 크롤링 및 가공 처리 파트
+# 5. 크롤링 및 가중치 정렬 정제 로직
 # ==========================================
 if search_button:
     if not gemini_api_key or not tavily_api_key:
@@ -283,21 +291,23 @@ if search_button:
             model = genai.GenerativeModel('gemini-2.5-flash')
             tavily_client = TavilyClient(api_key=tavily_api_key)
             
-            status_box.markdown("🔄 **글로벌 검색을 위한 영문 키워드 매핑 및 번역 중...**")
+            # 번역 가동
+            status_box.markdown("🔄 **글로벌 검색을 위한 영문 유사단어 맵 확장 중...**")
             progress_bar.progress(10)
             
-            translation_prompt = "입력된 건축 용어를 글로벌 웹 검색에 적합한 영문 건축 기술 명사 단어로 변환하세요. 설명문 없이 오직 번역된 단어만 결과로 출력하세요.\n입력: " + search_keyword
+            translation_prompt = f"입력된 건축 기술 용어와 관련성이 깊은 글로벌 동의어/유사어 영문 기술 단어를 2개 도출하세요. 다른 군더더기 텍스트 없이 오직 단어만 쉼표로 구분해 출력하세요.\n입력: {search_keyword}"
             translation_res = model.generate_content(translation_prompt).text.strip()
             
-            keywords_pool = [search_keyword.strip(), translation_res]
-            st.info(f"🔎 **수집 타겟 키워드셋:** {', '.join(keywords_pool)}")
+            # 매칭에 활용할 검색 단어 풀 정의 (예: ['천창', 'skylight', 'roof window'])
+            keywords_pool = [search_keyword.strip()] + [k.strip() for k in translation_res.split(",") if k.strip()]
+            st.info(f"🔎 **수집 및 타겟 가중치 키워드셋:** {', '.join(keywords_pool)}")
             
             all_raw_results = []
             all_collected_images = []
             
             chunk_size = 12
             chunks = [TARGET_DOMAINS[i:i + chunk_size] for i in range(0, len(TARGET_DOMAINS), chunk_size)]
-            search_query_string = f"({search_keyword} OR \"{translation_res}\")"
+            search_query_string = f'"{search_keyword}" OR ' + " OR ".join([f'"{k}"' for k in keywords_pool[1:]])
             
             for index, chunk in enumerate(chunks):
                 status_box.markdown(f"🌐 **100대 설계사 아카이브 전수 조사 및 이미지 스캔 중... ({index+1}/{len(chunks)} 단계)**")
@@ -321,99 +331,121 @@ if search_button:
                 
             progress_bar.progress(80)
             
-            with st.expander("📥 AI 필터링 전 실시간 크롤링 원본 데이터 풀 (드롭다운)", expanded=False):
-                st.markdown("<div class='raw-container'>", unsafe_allow_html=True)
-                if not all_raw_results:
-                    st.write("크롤링된 로우 데이터가 없습니다.")
-                else:
-                    st.write(f"총 {len(all_raw_results)}개의 소스 주소와 {len(all_collected_images)}개의 이미지 소스가 수집되었습니다.")
-                    for idx, raw in enumerate(all_raw_results, 1):
-                        st.markdown(f"{idx}. [{raw.get('title')}]({raw.get('url')})")
-                st.markdown("</div>", unsafe_allow_html=True)
-                
             if not all_raw_results:
                 status_box.warning("100대 설계사 아카이브 내에서 매칭되는 결과를 찾지 못했습니다.")
                 progress_bar.empty()
             else:
-                status_box.markdown("🤖 **메인/목록 페이지 제외 및 개별 프로젝트 상세 딥링크와 썸네일 매핑 중...**")
+                status_box.markdown("🤖 **키워드 포함 빈도수 연산 및 정렬 인덱싱 처리 중...**")
                 progress_bar.progress(90)
                 
-                filter_prompt = f"""
-                당신은 건축 아카이브 정밀 정제 엔진입니다.
-                다음 제공된 크롤링 데이터 풀에서 사용자가 입력한 단어셋({keywords_pool})과 매칭되는 결과 중, 
-                반드시 **특정 하나의 건축 프로젝트만 다루고 있는 상세 페이지(Deep Link)**만 선별하세요.
+                # ── [핵심 변경 레이어] 탈락선별 없이 가중치 기반 다이렉트 정렬 수행 ──
+                # AI의 임의 필터링을 완전히 배제하고, 수집 데이터 본문 내 키워드 등장 빈도를 카운팅하여 스코어링
+                scored_projects = []
+                for res in all_raw_results:
+                    title = res.get('title', 'Untitled Project')
+                    content = res.get('content', '')
+                    url = res.get('url', '')
+                    
+                    # 수집된 텍스트 풀 병합 후 소문자 처리 (비교 정밀화)
+                    search_text_pool = (title + " " + content).lower()
+                    
+                    # 키워드별 등장 횟수(빈도수) 합산 연산
+                    score = 0
+                    for kw in keywords_pool:
+                        score += search_text_pool.count(kw.lower())
+                    
+                    # 소속 설계사 도메인 파싱 검증
+                    matched_office = "OFFICE"
+                    for comp in COMPANIES_DATA:
+                        if comp["domain"] in url:
+                            matched_office = comp["name"]
+                            break
+                    
+                    scored_projects.append({
+                        "project_name": title,
+                        "office_name": matched_office,
+                        "summary": content[:180] + "..." if len(content) > 180 else content,
+                        "direct_link": url,
+                        "score": score
+                    })
+                
+                # 가중치 점수(Score) 기준 내림차순 정렬 (많이포함 -> 적게포함)
+                scored_projects = sorted(scored_projects, key=lambda x: x["score"], reverse=True)
+                
+                # 원본 이미지 풀에서 일치성 높은 이미지 주소 매핑만 Gemini에 위임 (할루시네이션 완벽 방지)
+                image_mapping_prompt = f"""
+                당신은 아카이브 매핑 매니저입니다. 
+                제공된 프로젝트 링크 리스트에 대해, '수집된 이미지 주소 풀' 중에서 각 프로젝트의 컨텍스트(제목/내용)와 매칭되는 실제 이미지 주소들을 찾아 1:1로 매핑해 배열로 출력하세요.
+                매칭되는 실제 주소가 없는 프로젝트는 빈 문자열""로 처리하고, 가짜 주소를 절대로 만들어내지 마십시오.
 
-                [절대 제외 규칙]
-                1. /works, /projects, /portfolio, /featured 처럼 여러 프로젝트가 나열된 '전체 목록/메인 페이지' 링크는 발견 즉시 무조건 제외하세요.
-                2. 회사 소개(About), 채용 정보(Careers), 연락처(Contact) 링크도 무조건 제외하십시오.
-
-                [원본 데이터 풀]
-                {all_raw_results[:30]}
+                [프로젝트 리스트]
+                {scored_projects[:25]}
 
                 [수집된 이미지 주소 풀]
                 {all_collected_images[:30]}
 
-                [매칭 규칙]
-                제공된 '수집된 이미지 주소 풀' 중에서 해당 개별 프로젝트의 주소(URL)나 텍스트 컨텍스트와 가장 정밀하게 매칭되는 실제 이미지 주소 하나를 찾아 "image_url"에 매핑하세요. 매칭되는 유효 주소가 없다면 빈 문자열""로 처리하고, 절대로 가짜 주소를 허위로 지어내지 마십시오.
-
                 [출력 JSON 포맷 양식]
                 [
                   {{
-                    "project_name": "건축물 상세 명칭 및 프로젝트 제목",
-                    "office_name": "해당 설계사무소 이름 명확히 기재",
-                    "summary": "해당 개별 건축물의 어떤 부분에 해당 기술/컨셉이 적용되었는지 본문 기반으로 1~2줄로 요약",
-                    "direct_link": "해당 단일 프로젝트 상세 기술 페이지로 직행하는 완벽한 딥링크 URL",
-                    "image_url": "매칭된 실제 유효한 썸네일 이미지 URL (없으면 빈 문자열)"
+                    "direct_link": "원본 매칭 주소 URL",
+                    "image_url": "매칭된 실제 이미지 URL (없으면 빈 문자열)"
                   }}
                 ]
                 """
                 
-                response = model.generate_content(
-                    filter_prompt,
-                    generation_config={"response_mime_type": "application/json"}
-                )
-                
-                cleaned_projects = json.loads(response.text)
+                try:
+                    img_response = model.generate_content(
+                        image_mapping_prompt,
+                        generation_config={"response_mime_type": "application/json"}
+                    )
+                    img_mappings = json.loads(img_response.text)
+                    img_dict = {item["direct_link"]: item["image_url"] for item in img_mappings if "direct_link" in item}
+                except Exception:
+                    img_dict = {}
                 
                 progress_bar.progress(100)
                 status_box.empty()
                 progress_bar.empty()
                 
+                # ==========================================
+                # 6. 최종 정렬 리스트 렌더링 영역
+                # ==========================================
                 with result_container:
-                    st.markdown(f"### 🔗 '{search_keyword}' 관련 대형사 개별 프로젝트 직행 링크 및 썸네일 ({len(cleaned_projects)}건)")
+                    st.markdown(f"### 🔗 '{search_keyword}' 연관 키워드 포함 빈도순 정렬 리스트 ({len(scored_projects)}건)")
                     st.markdown("---")
                     
-                    if not cleaned_projects:
-                        st.info("개별 프로젝트 단위의 상세 페이지 딥링크 조건을 충족하는 리스트가 없습니다.")
-                    else:
-                        for proj in cleaned_projects:
-                            col_text, col_img = st.columns([3, 1])
+                    for proj in scored_projects:
+                        col_text, col_img = st.columns([3, 1])
+                        
+                        with col_text:
+                            # 상단에 매칭 가중치 스코어를 직관적으로 표시
+                            score_badge = f"<span class='match-score'>🔥 키워드 연관도 매칭수: {proj['score']}</span>" if proj['score'] > 0 else "<span class='match-score' style='color:#868E96; background-color:#F1F3F5;'>연관 단어 포함 안 됨</span>"
                             
-                            with col_text:
-                                st.markdown(f"""
-                                <div class="project-card" style="border:none;">
-                                    <span class="office-tag">{proj.get('office_name', 'OFFICE')}</span>
-                                    <div class="proj-name">{proj.get('project_name', 'Untitled Project')}</div>
-                                    <div class="proj-summary">{proj.get('summary', '개요 정보 없음')}</div>
+                            st.markdown(f"""
+                            <div class="project-card" style="border:none; padding-bottom:5px;">
+                                <span class="office-tag">{proj['office_name']}</span> {score_badge} <br>
+                                <div class="proj-name">{proj['project_name']}</div>
+                                <div class="proj-summary">{proj['summary']}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            if proj['direct_link']:
+                                st.link_button("👉 해당 아카이브 상세페이지로 이동하기", proj['direct_link'])
+                        
+                        with col_img:
+                            # 매핑된 딕셔너리에서 실제 이미지 썸네일 탐색 후 바인딩
+                            img_url = img_dict.get(proj['direct_link'], "")
+                            if img_url and img_url.startswith('http'):
+                                st.image(img_url, use_container_width=True)
+                            else:
+                                st.markdown("""
+                                <div style='background-color:#F8F9FA; height:120px; border:1px dashed #CED4DA; display:flex; align-items:center; justify-content:center; color:#ADB5BD; font-size:0.85rem; border-radius:2px;'>
+                                    No Thumbnail
                                 </div>
                                 """, unsafe_allow_html=True)
-                                
-                                if proj.get('direct_link'):
-                                    st.link_button("👉 해당 프로젝트 개별 상세페이지로 직행하기", proj.get('direct_link'))
-                            
-                            with col_img:
-                                img_url = proj.get('image_url')
-                                if img_url and img_url.startswith('http'):
-                                    st.image(img_url, use_container_width=True)
-                                else:
-                                    st.markdown("""
-                                    <div style='background-color:#F8F9FA; height:120px; border:1px dashed #CED4DA; display:flex; align-items:center; justify-content:center; color:#ADB5BD; font-size:0.85rem; border-radius:2px;'>
-                                        No Thumbnail Available
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                            st.markdown("<hr style='margin:10px 0px; border:0; border-top:1px solid #F1F3F5;'>", unsafe_allow_html=True)
-                        st.markdown("---")
+                        st.markdown("<hr style='margin:12px 0px; border:0; border-top:1px solid #F1F3F5;'>", unsafe_allow_html=True)
+                    st.markdown("---")
                         
         except Exception as e:
             progress_bar.empty()
-            status_box.error(f"프로세스 진행 중 내부 오류가 발생했습니다: {str(e)}")
+            status_box.error(f"프로세스 진행 중 연산 오류가 발생했습니다: {str(e)}")
