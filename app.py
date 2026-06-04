@@ -35,21 +35,21 @@ st.markdown("""
             margin-bottom: 1.5rem;
         }
         
-        /* ★ [핵심 변경] 완벽한 10 x 10 매트릭스 그리드 레이아웃 스펙 */
+        /* 10 x 10 완벽 매트릭스 그리드 스타일 */
         .logo-grid {
             display: grid;
             grid-template-columns: repeat(10, 1fr);
-            gap: 8px;
-            padding: 15px 0px;
+            gap: 6px;
+            padding: 10px 0px;
         }
         .logo-card {
             border: 1px solid #E9ECEF;
-            padding: 10px 4px;
+            padding: 8px 2px;
             text-align: center;
             border-radius: 2px;
             background-color: #F8F9FA;
             transition: all 0.15s ease;
-            height: 85px;
+            height: 75px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -61,59 +61,59 @@ st.markdown("""
         }
         .logo-box {
             font-family: monospace;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 700;
             background-color: #111111;
             color: #FFFFFF;
-            width: 28px;
-            height: 28px;
-            line-height: 28px;
-            margin-bottom: 6px;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            margin-bottom: 4px;
             border-radius: 2px;
             text-transform: uppercase;
         }
         .logo-name {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 500;
             color: #212529;
             width: 100%;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            padding: 0 4px;
+            padding: 0 2px;
         }
         .logo-link {
             text-decoration: none;
         }
         
-        /* 프로젝트 결과 스타일 */
+        /* 결과물 카드 스타일 */
         .project-card {
             background-color: #FFFFFF;
-            padding: 24px 0px;
+            padding: 20px 0px;
             border-bottom: 1px solid #E9ECEF;
         }
         .office-tag {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 700;
             color: #212529;
             background-color: #E9ECEF;
-            padding: 3px 8px;
+            padding: 2px 6px;
             border-radius: 2px;
             text-transform: uppercase;
-            margin-right: 8px;
+            margin-right: 6px;
         }
         .proj-name {
-            font-size: 1.3rem;
+            font-size: 1.2rem;
             font-weight: 700;
             color: #111111;
             display: inline-block;
-            margin-top: 5px;
+            margin-top: 4px;
         }
         .proj-summary {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             color: #495057;
-            margin-top: 10px;
-            line-height: 1.6;
+            margin-top: 8px;
+            line-height: 1.5;
         }
         .raw-container {
             background-color: #F8F9FA;
@@ -131,23 +131,8 @@ st.sidebar.markdown("### 🔑 API CREDENTIALS")
 gemini_api_key = st.sidebar.text_input("Gemini API Key", type="password")
 tavily_api_key = st.sidebar.text_input("Tavily API Key", type="password")
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("""
-<div style='font-size: 0.8rem; color: #868E96; line-height: 1.5;'>
-<strong>ARCHI-DIRECT v4.5</strong><br>
-- 10×10 매트릭스 디렉토리 뷰 포맷팅 적용<br>
-- 단일 대형사 개별 프로젝트 고속 딥링크 추출 및 크롤링
-</div>
-""", unsafe_allow_html=True)
-
 # ==========================================
-# 3. 메인 UI - 헤더 영역
-# ==========================================
-st.markdown("<div class='main-title'>🏢 ARCHI-DIRECT</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-title'>글로벌 & 국내 100대 대형 건축설계사무소 통합 아카이브 시스템</div>", unsafe_allow_html=True)
-
-# ==========================================
-# 4. 100대 대형 건축사무소 도메인 및 매핑 데이터 (정확히 100개사)
+# 3. 데이터 구조 정의 (정확히 100개사 명단)
 # ==========================================
 COMPANIES_DATA = [
     {"name": "Gensler", "domain": "gensler.com"},
@@ -250,23 +235,24 @@ COMPANIES_DATA = [
     {"name": "폴리엠건축", "domain": "poly.co.kr"},
     {"name": "종합건축사사무소 가람", "domain": "zoaa.co.kr"}
 ]
-
 TARGET_DOMAINS = [comp["domain"] for comp in COMPANIES_DATA]
 
 # ==========================================
-# 5. 탭 구성 레이아웃 시스템
+# 4. 메인 타이틀 및 탭 배치 (UI 구성)
 # ==========================================
+st.markdown("<div class='main-title'>🏢 ARCHI-DIRECT</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-title'>글로벌 & 국내 100대 대형 건축설계사무소 통합 아카이브 시스템</div>", unsafe_allow_html=True)
+
+# 최상단에 고정식으로 2개의 탭 배치
 tab_search, tab_directory = st.tabs(["🔍 프로젝트 정밀 리서치 엔진", "🏢 100대 대형사 공식 디렉토리 (10×10)"])
 
-# ── [탭 2] 10×10 매트릭스 디렉토리 ──
+# ── [탭 2] 10×10 매트릭스 대시보드 ──
 with tab_directory:
-    st.markdown("<p style='font-size:0.9rem; color:#6C757D; margin-bottom:10px;'>설계사무소를 클릭하면 공식 메인페이지로 즉시 새 창 이동합니다.</p>", unsafe_allow_html=True)
-    
+    st.markdown("<p style='font-size:0.85rem; color:#6C757D; margin-bottom:10px;'>설계사무소를 클릭하면 공식 홈페이지로 즉시 새 창 이동합니다.</p>", unsafe_allow_html=True)
     st.markdown("<div class='logo-grid'>", unsafe_allow_html=True)
     for comp in COMPANIES_DATA:
         display_letter = comp["name"][0]
         site_url = f"https://www.{comp['domain']}"
-        
         st.markdown(f"""
             <a href="{site_url}" target="_blank" class="logo-link">
                 <div class="logo-card">
@@ -277,135 +263,139 @@ with tab_directory:
         """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ── [탭 1] 실시간 검색 인터페이스 ──
+# ── [탭 1] 실시간 검색 인터페이스 (핵심 제어 영역) ──
 with tab_search:
+    # 폼(Form) 구조를 탈피하여 세션 상태와 완전 연동되는 독립 인풋 컴포넌트 마운트
     search_keyword = st.text_input(
         "검색할 건축 키워드 혹은 컨셉을 입력하세요 (국문 입력 시 영문 자동 교차 검색)", 
         placeholder="예: 천창",
-        key="main_search_input"
+        key="search_input_field"
     )
-
     search_button = st.button("프로젝트 및 썸네일 찾기", type="primary")
 
-    # ==========================================
-    # 6. 실시간 크롤링 및 가공 엔진
-    # ==========================================
-    if search_button:
-        if not gemini_api_key or not tavily_api_key:
-            st.error("⚠️ 사이드바에 양쪽 API Key를 모두 입력해주세요.")
-        elif not search_keyword.strip():
-            st.warning("⚠️ 검색어를 입력해주세요.")
-        else:
-            status_box = st.empty()
-            progress_bar = st.progress(0)
+    # 결과를 상시 고정 렌더링하기 위한 스코프 컨테이너 생성
+    result_container = st.container()
+
+# ==========================================
+# 5. 비동기/동기 크롤링 프로세스 트리거 (세션 세이프)
+# ==========================================
+if search_button:
+    if not gemini_api_key or not tavily_api_key:
+        st.error("⚠️ 시작하기 전에 사이드바에 Gemini API Key와 Tavily API Key를 모두 입력해주세요.")
+    elif not search_keyword.strip():
+        st.warning("⚠️ 검색어를 입력해주세요.")
+    else:
+        status_box = st.empty()
+        progress_bar = st.progress(0)
+        
+        try:
+            # AI 및 크롤러 백엔드 세팅
+            genai.configure(api_key=gemini_api_key)
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            tavily_client = TavilyClient(api_key=tavily_api_key)
             
-            try:
-                genai.configure(api_key=gemini_api_key)
-                model = genai.GenerativeModel('gemini-2.5-flash')
-                tavily_client = TavilyClient(api_key=tavily_api_key)
+            # 1단계: 번역 레이어 가동
+            status_box.markdown("🔄 **글로벌 검색을 위한 영문 키워드 매핑 및 번역 중...**")
+            progress_bar.progress(10)
+            
+            translation_prompt = f"입력된 건축 용어를 글로벌 웹 검색에 적합한 영문 건축 기술 명사 단어로 변환하세요. 다른 군더더기 없이 오직 번역된 단어만 결과로 출력하세요.\n입력: {search_keyword}"
+            translation_res = model.generate_content(translation_prompt).text.strip()
+            
+            keywords_pool = [search_keyword.strip(), translation_res]
+            st.info(f"🔎 **수집 타겟 키워드셋:** {', '.join(keywords_pool)}")
+            
+            all_raw_results = []
+            all_collected_images = []
+            
+            # 2단계: 100대사 사이트 청크 전수조사 루프 (에러 및 400자 락 원천 제어)
+            chunk_size = 12
+            chunks = [TARGET_DOMAINS[i:i + chunk_size] for i in range(0, len(TARGET_DOMAINS), chunk_size)]
+            search_query_string = f"({search_keyword} OR \"{translation_res}\")"
+            
+            for index, chunk in enumerate(chunks):
+                status_box.markdown(f"🌐 **100대 설계사 아카이브 전수 조사 및 이미지 스캔 중... ({index+1}/{len(chunks)} 단계)**")
+                progress_bar.progress(15 + int((index / len(chunks)) * 60))
                 
-                status_box.markdown("🔄 **글로벌 검색을 위한 영문 키워드 매핑 및 번역 중...**")
-                progress_bar.progress(10)
-                
-                translation_prompt = f"""
-                입력된 건축 용어를 글로벌 웹 검색에 적합한 영문 건축 기술 명사 단어로 변환하세요. 
-                설명문 없이 오직 번역된 단어만 결과로 출력하세요.
-                입력: {search_keyword}
-                """
-                translation_res = model.generate_content(translation_prompt).text.strip()
-                
-                keywords_pool = [search_keyword.strip(), translation_res]
-                st.caption(f"🔎 **수집 타겟 키워드셋:** {', '.join(keywords_pool)}")
-                
-                all_raw_results = []
-                all_collected_images = []
-                
-                # 도메인 세그멘테이션 청크 스캔
-                chunk_size = 12
-                chunks = [TARGET_DOMAINS[i:i + chunk_size] for i in range(0, len(TARGET_DOMAINS), chunk_size)]
-                search_query_string = f"({search_keyword} OR \"{translation_res}\")"
-                
-                for index, chunk in enumerate(chunks):
-                    status_box.markdown(f"🌐 **100대 설계사 아카이브 전수 조사 및 이미지 스캔 중... ({index+1}/{len(chunks)} 단계)**")
-                    progress_bar.progress(15 + int((index / len(chunks)) * 60))
-                    
-                    try:
-                        search_response = tavily_client.search(
-                            query=search_query_string,
-                            search_depth="advanced",
-                            include_domains=chunk,
-                            include_images=True,
-                            max_results=10
-                        )
-                        if search_response.get('results'):
-                            all_raw_results.extend(search_response['results'])
-                        if search_response.get('images'):
-                            all_collected_images.extend(search_response['images'])
-                    except Exception:
-                        continue
-                    time.sleep(0.1)
-                    
-                progress_bar.progress(80)
-                
-                # 정제 전 원본 드롭다운
-                with st.expander("📥 AI 필터링 전 실시간 크롤링 원본 데이터 풀 (드롭다운)", expanded=False):
-                    st.markdown("<div class='raw-container'>", unsafe_allow_html=True)
-                    if not all_raw_results:
-                        st.write("크롤링된 로우 데이터가 없습니다.")
-                    else:
-                        st.write(f"총 {len(all_raw_results)}개의 소스 주소와 {len(all_collected_images)}개의 이미지 소스가 수집되었습니다.")
-                        for idx, raw in enumerate(all_raw_results, 1):
-                            st.markdown(f"{idx}. [{raw.get('title')}]({raw.get('url')})")
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    
-                if not all_raw_results:
-                    status_box.warning("100대 설계사 아카이브 내에서 매칭되는 결과를 찾지 못했습니다.")
-                    progress_bar.empty()
-                else:
-                    status_box.markdown("🤖 **메인/목록 페이지 제외 및 개별 프로젝트 상세 딥링크와 썸네일 매핑 중...**")
-                    progress_bar.progress(90)
-                    
-                    filter_prompt = f"""
-                    당신은 건축 아카이브 정밀 정제 엔진입니다.
-                    다음 제공된 크롤링 데이터 풀에서 사용자가 입력한 단어셋({keywords_pool})과 매칭되는 결과 중, 
-                    반드시 **특정 하나의 건축 프로젝트만 다루고 있는 상세 페이지(Deep Link)**만 선별하세요.
-
-                    [절대 제외 규칙]
-                    1. /works, /projects, /portfolio, /featured 처럼 여러 프로젝트가 나열된 '전체 목록/메인 페이지' 링크는 발견 즉시 무조건 제외하세요.
-                    2. 회사 소개(About), 채용 정보(Careers), 연락처(Contact) 링크도 무조건 제외하십시오.
-
-                    [원본 데이터 풀]
-                    {all_raw_results[:30]}
-
-                    [수집된 이미지 주소 풀]
-                    {all_collected_images[:30]}
-
-                    [매칭 규칙]
-                    제공된 '수집된 이미지 주소 풀' 중에서 해당 개별 프로젝트의 주소(URL)나 텍스트 컨텍스트와 가장 정밀하게 매칭되는 실제 이미지 주소 하나를 찾아 "image_url"에 매핑하세요. 매칭되는 유효 주소가 없다면 빈 문자열""로 처리하고, 절대로 가짜 주소를 허위로 지어내지 마십시오.
-
-                    [출력 JSON 포맷 양식]
-                    [
-                      {{
-                        "project_name": "건축물 상세 명칭 및 프로젝트 제목",
-                        "office_name": "해당 설계사무소 이름 명확히 기재",
-                        "summary": "해당 개별 건축물의 어떤 부분에 해당 기술/컨셉이 적용되었는지 본문 기반으로 1~2줄로 요약",
-                        "direct_link": "해당 단일 프로젝트 상세 기술 페이지로 직행하는 완벽한 딥링크 URL",
-                        "image_url": "매칭된 실제 유효한 썸네일 이미지 URL (없으면 빈 문자열)"
-                      }}
-                    ]
-                    """
-                    
-                    response = model.generate_content(
-                        filter_prompt,
-                        generation_config={"response_mime_type": "application/json"}
+                try:
+                    search_response = tavily_client.search(
+                        query=search_query_string,
+                        search_depth="advanced",
+                        include_domains=chunk,
+                        include_images=True,
+                        max_results=10
                     )
-                    
-                    cleaned_projects = json.loads(response.text)
-                    
-                    progress_bar.progress(100)
-                    status_box.empty()
-                    progress_bar.empty()
-                    
+                    if search_response.get('results'):
+                        all_raw_results.extend(search_response['results'])
+                    if search_response.get('images'):
+                        all_collected_images.extend(search_response['images'])
+                except Exception:
+                    continue
+                time.sleep(0.1)
+                
+            progress_bar.progress(80)
+            
+            # 3단계: 정제 전 원본 드롭다운 뷰 레이아웃 출력
+            with st.expander("📥 AI 필터링 전 실시간 크롤링 원본 데이터 풀 (드롭다운)", expanded=False):
+                st.markdown("<div class='raw-container'>", unsafe_allow_html=True)
+                if not all_raw_results:
+                    st.write("크롤링된 로우 데이터가 없습니다.")
+                else:
+                    st.write(f"총 {len(all_raw_results)}개의 소스 주소와 {len(all_collected_images)}개의 이미지 소스가 수집되었습니다.")
+                    for idx, raw in enumerate(all_raw_results, 1):
+                        st.markdown(f"{idx}. [{raw.get('title')}]({raw.get('url')})")
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+            if not all_raw_results:
+                status_box.warning("100대 설계사 아카이브 내에서 매칭되는 결과를 찾지 못했습니다.")
+                progress_bar.empty()
+            else:
+                # 4단계: 개별 프로젝트 단위 딥링크 검증 필터 컨디셔닝
+                status_box.markdown("🤖 **메인/목록 페이지 제외 및 개별 프로젝트 상세 딥링크와 썸네일 매핑 중...**")
+                progress_bar.progress(90)
+                
+                filter_prompt = f"""
+                당신은 건축 아카이브 정밀 정제 엔진입니다.
+                다음 제공된 크롤링 데이터 풀에서 사용자가 입력한 단어셋({keywords_pool})과 매칭되는 결과 중, 
+                반드시 **특정 하나의 건축 프로젝트만 다루고 있는 상세 페이지(Deep Link)**만 선별하세요.
+
+                [절대 제외 규칙]
+                1. /works, /projects, /portfolio, /featured 처럼 여러 프로젝트가 나열된 '전체 목록/메인 페이지' 링크는 발견 즉시 무조건 제외하세요.
+                2. 회사 소개(About), 채용 정보(Careers), 연락처(Contact) 링크도 무조건 제외하십시오.
+
+                [원본 데이터 풀]
+                {all_raw_results[:30]}
+
+                [수집된 이미지 주소 풀]
+                {all_collected_images[:30]}
+
+                [매칭 규칙]
+                제공된 '수집된 이미지 주소 풀' 중에서 해당 개별 프로젝트의 주소(URL)나 텍스트 컨텍스트와 가장 정밀하게 매칭되는 실제 이미지 주소 하나를 찾아 "image_url"에 매핑하세요. 매칭되는 유효 주소가 없다면 빈 문자열""로 처리하고, 절대로 가짜 주소를 허위로 지어내지 마십시오.
+
+                [출력 JSON 포맷 양식]
+                [
+                  {{
+                    "project_name": "건축물 상세 명칭 및 프로젝트 제목",
+                    "office_name": "해당 설계사무소 이름 명확히 기재",
+                    "summary": "해당 개별 건축물의 어떤 부분에 해당 기술/컨셉이 적용되었는지 본문 기반으로 1~2줄로 요약",
+                    "direct_link": "해당 단일 프로젝트 상세 기술 페이지로 직행하는 완벽한 딥링크 URL",
+                    "image_url": "매칭된 실제 유효한 썸네일 이미지 URL (없으면 빈 문자열)"
+                  }}
+                ]
+                """
+                
+                response = model.generate_content(
+                    filter_prompt,
+                    generation_config={"response_mime_type": "application/json"}
+                )
+                
+                cleaned_projects = json.loads(response.text)
+                
+                progress_bar.progress(100)
+                status_box.empty()
+                progress_bar.empty()
+                
+                # ── [최종 결과 세션 컨테이너 렌더링 스코프] ──
+                with result_container:
                     st.markdown(f"### 🔗 '{search_keyword}' 관련 대형사 개별 프로젝트 직행 링크 및 썸네일 ({len(cleaned_projects)}건)")
                     st.markdown("---")
                     
@@ -438,9 +428,8 @@ with tab_search:
                                     </div>
                                     """, unsafe_allow_html=True)
                             st.markdown("<hr style='margin:10px 0px; border:0; border-top:1px solid #F1F3F5;'>", unsafe_allow_html=True)
-                            
                         st.markdown("---")
-                    
-            except Exception as e:
-                progress_bar.empty()
-                status_box.error(f"프로세스 진행 중 오류가 발생했습니다: {str(e)}")
+                        
+        except Exception as e:
+            progress_bar.empty()
+            status_box.error(f"프로세스 진행 중 내부 통신 오류가 발생했습니다: {str(e)}")
