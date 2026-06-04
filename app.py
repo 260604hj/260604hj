@@ -192,25 +192,22 @@ st.markdown("<div class='sub-title'>글로벌 & 국내 100대 대형 건축설�
 
 tab_search, tab_directory = st.tabs(["🔍 프로젝트 정밀 리서치 엔진", "🏢 100대 대형사 공식 디렉토리 (10×10)"])
 
-# ── [탭 2] ★ 완벽한 순정 st.columns 기반 10x10 격자 구현 (절대 안깨짐) ──
+# ── [탭 2] 순정 컴포넌트 기반 10x10 볼드체 텍스트 그리드 ──
 with tab_directory:
     st.markdown("<p style='font-size:0.85rem; color:#6C757D; margin-bottom:15px;'>각 버튼을 누르면 공식 웹사이트 메인페이지가 새 창으로 열립니다.</p>", unsafe_allow_html=True)
     
-    # 100개 요소를 10개씩 쪼개어 가로 행을 순차적으로 빌드
+    # 10개씩 끊어 행 빌드
     for i in range(0, len(COMPANIES_DATA), 10):
         chunk_10 = COMPANIES_DATA[i:i+10]
-        
-        # Streamlit 순정 10열 레이아웃 생성
         cols = st.columns(10)
         
         for idx, comp in enumerate(chunk_10):
             with cols[idx]:
-                display_letter = comp["name"][0].upper()
                 site_url = f"https://www.{comp['domain']}"
                 
-                # 가독성과 통일성을 살린 미니멀 텍스트박스 형태의 새창이동 링크 버튼 배치
+                # 머리글자 심볼 제거, 이름을 볼드체 처리하고 width 가득 채워 박스 크기 일치화
                 st.link_button(
-                    label=f"[{display_letter}] {comp['name']}",
+                    label=f"**{comp['name']}**",
                     url=site_url,
                     use_container_width=True,
                     help=f"{comp['name']} 공식 홈페이지 이동"
@@ -243,7 +240,6 @@ if search_button:
             model = genai.GenerativeModel('gemini-2.5-flash')
             tavily_client = TavilyClient(api_key=tavily_api_key)
             
-            # 번역 가동
             status_box.markdown("🔄 **글로벌 검색을 위한 영문 키워드 매핑 및 번역 중...**")
             progress_bar.progress(10)
             
@@ -256,7 +252,6 @@ if search_button:
             all_raw_results = []
             all_collected_images = []
             
-            # 도메인 세그먼테이션 순차 스캔
             chunk_size = 12
             chunks = [TARGET_DOMAINS[i:i + chunk_size] for i in range(0, len(TARGET_DOMAINS), chunk_size)]
             search_query_string = f"({search_keyword} OR \"{translation_res}\")"
@@ -283,7 +278,6 @@ if search_button:
                 
             progress_bar.progress(80)
             
-            # 원본 데이터 풀 아카이브
             with st.expander("📥 AI 필터링 전 실시간 크롤링 원본 데이터 풀 (드롭다운)", expanded=False):
                 st.markdown("<div class='raw-container'>", unsafe_allow_html=True)
                 if not all_raw_results:
