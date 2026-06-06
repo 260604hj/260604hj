@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>new tools lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+    :root{
+        --ink:#15171c;
+        --muted:#8a8f98;
+        --line:#e4e6e9;
+        --paper:#ffffff;
+        --white:#ffffff;
+    }
+    *, *::before, *::after{ box-sizing:border-box; margin:0; padding:0; }
+
+    body{
+        font-family:'Inter','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        color:var(--ink);
+        background:var(--paper);
+        -webkit-font-smoothing:antialiased;
+        min-height:100vh;
+        display:flex; align-items:center; justify-content:center;
+        padding:48px 24px;
+    }
+
+    .wrap{ width:100%; max-width:460px; }
+
+    h1{
+        font-weight:300;
+        font-size:34px;
+        letter-spacing:-0.02em;
+    }
+    .sub{
+        margin-top:10px;
+        font-size:13px; color:var(--muted); letter-spacing:0.01em;
+    }
+
+    .list{
+        margin-top:34px;
+        border:1px solid var(--line);
+        background:var(--white);
+    }
+    .item{
+        display:flex; align-items:center; justify-content:space-between;
+        padding:20px 22px;
+        text-decoration:none; color:inherit;
+        border-bottom:1px solid var(--line);
+        transition:padding-left .3s ease, background .3s ease;
+    }
+    .item:last-child{ border-bottom:none; }
+    .item:hover{ background:#fbfbfa; padding-left:30px; }
+
+    .item .left{ display:flex; align-items:center; gap:16px; }
+    .item .no{
+        font-size:11px; letter-spacing:0.14em; color:var(--muted);
+        font-variant-numeric:tabular-nums;
+    }
+    .item .name{ font-size:16px; font-weight:500; }
+
+    .item .arrow{ width:16px; height:16px; transition:transform .3s ease; }
+    .item:hover .arrow{ transform:translate(2px,-2px); }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+    <h1>✨new tools lab🧪</h1>
+    <p class="sub">현재 테스트 중인 도우미들</p>
+
+    <nav class="list" id="list"></nav>
+</div>
+
+<script>
+    // 앱이 늘어나면 이 배열에만 추가하면 됩니다.
+    const apps = [
+        { name: "Massing",      href: "miniapps/massing.html" },
+        { name: "Core Planner", href: "miniapps/coreplanner.html" },
+    ];
+
+    const list = document.getElementById('list');
+    list.innerHTML = apps.map((app, i) => `
+        <a class="item" href="${app.href}">
+            <span class="left">
+                <span class="no">${String(i + 1).padStart(2, '0')}</span>
+                <span class="name">${app.name}</span>
+            </span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="#15171c"
+                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="7" y1="17" x2="17" y2="7"></line>
+                <polyline points="8 7 17 7 17 16"></polyline>
+            </svg>
+        </a>
+    `).join('');
+</script>
+</body>
+</html>

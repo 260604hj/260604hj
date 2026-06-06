@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Core Planner — 코어 계획 도구</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/konva/8.4.2/konva.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f2f2f0;
+            overflow: hidden;
+            color: #111111;
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* ── 캔버스 배경 격자 ── */
+        #canvas-holder {
+            background-color: #fafaf9;
+            background-image:
+                linear-gradient(to right, rgba(0,0,0,0.055) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.055) 1px, transparent 1px);
+            background-size: 5px 5px;
+        }
+
+        /* ── 사이드바 스크롤 ── */
+        #sidebar-scroll::-webkit-scrollbar { width: 3px; }
+        #sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        #sidebar-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+        /* ── Range 슬라이더 ── */
+        input[type=range] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 2px;
+            background: #e0e0e0; border-radius: 1px; outline: none; cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 13px; height: 13px;
+            background: #111; border-radius: 50%; cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        /* ── 숫자 입력 스피너 제거 ── */
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+        /* ── 모드 버튼 ── */
+        .mode-btn {
+            width: 100%; padding: 9px 12px;
+            border: 1px solid #e2e2e0; border-radius: 8px;
+            font-size: 11.5px; font-weight: 500; font-family: inherit;
+            text-align: left; cursor: pointer;
+            display: flex; align-items: center; gap: 9px;
+            transition: all 0.15s ease; background: #fff; color: #555;
+        }
+        .mode-btn:hover { background: #f5f5f3; border-color: #ccc; color: #222; }
+        .mode-btn.active {
+            background: #111111; color: #ffffff;
+            border-color: #111111;
+        }
+        .mode-btn.active .mode-num { color: rgba(255,255,255,0.45); }
+        .mode-btn { align-items: flex-start; }
+        .mode-num {
+            font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+            color: #bbb; flex-shrink: 0; margin-top: 1px;
+        }
+        .mode-desc {
+            font-size: 9.5px; font-weight: 400; color: #aaa;
+            margin-top: 2px; line-height: 1.4;
+        }
+        .mode-btn.active .mode-desc { color: rgba(255,255,255,0.5); }
+
+        /* ── 라벨 ── */
+        .section-label {
+            font-size: 9px; font-weight: 700;
+            letter-spacing: 0.13em; text-transform: uppercase;
+            color: #b8b8b4; margin-bottom: 10px;
+        }
+
+        /* ── 입력 필드 ── */
+        .field-input {
+            width: 100%; font-size: 13px; font-weight: 600;
+            color: #111; background: #f5f5f3;
+            border: 1px solid #e2e2e0; border-radius: 7px;
+            padding: 7px 10px; outline: none;
+            font-family: inherit; transition: border-color 0.15s;
+        }
+        .field-input:focus { border-color: #888; background: #fff; }
+        .field-label { font-size: 10px; color: #999; font-weight: 500; display: block; margin-bottom: 4px; }
+
+        /* ── 버튼 ── */
+        .btn-primary {
+            width: 100%; background: #111; color: #fff;
+            font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
+            padding: 9px 14px; border: none; border-radius: 7px;
+            cursor: pointer; font-family: inherit;
+            transition: background 0.15s;
+        }
+        .btn-primary:hover { background: #333; }
+        .btn-ghost {
+            flex: 1; padding: 8px 10px;
+            border: 1px solid #e2e2e0; background: #fff;
+            color: #444; font-size: 11px; font-weight: 500;
+            border-radius: 7px; cursor: pointer; font-family: inherit;
+            transition: all 0.15s;
+        }
+        .btn-ghost:hover { background: #f5f5f3; border-color: #ccc; }
+        .btn-danger {
+            flex: 1; padding: 8px 10px;
+            border: 1px solid #f0d8d8; background: #fff;
+            color: #c0392b; font-size: 11px; font-weight: 500;
+            border-radius: 7px; cursor: pointer; font-family: inherit;
+            transition: all 0.15s;
+        }
+        .btn-danger:hover { background: #fdf5f5; border-color: #e8b8b8; }
+        .btn-export {
+            width: 100%; background: #14532d; color: #fff;
+            font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
+            padding: 10px 14px; border: none; border-radius: 7px;
+            cursor: pointer; font-family: inherit;
+            transition: background 0.15s;
+        }
+        .btn-export:hover { background: #166534; }
+
+        /* ── 리포트 행 ── */
+        .report-row {
+            display: flex; justify-content: space-between; align-items: baseline;
+            padding: 8px 0; border-bottom: 1px solid #f0f0ee;
+        }
+        .report-row:last-child { border-bottom: none; }
+        .report-label { font-size: 11px; font-weight: 500; color: #555; }
+        .report-sub { font-size: 9px; color: #bbb; font-family: 'SF Mono', monospace; margin-top: 1px; }
+        .report-val { font-size: 12px; font-weight: 700; font-family: 'SF Mono', ui-monospace, monospace; }
+
+        /* ── 구분선 ── */
+        .divider { height: 1px; background: #ebebea; }
+    </style>
+</head>
+<body>
+
+    <!-- ── 스케일 선택 모달 ── -->
+    <div id="start-modal" style="position:absolute;inset:0;background:rgba(8,8,8,0.55);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:50;transition:opacity 0.25s;">
+        <div style="background:#fff;border-radius:18px;padding:36px;max-width:390px;width:90%;box-shadow:0 32px 80px rgba(0,0,0,0.18);">
+            <p class="section-label" style="margin-bottom:6px;">Core Planner</p>
+            <h2 style="font-size:20px;font-weight:700;color:#0a0a0a;letter-spacing:-0.03em;margin-bottom:6px;">작업 스케일 선택</h2>
+            <p style="font-size:12px;color:#888;margin-bottom:24px;line-height:1.55;">프로젝트 규모에 맞는 해상도 배율을 선택하세요.</p>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;">
+                <button id="btn-scale-small" class="btn-ghost" style="padding:15px 16px;text-align:left;border-radius:10px;">
+                    <div style="font-size:12.5px;font-weight:600;color:#111;margin-bottom:3px;">소규모 프로젝트 <span style="font-size:10.5px;color:#999;font-weight:400;">— 권장</span></div>
+                    <div style="font-size:10.5px;color:#999;line-height:1.45;">35 × 20 m 범위 &nbsp;/&nbsp; 100 mm 스냅</div>
+                </button>
+                <button id="btn-scale-large" class="btn-ghost" style="padding:15px 16px;text-align:left;border-radius:10px;">
+                    <div style="font-size:12.5px;font-weight:600;color:#111;margin-bottom:3px;">대규모 프로젝트</div>
+                    <div style="font-size:10.5px;color:#999;line-height:1.45;">최대 50 × 50 m 범위 &nbsp;/&nbsp; 500 mm 스냅</div>
+                </button>
+            </div>
+            <p style="font-size:10px;color:#ccc;text-align:center;">모니터 해상도에 따라 배율이 자동 조정됩니다.</p>
+        </div>
+    </div>
+
+    <!-- ── 사이드바 ── -->
+    <div style="width:296px;flex-shrink:0;background:#ffffff;height:100%;display:flex;flex-direction:column;z-index:10;border-right:1px solid #e8e8e5;">
+
+        <!-- 헤더 -->
+        <div style="padding:22px 24px 18px;border-bottom:1px solid #f0f0ee;">
+            <p class="section-label" style="margin-bottom:5px;">Architectural Planning</p>
+            <h1 style="font-size:16px;font-weight:700;color:#0a0a0a;letter-spacing:-0.04em;">Core Planner</h1>
+        </div>
+
+        <!-- 스크롤 본문 -->
+        <div id="sidebar-scroll" style="flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:22px;">
+
+            <!-- 기준층 윤곽 -->
+            <section>
+                <p class="section-label">기준층 윤곽 (m)</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px;">
+                    <div>
+                        <label class="field-label">가로</label>
+                        <input type="number" id="input-boundary-w" min="5" max="50" class="field-input">
+                    </div>
+                    <div>
+                        <label class="field-label">세로</label>
+                        <input type="number" id="input-boundary-h" min="5" max="50" class="field-input">
+                    </div>
+                </div>
+                <button id="btn-build-boundary" class="btn-primary">도면 반영</button>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 작업 모드 -->
+            <section>
+                <p class="section-label">작업 모드</p>
+                <div style="display:flex;flex-direction:column;gap:5px;">
+                    <button id="mode-room" class="mode-btn active">
+                        <span class="mode-num">01</span>
+                        <div>
+                            <div>실(Room) 배치 및 병합</div>
+                            <div class="mode-desc">드래그로 실 생성 / 클릭 선택·이동 / Del 삭제</div>
+                        </div>
+                    </button>
+                    <button id="mode-stretch-real" class="mode-btn">
+                        <span class="mode-num">02</span>
+                        <div>
+                            <div>벽체 조정 (Stretch)</div>
+                            <div class="mode-desc">벽체 클릭 후 방향키로 위치 조정</div>
+                        </div>
+                    </button>
+                    <button id="mode-door" class="mode-btn">
+                        <span class="mode-num">03</span>
+                        <div>
+                            <div>문 배치</div>
+                            <div class="mode-desc">좌클릭으로 문 생성 / 우클릭으로 삭제</div>
+                        </div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 벽체 두께 -->
+            <section>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <p class="section-label" style="margin-bottom:0;">벽체 두께</p>
+                    <span id="wall-thickness-val" style="font-size:11px;font-weight:700;color:#111;font-family:monospace;">200 mm</span>
+                </div>
+                <input type="range" id="wall-thickness" min="100" max="400" step="50" value="200">
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 액션 버튼 -->
+            <section style="display:flex;flex-direction:column;gap:7px;">
+                <div style="display:flex;gap:6px;">
+                    <button id="btn-undo" class="btn-ghost">↩ 실행 취소</button>
+                    <button id="btn-clear" class="btn-danger">↺ 초기화</button>
+                </div>
+                <button id="btn-export-dxf" class="btn-export">DXF 내보내기</button>
+                <p style="font-size:9.5px;color:#c0c0bc;text-align:center;">외곽선 · 벽체 → 닫힌 폴리선 (AutoCAD R12)</p>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 면적 보고서 -->
+            <section>
+                <div style="margin-bottom:12px;">
+                    <p class="section-label" style="margin-bottom:0;">면적 보고서</p>
+                </div>
+                <div>
+                    <div class="report-row">
+                        <div><div class="report-label">기준층 전체</div><div class="report-sub">W × H</div></div>
+                        <div id="report-total-area" class="report-val" style="color:#111;">0.00 m²</div>
+                    </div>
+                    <div class="report-row">
+                        <div><div class="report-label">공용면적합</div><div class="report-sub">∑ 코어 박스 전체</div></div>
+                        <div id="report-public-area" class="report-val" style="color:#b45309;">0.00 m²</div>
+                    </div>
+                </div>
+                <div style="background:#f5f5f3;border-radius:8px;padding:10px 12px;margin-top:6px;display:flex;justify-content:space-between;align-items:baseline;">
+                    <div><div style="font-size:11px;font-weight:600;color:#166534;">전용면적합</div><div class="report-sub" style="color:#a0b8a8;">기준층 − 공용</div></div>
+                    <div id="report-net-area" style="font-size:13px;font-weight:800;color:#166534;font-family:monospace;">0.00 m²</div>
+                </div>
+                <div style="background:#eff6ff;border-radius:8px;padding:10px 12px;margin-top:6px;display:flex;justify-content:space-between;align-items:baseline;">
+                    <div><div style="font-size:11px;font-weight:600;color:#1e40af;">전용률</div><div class="report-sub" style="color:#93b4d8;">전용 ÷ (전용+공용) × 100</div></div>
+                    <div id="report-ratio" style="font-size:17px;font-weight:800;color:#1e40af;font-family:monospace;">0.0 %</div>
+                </div>
+            </section>
+
+
+        </div>
+
+        <!-- 좌표 피드 -->
+        <div style="padding:9px 24px;border-top:1px solid #f0f0ee;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:9px;color:#c0c0bc;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">좌표 (mm)</span>
+            <span id="info-coords" style="font-size:10px;font-family:monospace;font-weight:700;color:#666;">X: 0, Y: 0</span>
+        </div>
+    </div>
+
+    <!-- ── 캔버스 ── -->
+    <div id="canvas-holder" style="flex:1;height:100%;position:relative;">
+        <div id="mode-badge" style="position:absolute;top:16px;left:16px;background:rgba(10,10,10,0.78);backdrop-filter:blur(8px);color:#fff;padding:6px 13px;border-radius:6px;font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;pointer-events:none;z-index:20;">
+            Mode — 실(Room) 배치
+        </div>
+        <div id="alert-badge" style="position:absolute;top:16px;right:16px;background:#c0392b;color:#fff;padding:6px 14px;border-radius:6px;font-size:10px;font-weight:600;letter-spacing:0.02em;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:20;">
+            기존 방 내부에는 배치할 수 없습니다
+        </div>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // [1] 전역 어플리케이션 상태 데이터 관리
+        // ==========================================
+        let currentMode = 'room'; 
+        let wallThicknessMM = 200;    
+        const DOOR_WIDTH_MM = 1000; 
+
+        let SCALE = 40;        
+        let SNAP_VAL = 100;    
+
+        let boundary = null; 
+        let rooms = []; 
+        let doors = []; 
+        let historyStack = [];
+
+        let selectedWall = { roomIdx: -1, wallType: null }; 
+
+        let isDrawing = false;
+        
+        let rawDragStart = { x: 0, y: 0 };
+        let rawDragEnd = { x: 0, y: 0 };
+
+        let dragStart = { x: 0, y: 0 };
+        let dragEnd = { x: 0, y: 0 };
+
+        function saveHistory() {
+            historyStack.push({
+                boundary: boundary ? { ...boundary } : null,
+                rooms: rooms.map(r => ({ ...r })),
+                doors: doors.map(d => ({ ...d })),
+                selectedWall: { ...selectedWall }
+            });
+            if (historyStack.length > 30) historyStack.shift();
+        }
+
+        // ==========================================
+        // [2] Konva Graphics 인프라 정의
+        // ==========================================
+        const container = document.getElementById('canvas-holder');
+        const stage = new Konva.Stage({ container: 'canvas-holder', width: container.offsetWidth, height: container.offsetHeight });
+        const layer = new Konva.Layer();
+        const guideLayer = new Konva.Layer();
+        stage.add(layer);
+        stage.add(guideLayer);
+
+        const guideRect = new Konva.Rect({ stroke: '#4f46e5', strokeWidth: 1.5, dash: [4, 4], visible: false });
+        guideLayer.add(guideRect);
+
+        const guideText = new Konva.Text({
+            fontSize: 12, fontFamily: 'monospace', fontStyle: 'bold', fill: '#4f46e5',
+            visible: false, shadowColor: '#ffffff', shadowBlur: 2, shadowOpacity: 1
+        });
+        guideLayer.add(guideText);
+
+        stage.container().tabIndex = 1;
+        stage.container().style.outline = 'none';
+
+        function snapToGrid(pixelVal) {
+            return (Math.round((pixelVal * SCALE) / 100) * 100) / SCALE;
+        }
+
+        function isPointInRect(x, y, rect) {
+            return (x > rect.x1 && x < rect.x2 && y > rect.y1 && y < rect.y2);
+        }
+
+        // ==========================================
+        // [3] 기하학 및 교차 판단 핵심 로직
+        // ==========================================
+        function computeTrueCoreSegments(roomList) {
+            if (roomList.length === 0) return [];
+            let segments = [];
+
+            roomList.forEach((r, idx) => {
+                segments.push({ x1: r.x1, y1: r.y1, x2: r.x2, y2: r.y1, dir: 'H', ownerIdx: idx });
+                segments.push({ x1: r.x1, y1: r.y2, x2: r.x2, y2: r.y2, dir: 'H', ownerIdx: idx });
+                segments.push({ x1: r.x1, y1: r.y1, x2: r.x1, y2: r.y2, dir: 'V', ownerIdx: idx });
+                segments.push({ x1: r.x2, y1: r.y1, x2: r.x2, y2: r.y2, dir: 'V', ownerIdx: idx });
+            });
+
+            let validSegments = [];
+            for (let s of segments) {
+                const mx = (s.x1 + s.x2) / 2;
+                const my = (s.y1 + s.y2) / 2;
+                let isInside = false;
+
+                for (let i = 0; i < roomList.length; i++) {
+                    if (s.ownerIdx !== i && roomList[s.ownerIdx].areaType === roomList[i].areaType) {
+                        const eps = 0.1; 
+                        if (mx > roomList[i].x1 + eps && mx < roomList[i].x2 - eps && my > roomList[i].y1 + eps && my < roomList[i].y2 - eps) {
+                            isInside = true; break;
+                        }
+                    }
+                }
+                if (!isInside) validSegments.push(s);
+            }
+
+            let done = false;
+            while (!done) {
+                done = true;
+                for (let i = 0; i < validSegments.length; i++) {
+                    for (let j = i + 1; j < validSegments.length; j++) {
+                        let s1 = validSegments[i]; let s2 = validSegments[j];
+                        if (s1.dir === s2.dir && s1.ownerIdx === s2.ownerIdx) {
+                            if (s1.dir === 'H' && Math.abs(s1.y1 - s2.y1) < 0.1) {
+                                if (Math.max(s1.x1, s2.x1) <= Math.min(s1.x2, s2.x2)) {
+                                    s1.x1 = Math.min(s1.x1, s2.x1); s1.x2 = Math.max(s1.x2, s2.x2);
+                                    validSegments.splice(j, 1); done = false; break;
+                                }
+                            } else if (s1.dir === 'V' && Math.abs(s1.x1 - s2.x1) < 0.1) {
+                                if (Math.max(s1.y1, s2.y1) <= Math.min(s1.y2, s2.y2)) {
+                                    s1.y1 = Math.min(s1.y1, s2.y1); s1.y2 = Math.max(s1.y2, s2.y2);
+                                    validSegments.splice(j, 1); done = false; break;
+                                }
+                            }
+                        }
+                    }
+                    if (!done) break;
+                }
+            }
+            return validSegments;
+        }
+
+        function validateAndCleanDoors(currentCoreSegments) {
+            if (doors.length === 0) return;
+            doors = doors.filter(d => {
+                let isValidOnAnyWall = false;
+                for (let s of currentCoreSegments) {
+                    const proj = getProjectionOnSegment(d.x, d.y, s);
+                    if (proj.dist < 2.5 && proj.t > 0 && proj.t < 1) {
+                        d.parentDir = s.dir;
+                        isValidOnAnyWall = true; break;
+                    }
+                }
+                return isValidOnAnyWall;
+            });
+        }
+
+        function findClosestWallSegment(dx, dy, currentCoreSegments) {
+            for (let s of currentCoreSegments) {
+                const proj = getProjectionOnSegment(dx, dy, s);
+                if (proj.dist < 2.5 && proj.t >= 0 && proj.t <= 1) {
+                    return s;
+                }
+            }
+            return null;
+        }
+
+        function getProjectionOnSegment(px, py, s) {
+            const dx = s.x2 - s.x1; const dy = s.y2 - s.y1; const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) return { dist: Math.hypot(px - s.x1, py - s.y1), x: s.x1, y: s.y1 };
+            let t = Math.max(0, Math.min(1, ((px - s.x1) * dx + (py - s.y1) * dy) / lenSq));
+            return { dist: Math.hypot(px - (s.x1 + t * dx), py - (s.y1 + t * dy)), x: s.x1 + t * dx, y: s.y1 + t * dy, t: t };
+        }
+
+        // ==========================================
+        // [4] 벽체 블록 계산 공통 함수
+        // ==========================================
+        function computeWallBlocks(coreSegments) {
+            const wt = wallThicknessMM / SCALE;
+            const doorWidthPx = DOOR_WIDTH_MM / SCALE;
+            const blocks = [];
+
+            coreSegments.forEach(s => {
+                let subSegments = [{ x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 }];
+
+                doors.forEach(d => {
+                    let nextSub = [];
+                    for (let sub of subSegments) {
+                        const proj = getProjectionOnSegment(d.x, d.y, sub);
+                        if (proj.dist < 2.5 && proj.t > 0 && proj.t < 1) {
+                            const segLen = Math.hypot(sub.x2 - sub.x1, sub.y2 - sub.y1);
+                            const distFromStart = Math.hypot(proj.x - sub.x1, proj.y - sub.y1);
+                            const tStart = (distFromStart - doorWidthPx / 2) / segLen;
+                            const tEnd = (distFromStart + doorWidthPx / 2) / segLen;
+                            if (tStart > 0) nextSub.push({ x1: sub.x1, y1: sub.y1, x2: sub.x1 + (sub.x2 - sub.x1) * tStart, y2: sub.y1 + (sub.y2 - sub.y1) * tStart });
+                            if (tEnd < 1) nextSub.push({ x1: sub.x1 + (sub.x2 - sub.x1) * tEnd, y1: sub.y1 + (sub.y2 - sub.y1) * tEnd, x2: sub.x2, y2: sub.y2 });
+                        } else { nextSub.push(sub); }
+                    }
+                    subSegments = nextSub;
+                });
+
+                subSegments.forEach(sub => {
+                    const isStartCut = (sub.x1 !== s.x1 || sub.y1 !== s.y1);
+                    const isEndCut = (sub.x2 !== s.x2 || sub.y2 !== s.y2);
+                    let rx, ry, rw, rh;
+                    if (s.dir === 'H') {
+                        const startX = isStartCut ? sub.x1 : sub.x1 - wt / 2;
+                        const endX = isEndCut ? sub.x2 : sub.x2 + wt / 2;
+                        rx = startX; ry = sub.y1 - wt / 2; rw = endX - startX; rh = wt;
+                    } else {
+                        const startY = isStartCut ? sub.y1 : sub.y1 - wt / 2;
+                        const endY = isEndCut ? sub.y2 : sub.y2 + wt / 2;
+                        rx = sub.x1 - wt / 2; ry = startY; rw = wt; rh = endY - startY;
+                    }
+                    blocks.push({ x: rx, y: ry, w: rw, h: rh });
+                });
+            });
+            return blocks;
+        }
+
+        // ==========================================
+        // [4b] 직사각형 union → 닫힌 폴리선 변환
+        // ==========================================
+        function mergeRectsToPolylines(blocks) {
+            if (blocks.length === 0) return [];
+
+            // 1. 좌표 압축
+            const xVals = new Set(), yVals = new Set();
+            blocks.forEach(b => {
+                xVals.add(b.x); xVals.add(b.x + b.w);
+                yVals.add(b.y); yVals.add(b.y + b.h);
+            });
+            const xs = [...xVals].sort((a, b) => a - b);
+            const ys = [...yVals].sort((a, b) => a - b);
+            const xIdx = new Map(xs.map((v, i) => [v, i]));
+            const yIdx = new Map(ys.map((v, i) => [v, i]));
+            const nx = xs.length - 1, ny = ys.length - 1;
+
+            // 2. 격자 채우기 (블록이 덮는 셀 = 1)
+            const grid = Array.from({length: ny}, () => new Uint8Array(nx));
+            blocks.forEach(b => {
+                const x1 = xIdx.get(b.x), x2 = xIdx.get(b.x + b.w);
+                const y1 = yIdx.get(b.y), y2 = yIdx.get(b.y + b.h);
+                for (let yi = y1; yi < y2; yi++)
+                    for (let xi = x1; xi < x2; xi++)
+                        grid[yi][xi] = 1;
+            });
+
+            // 3. 내/외 경계 유향 엣지 추출 (스크린 좌표 CCW 기준)
+            const PREC = 4;
+            const outMap = new Map();
+            function addEdge(x1, y1, x2, y2) {
+                const k = `${x1.toFixed(PREC)},${y1.toFixed(PREC)}`;
+                if (!outMap.has(k)) outMap.set(k, []);
+                outMap.get(k).push({x1, y1, x2, y2, used: false});
+            }
+
+            // 수평 경계 엣지 (row 위아래 내외 전환)
+            for (let yi = 0; yi <= ny; yi++) {
+                for (let xi = 0; xi < nx; xi++) {
+                    const above = yi > 0 ? grid[yi-1][xi] : 0;
+                    const below = yi < ny ? grid[yi][xi] : 0;
+                    if (above === below) continue;
+                    const y = ys[yi], x1 = xs[xi], x2 = xs[xi+1];
+                    below ? addEdge(x1, y, x2, y) : addEdge(x2, y, x1, y);
+                }
+            }
+            // 수직 경계 엣지 (col 좌우 내외 전환)
+            for (let xi = 0; xi <= nx; xi++) {
+                for (let yi = 0; yi < ny; yi++) {
+                    const left = xi > 0 ? grid[yi][xi-1] : 0;
+                    const right = xi < nx ? grid[yi][xi] : 0;
+                    if (left === right) continue;
+                    const x = xs[xi], y1 = ys[yi], y2 = ys[yi+1];
+                    left ? addEdge(x, y1, x, y2) : addEdge(x, y2, x, y1);
+                }
+            }
+
+            // 4. 유향 엣지 추적 → 닫힌 루프
+            const loops = [];
+            outMap.forEach(edges => {
+                for (const startEdge of edges) {
+                    if (startEdge.used) continue;
+                    const pts = [];
+                    let cur = startEdge;
+                    const sk = `${startEdge.x1.toFixed(PREC)},${startEdge.y1.toFixed(PREC)}`;
+
+                    for (let iter = 0; iter < 100000; iter++) {
+                        if (cur.used) break;
+                        cur.used = true;
+                        pts.push([cur.x1, cur.y1]);
+                        const nk = `${cur.x2.toFixed(PREC)},${cur.y2.toFixed(PREC)}`;
+                        if (nk === sk) break;
+                        const nexts = (outMap.get(nk) || []).filter(e => !e.used);
+                        if (!nexts.length) break;
+                        if (nexts.length === 1) { cur = nexts[0]; continue; }
+                        // T자 분기: 가장 시계방향 회전 선택
+                        const dx = cur.x2 - cur.x1, dy = cur.y2 - cur.y1;
+                        cur = nexts.reduce((best, n) => {
+                            const ex = n.x2 - n.x1, ey = n.y2 - n.y1;
+                            const bex = best.x2 - best.x1, bey = best.y2 - best.y1;
+                            const a1 = Math.atan2(dx * ey - dy * ex, dx * ex + dy * ey);
+                            const a2 = Math.atan2(dx * bey - dy * bex, dx * bex + dy * bey);
+                            return a1 < a2 ? n : best;
+                        });
+                    }
+
+                    // 5. 동일선상 점 제거
+                    const simple = pts.filter((p, i) => {
+                        const pp = pts[(i - 1 + pts.length) % pts.length];
+                        const pn = pts[(i + 1) % pts.length];
+                        return Math.abs((p[0]-pp[0])*(pn[1]-pp[1]) - (p[1]-pp[1])*(pn[0]-pp[0])) > 0.001;
+                    });
+                    if (simple.length >= 3) loops.push(simple);
+                }
+            });
+            return loops;
+        }
+
+        // ==========================================
+        // [4c] DXF 내보내기 엔진 (AutoCAD R12 호환)
+        // ==========================================
+        function exportDXF() {
+            if (!boundary) { alert('기준층 윤곽을 먼저 설정하세요.'); return; }
+            if (rooms.length === 0) { alert('코어 실(Room)을 먼저 배치하세요.'); return; }
+
+            const offX = boundary.x1;
+            const offY = boundary.y1;
+
+            function px2mm(pixX, pixY) {
+                return [(pixX - offX) * SCALE, -((pixY - offY) * SCALE)];
+            }
+
+            let dxf = '';
+            // AutoCAD DXF: 그룹코드는 3자리 우정렬 공백패딩 필수
+            function w(code, value) {
+                const c = String(code).padStart(3, ' ');
+                dxf += c + '\r\n' + String(value) + '\r\n';
+            }
+
+            // POLYLINE (R12 호환) + VERTEX + SEQEND 형식
+            function addPolyline(pts, layerName) {
+                w(0,  'POLYLINE');
+                w(8,  layerName);
+                w(66, 1);   // vertices follow
+                w(70, 1);   // closed
+                pts.forEach(([x, y]) => {
+                    w(0,  'VERTEX');
+                    w(8,  layerName);
+                    w(10, x.toFixed(4));
+                    w(20, y.toFixed(4));
+                    w(30, '0.0');
+                });
+                w(0, 'SEQEND');
+                w(8, layerName);
+            }
+
+            // ── HEADER ──────────────────────────────
+            w(0, 'SECTION');
+            w(2, 'HEADER');
+            w(9, '$ACADVER'); w(1, 'AC1009');   // R12
+            w(9, '$INSUNITS'); w(70, 4);        // mm
+            w(9, '$EXTMIN');
+            w(10, '0.0'); w(20, '0.0'); w(30, '0.0');
+            w(9, '$EXTMAX');
+            const emx = ((boundary.x2 - boundary.x1) * SCALE).toFixed(4);
+            const emy = ((boundary.y2 - boundary.y1) * SCALE).toFixed(4);
+            w(10, emx); w(20, emy); w(30, '0.0');
+            w(0, 'ENDSEC');
+
+            // ── TABLES ──────────────────────────────
+            w(0, 'SECTION');
+            w(2, 'TABLES');
+
+            w(0, 'TABLE'); w(2, 'LAYER'); w(70, 2);
+
+            w(0, 'LAYER'); w(2, 'BOUNDARY');
+            w(70, 0); w(62, 7); w(6, 'CONTINUOUS');
+
+            w(0, 'LAYER'); w(2, 'WALL');
+            w(70, 0); w(62, 5); w(6, 'CONTINUOUS');
+
+            w(0, 'ENDTAB');
+            w(0, 'ENDSEC');
+
+            // ── BLOCKS (빈 섹션, 필수) ──────────────
+            w(0, 'SECTION');
+            w(2, 'BLOCKS');
+            w(0, 'ENDSEC');
+
+            // ── ENTITIES ────────────────────────────
+            w(0, 'SECTION');
+            w(2, 'ENTITIES');
+
+            // 1. 기준층 외곽
+            addPolyline([
+                px2mm(boundary.x1, boundary.y1),
+                px2mm(boundary.x2, boundary.y1),
+                px2mm(boundary.x2, boundary.y2),
+                px2mm(boundary.x1, boundary.y2)
+            ], 'BOUNDARY');
+
+            // 2. 문 반영 벽체 → 연결된 벽체마다 하나의 닫힌 폴리선
+            const coreSegs = computeTrueCoreSegments(rooms);
+            const wBlocks = computeWallBlocks(coreSegs);
+            const wallLoops = mergeRectsToPolylines(wBlocks);
+            wallLoops.forEach(loop => {
+                addPolyline(loop.map(([px, py]) => px2mm(px, py)), 'WALL');
+            });
+
+            w(0, 'ENDSEC');
+            w(0, 'EOF');
+
+            const blob = new Blob([dxf], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'core_plan.dxf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ==========================================
+        // [4c] 도면 메인 리드로우 및 집계 엔진
+        // ==========================================
+        function redrawAll() {
+            layer.destroyChildren();
+
+            let totalBoundaryAreaM2 = 0;
+            let publicAreaSumM2 = 0;
+
+            if (boundary) {
+                layer.add(new Konva.Rect({
+                    x: boundary.x1, y: boundary.y1, width: boundary.x2 - boundary.x1, height: boundary.y2 - boundary.y1,
+                    stroke: '#0f172a', strokeWidth: 1.5, fill: 'transparent'
+                }));
+
+                const bW_M = ((boundary.x2 - boundary.x1) * SCALE / 1000).toFixed(1);
+                const bH_M = ((boundary.y2 - boundary.y1) * SCALE / 1000).toFixed(1);
+                totalBoundaryAreaM2 = parseFloat(bW_M) * parseFloat(bH_M);
+
+                layer.add(new Konva.Text({
+                    fontSize: 11, fontFamily: 'monospace', fontStyle: 'bold', fill: '#475569',
+                    x: boundary.x1, y: boundary.y1 - 15, width: boundary.x2 - boundary.x1, align: 'center',
+                    text: `[기준층 윤곽: ${bW_M}m × ${bH_M}m]`
+                }));
+
+                layer.add(new Konva.Text({
+                    fontSize: 13, fontFamily: 'sans-serif', fontStyle: 'bold', fill: '#1e293b',
+                    x: boundary.x1 + 15, y: boundary.y1 + 15, text: `기준층 총면적: ${totalBoundaryAreaM2.toFixed(2)} m²`
+                }));
+            }
+
+            const coreSegments = computeTrueCoreSegments(rooms);
+            validateAndCleanDoors(coreSegments);
+
+            // 개별 실 UI 렌더링
+            rooms.forEach((r, idx) => {
+                const isSelectedRoom = (idx === selectedWall.roomIdx);
+                const roomStrokeColor = isSelectedRoom ? '#6366f1' : '#f59e0b';
+                const roomFillColor = 'rgba(245, 158, 11, 0.02)';
+
+                layer.add(new Konva.Rect({
+                    x: r.x1, y: r.y1, width: r.x2 - r.x1, height: r.y2 - r.y1,
+                    stroke: roomStrokeColor, strokeWidth: isSelectedRoom ? 2.5 : 1.5, fill: roomFillColor
+                }));
+
+                const widthM = ((r.x2 - r.x1) * SCALE / 1000).toFixed(1);
+                const heightM = ((r.y2 - r.y1) * SCALE / 1000).toFixed(1);
+                const roomAreaM2 = parseFloat(widthM) * parseFloat(heightM);
+
+                // 모든 실을 공용면적으로 자동 합산
+                publicAreaSumM2 += roomAreaM2;
+
+                const textStyle = { fontSize: 10, fontFamily: 'monospace', fill: '#94a3b8', align: 'center' };
+                layer.add(new Konva.Text({ ...textStyle, x: r.x1, y: r.y1 - 14, width: r.x2 - r.x1, text: `${widthM}m` }));
+                layer.add(new Konva.Text({ ...textStyle, x: r.x1, y: r.y2 + 4, width: r.x2 - r.x1, text: `${widthM}m` }));
+                layer.add(new Konva.Text({ ...textStyle, x: r.x1 - 42, y: (r.y1 + r.y2) / 2 - 5, width: 40, align: 'right', text: `${heightM}m` }));
+                layer.add(new Konva.Text({ ...textStyle, x: r.x2 + 2, y: (r.y1 + r.y2) / 2 - 5, width: 40, align: 'left', text: `${heightM}m` }));
+            });
+
+            // 코어 통합 벽체 조각 모델링
+            const wallBlocks = computeWallBlocks(coreSegments);
+
+            wallBlocks.forEach(b => {
+                layer.add(new Konva.Rect({ x: b.x, y: b.y, width: b.w, height: b.h, fill: '#475569', opacity: 0.6 }));
+            });
+
+            coreSegments.forEach(s => {
+                let subSegments = [{ x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 }];
+                doors.forEach(d => {
+                    let nextSub = [];
+                    for (let sub of subSegments) {
+                        const proj = getProjectionOnSegment(d.x, d.y, sub);
+                        if (proj.dist < 2.5 && proj.t > 0 && proj.t < 1) {
+                            const segLen = Math.hypot(sub.x2 - sub.x1, sub.y2 - sub.y1);
+                            const distFromStart = Math.hypot(proj.x - sub.x1, proj.y - sub.y1);
+                            const tStart = (distFromStart - doorWidthPx / 2) / segLen;
+                            const tEnd = (distFromStart + doorWidthPx / 2) / segLen;
+                            if (tStart > 0) nextSub.push({ x1: sub.x1, y1: sub.y1, x2: sub.x1 + (sub.x2 - sub.x1) * tStart, y2: sub.y1 + (sub.y2 - sub.y1) * tStart });
+                            if (tEnd < 1) nextSub.push({ x1: sub.x1 + (sub.x2 - sub.x1) * tEnd, y1: sub.y1 + (sub.y2 - sub.y1) * tEnd, x2: sub.x2, y2: sub.y2 });
+                        } else { nextSub.push(sub); }
+                    }
+                    subSegments = nextSub;
+                });
+                subSegments.forEach(sub => {
+                    layer.add(new Konva.Line({ points: [sub.x1, sub.y1, sub.x2, sub.y2], stroke: '#f43f5e', strokeWidth: 1.2, dash: [4, 3] }));
+                });
+            });
+
+            doors.forEach(d => {
+                let linePoints = [];
+                const lineLenPx = DOOR_WIDTH_MM / SCALE;
+                if (d.parentDir === 'H') { linePoints = [d.x, d.y - lineLenPx / 2, d.x, d.y + lineLenPx / 2]; } 
+                else { linePoints = [d.x - lineLenPx / 2, d.y, d.x + lineLenPx / 2, d.y]; }
+
+                layer.add(new Konva.Line({ points: linePoints, stroke: '#f59e0b', strokeWidth: 3, lineCap: 'round' }));
+            });
+
+            if (selectedWall.roomIdx > -1) {
+                const r = rooms[selectedWall.roomIdx];
+                if (currentMode === 'stretch' && selectedWall.wallType) {
+                    let linePts = [];
+                    if (selectedWall.wallType === 'TOP') linePts = [r.x1, r.y1, r.x2, r.y1];
+                    else if (selectedWall.wallType === 'BOTTOM') linePts = [r.x1, r.y2, r.x2, r.y2];
+                    else if (selectedWall.wallType === 'LEFT') linePts = [r.x1, r.y1, r.x1, r.y2];
+                    else if (selectedWall.wallType === 'RIGHT') linePts = [r.x2, r.y1, r.x2, r.y2];
+
+                    layer.add(new Konva.Line({ points: linePts, stroke: '#6366f1', strokeWidth: 4.5, lineCap: 'round', shadowColor: '#6366f1', shadowBlur: 5 }));
+                } else if (currentMode === 'room') {
+                    layer.add(new Konva.Rect({ x: r.x1, y: r.y1, width: r.x2 - r.x1, height: r.y2 - r.y1, stroke: '#6366f1', strokeWidth: 3, fill: 'transparent' }));
+                }
+            }
+
+            layer.draw();
+
+            // 리포트 계산 및 갱신
+            const netAreaSumM2 = totalBoundaryAreaM2 - publicAreaSumM2;
+            const denominator = Math.max(0, netAreaSumM2) + publicAreaSumM2;
+            const netRatio = denominator > 0 ? ((Math.max(0, netAreaSumM2) / denominator) * 100).toFixed(1) : "0.0";
+
+            document.getElementById('report-total-area').innerText = `${totalBoundaryAreaM2.toFixed(2)} m²`;
+            document.getElementById('report-public-area').innerText = `${publicAreaSumM2.toFixed(2)} m²`;
+            document.getElementById('report-net-area').innerText = `${Math.max(0, netAreaSumM2).toFixed(2)} m²`;
+            document.getElementById('report-ratio').innerText = `${netRatio} %`;
+        }
+
+        // ==========================================
+        // [5] 마우스 오퍼레이션 인터랙션 제어부
+        // ==========================================
+        stage.on('mousemove', (e) => {
+            const pos = stage.getPointerPosition(); if (!pos) return;
+            const snappedX = snapToGrid(pos.x); const snappedY = snapToGrid(pos.y);
+            document.getElementById('info-coords').innerText = `X: ${(snappedX * SCALE).toFixed(0)}mm, Y: ${(snappedY * SCALE).toFixed(0)}mm`;
+
+            if (isDrawing) {
+                rawDragEnd.x = pos.x;
+                rawDragEnd.y = pos.y;
+
+                dragEnd.x = snappedX; dragEnd.y = snappedY;
+                const liveW_M = (Math.abs(dragEnd.x - dragStart.x) * SCALE / 1000).toFixed(1);
+                const liveH_M = (Math.abs(dragEnd.y - dragStart.y) * SCALE / 1000).toFixed(1);
+
+                guideText.x(pos.x + 12).y(pos.y + 12).text(`W: ${liveW_M}m\nH: ${liveH_M}m`).visible(true);
+                guideRect.x(Math.min(dragStart.x, dragEnd.x)).y(Math.min(dragStart.y, dragEnd.y))
+                         .width(Math.abs(dragEnd.x - dragStart.x)).height(Math.abs(dragEnd.y - dragStart.y));
+                
+                guideLayer.batchDraw();
+            }
+        });
+
+        stage.on('mousedown', (e) => {
+            if (currentMode === 'door' || e.evt.button === 2) return;
+            const pos = stage.getPointerPosition(); if (!pos) return;
+            const clickX = snapToGrid(pos.x); const clickY = snapToGrid(pos.y);
+
+            stage.container().focus();
+
+
+            if (currentMode === 'stretch') {
+                let closestWallObj = { roomIdx: -1, wallType: null, minDist: 25 }; 
+                rooms.forEach((r, idx) => {
+                    const distTop = Math.abs(clickY - r.y1);    const distBottom = Math.abs(clickY - r.y2);
+                    const distLeft = Math.abs(clickX - r.x1);   const distRight = Math.abs(clickX - r.x2);
+
+                    if (clickX >= r.x1 - 5 && clickX <= r.x2 + 5) {
+                        if (distTop < closestWallObj.minDist) { closestWallObj = { roomIdx: idx, wallType: 'TOP', minDist: distTop }; }
+                        if (distBottom < closestWallObj.minDist) { closestWallObj = { roomIdx: idx, wallType: 'BOTTOM', minDist: distBottom }; }
+                    }
+                    if (clickY >= r.y1 - 5 && clickY <= r.y2 + 5) {
+                        if (distLeft < closestWallObj.minDist) { closestWallObj = { roomIdx: idx, wallType: 'LEFT', minDist: distLeft }; }
+                        if (distRight < closestWallObj.minDist) { closestWallObj = { roomIdx: idx, wallType: 'RIGHT', minDist: distRight }; }
+                    }
+                });
+
+                if (closestWallObj.roomIdx > -1) {
+                    selectedWall.roomIdx = closestWallObj.roomIdx;
+                    selectedWall.wallType = closestWallObj.wallType;
+                    redrawAll();
+                } else {
+                    selectedWall = { roomIdx: -1, wallType: null };
+                    redrawAll();
+                }
+                return; 
+            }
+
+            if (currentMode === 'room') {
+                let clickedRoomIdx = -1;
+                for (let i = rooms.length - 1; i >= 0; i--) {
+                    if (isPointInRect(clickX, clickY, rooms[i])) { clickedRoomIdx = i; break; }
+                }
+
+                if (clickedRoomIdx > -1) {
+                    selectedWall.roomIdx = clickedRoomIdx;
+                    selectedWall.wallType = null; 
+                    redrawAll();
+                    return; 
+                } else {
+                    selectedWall = { roomIdx: -1, wallType: null };
+                    redrawAll();
+                }
+
+                for (let r of rooms) {
+                    if (isPointInRect(clickX, clickY, r)) { triggerAlert(); return; }
+                }
+
+                isDrawing = true; 
+                rawDragStart.x = pos.x;
+                rawDragStart.y = pos.y;
+                rawDragEnd.x = pos.x;
+                rawDragEnd.y = pos.y;
+
+                dragStart.x = clickX; dragStart.y = clickY;
+                guideRect.x(dragStart.x).y(dragStart.y).width(0).height(0).visible(true);
+                guideLayer.batchDraw();
+            }
+        });
+
+        stage.on('mouseup', (e) => {
+            guideText.visible(false);
+            guideLayer.batchDraw();
+
+            if (!isDrawing) return;
+            isDrawing = false; guideRect.visible(false); guideLayer.batchDraw();
+            
+            // ★ [버그 완전 척결]: 오직 1번 실 배치 모드일 때만 드래그 픽셀 거리 안전 검사를 통과시킵니다.
+            if (currentMode === 'room') {
+                const absolutePixelDistance = Math.hypot(rawDragEnd.x - rawDragStart.x, rawDragEnd.y - rawDragStart.y);
+                if (absolutePixelDistance < 5) {
+                    return; // 단순 제자리 미스 클릭 무효화 패스
+                }
+            }
+
+            const x1 = Math.min(dragStart.x, dragEnd.x); const x2 = Math.max(dragStart.x, dragEnd.x);
+            const y1 = Math.min(dragStart.y, dragEnd.y); const y2 = Math.max(dragStart.y, dragEnd.y);
+
+            if (currentMode === 'room') {
+                for (let r of rooms) {
+                    if (isPointInRect(dragEnd.x, dragEnd.y, r) || (x1 < r.x1 && x2 > r.x2 && y1 < r.y1 && y2 > r.y2)) {
+                        triggerAlert(); return; 
+                    }
+                }
+                saveHistory();
+                rooms.push({ x1, y1, x2, y2, areaType: 'PUBLIC' });
+                selectedWall = { roomIdx: rooms.length - 1, wallType: null }; 
+            }
+            redrawAll();
+        });
+
+        function triggerAlert() {
+            const badge = document.getElementById('alert-badge');
+            badge.style.opacity = "1";
+            setTimeout(() => { badge.style.opacity = "0"; }, 2500);
+        }
+
+        // ★ [연쇄 차단 버그 완벽 수정]: mousedown/mouseup 드래그 연산에 얽매이지 않는 순수 마우스 단독 'click' 이벤트 스페이스 확보
+        stage.on('click', (e) => {
+            if (currentMode !== 'door') return;
+            const pos = stage.getPointerPosition(); if (!pos) return;
+            const px = pos.x; const py = pos.y;
+
+            // 마우스 우클릭 시 문 지우기 기능 정상 가동
+            if (e.evt.button === 2 || e.evt.pointerType === 'touch') { 
+                let targetIdx = -1; let minDist = 15;
+                doors.forEach((d, idx) => {
+                    const dist = Math.hypot(px - d.x, py - d.y);
+                    if (dist < minDist) { minDist = dist; targetIdx = idx; }
+                });
+                if (targetIdx > -1) { saveHistory(); doors.splice(targetIdx, 1); redrawAll(); }
+                return;
+            }
+
+            // 마우스 좌클릭 시 수선 정밀 투영 계산을 거쳐 문 정상 뚫기 가동
+            const coreSegments = computeTrueCoreSegments(rooms);
+            let closestProj = null; let minWallDist = 25; 
+            coreSegments.forEach(s => {
+                const proj = getProjectionOnSegment(px, py, s);
+                if (proj.dist < minWallDist) { minWallDist = proj.dist; closestProj = { ...proj, parentDir: s.dir }; }
+            });
+
+            if (closestProj) { 
+                saveHistory(); 
+                doors.push({ x: closestProj.x, y: closestProj.y, parentDir: closestProj.parentDir }); 
+                redrawAll(); 
+            }
+        });
+
+        stage.getContent().addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // ==========================================
+        // [6] 키보드 핫키 처리부
+        // ==========================================
+        stage.container().addEventListener('keydown', (e) => {
+            if (selectedWall.roomIdx === -1) return;
+
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                saveHistory();
+                rooms.splice(selectedWall.roomIdx, 1);
+                selectedWall = { roomIdx: -1, wallType: null };
+                redrawAll(); 
+                e.preventDefault();
+                return;
+            }
+
+            let STEP = 5; 
+            if (e.shiftKey) {
+                STEP = Math.max(1, Math.round(100 / SCALE)); 
+            } else {
+                STEP = (SNAP_VAL / SCALE); 
+            }
+
+            let currentRoom = { ...rooms[selectedWall.roomIdx] };
+            let updated = false;
+
+            if (currentMode === 'room' && selectedWall.wallType === null) {
+                let dx = 0; let dy = 0;
+
+                if (e.key === 'ArrowUp') { dy = -STEP; updated = true; e.preventDefault(); }
+                else if (e.key === 'ArrowDown') { dy = STEP; updated = true; e.preventDefault(); }
+                else if (e.key === 'ArrowLeft') { dx = -STEP; updated = true; e.preventDefault(); }
+                else if (e.key === 'ArrowRight') { dx = STEP; updated = true; e.preventDefault(); }
+
+                if (updated) {
+                    const oldCoreSegments = computeTrueCoreSegments(rooms);
+                    let doorDisplacements = [];
+
+                    doors.forEach((d, dIdx) => {
+                        const parentWall = findClosestWallSegment(d.x, d.y, oldCoreSegments);
+                        if (parentWall) {
+                            const isOnThisRoom = 
+                                (parentWall.dir === 'H' && (Math.abs(parentWall.y1 - currentRoom.y1) < 0.1 || Math.abs(parentWall.y1 - currentRoom.y2) < 0.1)) ||
+                                (parentWall.dir === 'V' && (Math.abs(parentWall.x1 - currentRoom.x1) < 0.1 || Math.abs(parentWall.x1 - currentRoom.x2) < 0.1));
+                            
+                            if (isOnThisRoom) {
+                                doorDisplacements.push({ idx: dIdx, dx: dx, dy: dy });
+                            }
+                        }
+                    });
+
+                    currentRoom.x1 += dx; currentRoom.x2 += dx;
+                    currentRoom.y1 += dy; currentRoom.y2 += dy;
+
+                    for (let i = 0; i < rooms.length; i++) {
+                        if (i === selectedWall.roomIdx) continue;
+                        const other = rooms[i];
+                        if (isPointInRect(currentRoom.x1 + 0.5, currentRoom.y1 + 0.5, other) || 
+                            isPointInRect(currentRoom.x2 - 0.5, currentRoom.y2 - 0.5, other)) {
+                            return; 
+                        }
+                    }
+
+                    saveHistory();
+                    rooms[selectedWall.roomIdx] = currentRoom;
+
+                    doorDisplacements.forEach(disp => {
+                        doors[disp.idx].x += disp.dx;
+                        doors[disp.idx].y += disp.dy;
+                    });
+
+                    redrawAll();
+                }
+                return;
+            }
+
+            if (currentMode === 'stretch' && selectedWall.wallType) {
+                const MIN_SIZE_PX = 15; 
+                if (selectedWall.wallType === 'TOP') {
+                    if (e.key === 'ArrowUp') { currentRoom.y1 -= STEP; updated = true; e.preventDefault(); }
+                    else if (e.key === 'ArrowDown') { if (currentRoom.y2 - (currentRoom.y1 + STEP) >= MIN_SIZE_PX) { currentRoom.y1 += STEP; updated = true; } e.preventDefault(); }
+                } 
+                else if (selectedWall.wallType === 'BOTTOM') {
+                    if (e.key === 'ArrowDown') { currentRoom.y2 += STEP; updated = true; e.preventDefault(); }
+                    else if (e.key === 'ArrowUp') { if ((currentRoom.y2 - STEP) - currentRoom.y1 >= MIN_SIZE_PX) { currentRoom.y2 -= STEP; updated = true; } e.preventDefault(); }
+                } 
+                else if (selectedWall.wallType === 'LEFT') {
+                    if (e.key === 'ArrowLeft') { currentRoom.x1 -= STEP; updated = true; e.preventDefault(); }
+                    else if (e.key === 'ArrowRight') { if (currentRoom.x2 - (currentRoom.x1 + STEP) >= MIN_SIZE_PX) { currentRoom.x1 += STEP; updated = true; } e.preventDefault(); }
+                } 
+                else if (selectedWall.wallType === 'RIGHT') {
+                    if (e.key === 'ArrowRight') { currentRoom.x2 += STEP; updated = true; e.preventDefault(); }
+                    else if (e.key === 'ArrowLeft') { if ((currentRoom.x2 - STEP) - currentRoom.x1 >= MIN_SIZE_PX) { currentRoom.x2 -= STEP; updated = true; } e.preventDefault(); }
+                }
+
+                if (updated) {
+                    for (let i = 0; i < rooms.length; i++) {
+                        if (i === selectedWall.roomIdx) continue;
+                        const other = rooms[i];
+                        if (isPointInRect(currentRoom.x1 + 1, currentRoom.y1 + 1, other) || isPointInRect(currentRoom.x2 - 1, currentRoom.y2 - 1, other)) { return; }
+                    }
+                    saveHistory();
+                    rooms[selectedWall.roomIdx] = currentRoom;
+                    redrawAll();
+                }
+            }
+        });
+
+        // ==========================================
+        // [7] 이원화 이니셜라이징 코어 모듈
+        // ==========================================
+        function initBuildSystem(w_M, h_M, selectedScale, selectedSnap) {
+            SCALE = selectedScale;
+            SNAP_VAL = selectedSnap;
+
+            document.getElementById('input-boundary-w').value = w_M;
+            document.getElementById('input-boundary-h').value = h_M;
+
+            const widthPx = (w_M * 1000) / SCALE;
+            const heightPx = (h_M * 1000) / SCALE;
+
+            const startX = Math.round((stage.width() - widthPx) / 2 / 5) * 5;
+            const startY = Math.round((stage.height() - heightPx) / 2 / 5) * 5;
+
+            boundary = { x1: startX, y1: startY, x2: startX + widthPx, y2: startY + heightPx };
+            
+            const modal = document.getElementById('start-modal');
+            modal.style.opacity = "0";
+            setTimeout(() => modal.remove(), 300);
+
+            redrawAll();
+        }
+
+        document.getElementById('btn-scale-small').addEventListener('click', () => {
+            initBuildSystem(35, 20, 40, 100);
+        });
+
+        document.getElementById('btn-scale-large').addEventListener('click', () => {
+            initBuildSystem(40, 35, 70, 500);
+        });
+
+        // 수동 변경 타이핑 반영 로직
+        document.getElementById('btn-build-boundary').addEventListener('click', () => {
+            let widthM = parseFloat(document.getElementById('input-boundary-w').value);
+            let heightM = parseFloat(document.getElementById('input-boundary-h').value);
+
+            if (isNaN(widthM) || widthM < 5 || widthM > 50 || isNaN(heightM) || heightM < 5 || heightM > 50) {
+                alert('치수는 5m에서 50m 사잇값만 허용됩니다.'); return;
+            }
+
+            saveHistory();
+            const widthPx = (widthM * 1000) / SCALE;
+            const heightPx = (heightM * 1000) / SCALE;
+            const startX = Math.round((stage.width() - widthPx) / 2 / 5) * 5;
+            const startY = Math.round((stage.height() - heightPx) / 2 / 5) * 5;
+
+            boundary = { x1: startX, y1: startY, x2: startX + widthPx, y2: startY + heightPx };
+            redrawAll();
+        });
+
+        function changeMode(mode, btnId, badgeText) {
+            currentMode = mode;
+            selectedWall = { roomIdx: -1, wallType: null };
+            isDrawing = false;
+            guideRect.visible(false);
+            guideText.visible(false);
+            guideLayer.draw();
+            ['mode-room', 'mode-stretch-real', 'mode-door'].forEach(id => {
+                document.getElementById(id).classList.remove('active');
+            });
+            document.getElementById(btnId).classList.add('active');
+            document.getElementById('mode-badge').innerText = `Mode — ${badgeText}`;
+            redrawAll();
+        }
+
+        document.getElementById('mode-room').addEventListener('click', () => changeMode('room', 'mode-room', '실(Room) 배치'));
+        document.getElementById('mode-stretch-real').addEventListener('click', () => changeMode('stretch', 'mode-stretch-real', '벽체 조정'));
+        document.getElementById('mode-door').addEventListener('click', () => changeMode('door', 'mode-door', '문 배치'));
+
+        const thicknessSlider = document.getElementById('wall-thickness');
+        const thicknessValLabel = document.getElementById('wall-thickness-val');
+        thicknessSlider.addEventListener('input', (e) => {
+            wallThicknessMM = parseInt(e.target.value);
+            thicknessValLabel.innerText = `${wallThicknessMM} mm`;
+            redrawAll();
+        });
+
+        document.getElementById('btn-undo').addEventListener('click', () => {
+            if (historyStack.length > 0) {
+                const previousState = historyStack.pop();
+                boundary = previousState.boundary; rooms = previousState.rooms; doors = previousState.doors; selectedWall = previousState.selectedWall;
+                redrawAll();
+            } else { alert('더 이상 되돌릴 작업 기록이 없습니다.'); }
+        });
+
+        document.getElementById('btn-export-dxf').addEventListener('click', exportDXF);
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            if (confirm('작업 중인 도면 데이터를 완전히 초기화하시겠습니까?')) {
+                saveHistory(); boundary = null; rooms = []; doors = []; historyStack = []; selectedWall = { roomIdx: -1, wallType: null }; redrawAll();
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            stage.width(container.offsetWidth); stage.height(container.offsetHeight); redrawAll();
+        });
+    </script>
+</body>
+</html>
