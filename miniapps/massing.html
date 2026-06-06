@@ -76,6 +76,49 @@
             background:var(--soft); object-fit:contain; }
         #status{ margin-top:12px; font-size:11.5px; color:#6b7077; line-height:1.5;
             border-top:1px solid var(--line); padding-top:10px; }
+
+        /* 탭 (엑셀형 전환) */
+        .tabs{ display:flex; gap:5px; margin:14px 0 0; }
+        .tab{ flex:1; padding:9px 6px; font-size:11.5px; font-weight:700;
+            border:1px solid var(--line); border-radius:10px 10px 0 0; border-bottom:none;
+            background:var(--soft); color:var(--muted); letter-spacing:0.01em; }
+        .tab:hover{ color:var(--ink); }
+        .tab.active{ background:#fff; color:var(--ink); box-shadow:0 -2px 0 var(--ink) inset; }
+        .tabpane{ border-top:1px solid var(--line); padding-top:2px; }
+
+        /* 건폐율 체크 패널 (우측 하단) */
+        #coveragePanel{
+            position:absolute; right:18px; bottom:18px; z-index:9999;
+            width:248px;
+            background:rgba(255,255,255,0.90);
+            backdrop-filter:blur(16px) saturate(1.2);
+            -webkit-backdrop-filter:blur(16px) saturate(1.2);
+            border:1px solid var(--line); border-radius:16px;
+            box-shadow:0 16px 48px rgba(16,18,22,0.20);
+            padding:15px 16px; font-size:13px;
+        }
+        #coveragePanel .cov-title{
+            font-size:10.5px; font-weight:700; letter-spacing:0.11em;
+            text-transform:uppercase; color:var(--muted); margin-bottom:11px;
+            display:flex; align-items:center; gap:8px;
+        }
+        #coveragePanel .cov-title .dot{ width:6px; height:6px; border-radius:50%; background:var(--ink); }
+        .cov-row{ display:flex; align-items:center; justify-content:space-between;
+            gap:8px; margin-bottom:9px; }
+        .cov-row:last-child{ margin-bottom:0; }
+        .cov-label{ font-size:12px; color:#4b5159; white-space:nowrap; }
+        .cov-row input[type="number"]{
+            width:96px; padding:6px 8px; border:1px solid var(--line);
+            border-radius:8px; font-size:12.5px; color:var(--ink); background:#fff;
+            outline:none; text-align:right; font-family:inherit; }
+        .cov-row input[type="number"]:focus{ border-color:var(--ink); }
+        .cov-val{ font-size:13px; font-weight:600; color:var(--ink); text-align:right;
+            min-width:96px; }
+        .cov-row.total{ border-top:1px solid var(--line); padding-top:10px; margin-top:11px; }
+        .cov-row.total .cov-label{ font-weight:700; color:var(--ink); }
+        #coverageRatio{ font-size:15px; font-weight:800; }
+        #coverageRatio.over{ color:var(--danger); }
+        .cov-unit{ color:var(--muted); font-weight:400; font-size:11px; margin-left:2px; }
     </style>
     <script src="https://map.vworld.kr/js/webglMapInit.js.do?version=3.0&apiKey=B5CEDD7D-84D6-314E-875C-9B5BF7E1233A"></script>
 </head>
@@ -87,7 +130,15 @@
         <span class="ttl">FACADE STUDIO · 입면 모듈 스튜디오</span>
     </div>
 
-    <!-- ① 위치 검색 -->
+    <div class="tabs">
+        <button class="tab active" data-tab="A" onclick="switchTab('A')">위치·투명화</button>
+        <button class="tab" data-tab="B" onclick="switchTab('B')">신축·입면</button>
+        <button class="tab" data-tab="C" onclick="switchTab('C')">포디움·지붕</button>
+    </div>
+
+    <!-- ===== 탭 A: 위치 검색 + 건물 선택·투명화 ===== -->
+    <div class="tabpane" id="tabA">
+    <!-- 위치 검색 -->
     <div class="card">
         <div class="label"><span class="dot"></span>위치 검색</div>
         <div class="row">
@@ -106,8 +157,11 @@
         </div>
         <div class="hint">모드 — <span id="modeLabel">건물 선택(투명)</span></div>
     </div>
+    </div><!-- /tabA -->
 
-    <!-- ③ 신축 건물 그리기 -->
+    <!-- ===== 탭 B: 신축 건물 그리기 + 입면 모듈 패널링 ===== -->
+    <div class="tabpane" id="tabB" style="display:none;">
+    <!-- 신축 건물 그리기 -->
     <div class="card">
         <div class="label"><span class="dot"></span>신축 건물 그리기</div>
         <div class="row">
@@ -133,32 +187,7 @@
         <div class="hint" id="heightHint">건물 높이 = 층고 × 층수</div>
     </div>
 
-    <!-- ④ 지면에서 띄우기 -->
-    <div class="card">
-        <div class="label"><span class="dot"></span>지면에서 띄우기</div>
-        <div class="row">
-            <span class="field">띄우기</span>
-            <input id="elevRange" type="range" min="0" max="20" value="0" step="0.5"
-                   oninput="onElevateChange()">
-            <span id="elevVal" class="field" style="min-width:44px; text-align:right;">0.0 m</span>
-        </div>
-        <div class="hint">건물을 지면에서 띄웁니다 (0–20 m). 빈 공간을 지면 폴리곤으로 채울 수 있습니다.</div>
-        <div class="row" style="margin-top:10px;">
-            <button id="groundDrawBtn" class="btn-draw" onclick="toggleGroundDraw()">지면 폴리곤 그리기</button>
-            <button id="groundEditBtn" class="btn-edit" onclick="toggleGroundEdit()">점 위치 조정</button>
-        </div>
-        <div class="hint">'그리기' 클릭으로 정점 추가 · '점 위치 조정' 으로 정점 드래그 · 입면 패널링 미적용</div>
-        <div class="row" style="margin-top:6px;">
-            <button class="btn-ghost btn-undo" onclick="undoGroundPoint()">마지막 점 취소</button>
-            <button class="btn-ghost" onclick="confirmGroundPoly()">이 폴리곤 확정</button>
-        </div>
-        <div class="row" style="margin-top:4px;">
-            <button class="btn-del" onclick="clearAllGroundPolygons()">지면 폴리곤 전체 삭제</button>
-        </div>
-        <div class="hint" id="groundHint" style="margin-top:4px;"></div>
-    </div>
-
-    <!-- ⑤ 입면 모듈 패널링 -->
+    <!-- 입면 모듈 패널링 -->
     <div class="card">
         <div class="label"><span class="dot"></span>입면 모듈 패널링</div>
         <div class="row">
@@ -184,8 +213,80 @@
             <button class="btn-del" onclick="clearBuilding()">건물 삭제</button>
         </div>
     </div>
+    </div><!-- /tabB -->
+
+    <!-- ===== 탭 C: 지면에서 띄우기(포디움) + 지붕 디자인 ===== -->
+    <div class="tabpane" id="tabC" style="display:none;">
+    <!-- 지면에서 띄우기 (포디움) -->
+    <div class="card">
+        <div class="label"><span class="dot"></span>지면에서 띄우기</div>
+        <div class="row">
+            <span class="field">띄우기</span>
+            <input id="elevRange" type="range" min="0" max="20" value="0" step="0.5"
+                   oninput="onElevateChange()">
+            <span id="elevVal" class="field" style="min-width:44px; text-align:right;">0.0 m</span>
+        </div>
+        <div class="hint">건물을 지면에서 띄웁니다 (0–20 m). 빈 공간을 포디움으로 채울 수 있습니다.</div>
+        <div class="row" style="margin-top:10px;">
+            <button id="groundDrawBtn" class="btn-draw" onclick="toggleGroundDraw()">포디움 그리기</button>
+            <button id="groundEditBtn" class="btn-edit" onclick="toggleGroundEdit()">점 위치 조정</button>
+        </div>
+        <div class="hint">'그리기' 클릭으로 정점 추가 · '점 위치 조정' 으로 정점 드래그 · 입면 패널링 미적용</div>
+        <div class="row" style="margin-top:6px;">
+            <button class="btn-ghost btn-undo" onclick="undoGroundPoint()">마지막 점 취소</button>
+            <button class="btn-ghost" onclick="confirmGroundPoly()">이 폴리곤 확정</button>
+        </div>
+        <div class="row" style="margin-top:4px;">
+            <button class="btn-del" onclick="clearAllGroundPolygons()">포디움 전체 삭제</button>
+        </div>
+        <div class="hint" id="groundHint" style="margin-top:4px;"></div>
+    </div>
+
+    <!-- ⑤ 지붕 디자인 -->
+    <div class="card">
+        <div class="label"><span class="dot"></span>지붕 디자인</div>
+        <div class="row">
+            <span class="field">높이</span>
+            <input id="roofRange" type="range" min="0" max="20" value="3" step="0.5"
+                   oninput="onRoofHeightChange()">
+            <span id="roofVal" class="field" style="min-width:44px; text-align:right;">3.0 m</span>
+        </div>
+        <div class="hint">신축 건물 최상단에서 위로 지붕을 세웁니다 (0–20 m). 입면 패널링 미적용</div>
+        <div class="row" style="margin-top:10px;">
+            <button id="roofDrawBtn" class="btn-draw" onclick="toggleRoofDraw()">지붕 폴리곤 그리기</button>
+            <button id="roofEditBtn" class="btn-edit" onclick="toggleRoofEdit()">점 위치 조정</button>
+        </div>
+        <div class="hint">'그리기' 클릭으로 정점 추가 · '점 위치 조정' 으로 정점 드래그 · 신축 건물 필요</div>
+        <div class="row" style="margin-top:6px;">
+            <button class="btn-ghost btn-undo" onclick="undoRoofPoint()">마지막 점 취소</button>
+            <button class="btn-ghost" onclick="confirmRoofPoly()">이 폴리곤 확정</button>
+        </div>
+        <div class="row" style="margin-top:4px;">
+            <button class="btn-del" onclick="clearAllRoofPolygons()">지붕 폴리곤 전체 삭제</button>
+        </div>
+        <div class="hint" id="roofHint" style="margin-top:4px;"></div>
+    </div>
+    </div><!-- /tabC -->
 
     <p id="status">건물을 클릭하면 투명해집니다. (새로고침 시 초기화)</p>
+</div>
+
+<!-- 건폐율 체크 (우측 하단) -->
+<div id="coveragePanel">
+    <div class="cov-title"><span class="dot"></span>건폐율 체크</div>
+    <div class="cov-row">
+        <span class="cov-label">대지면적</span>
+        <span><input id="siteArea" type="number" min="0" step="0.1" placeholder="직접 입력"
+               oninput="updateCoverage()"><span class="cov-unit">m²</span></span>
+    </div>
+    <div class="cov-row">
+        <span class="cov-label">수평투영면적<span class="cov-unit">(건물+포디움+지붕)</span></span>
+        <span class="cov-val"><span id="projArea">–</span><span class="cov-unit">m²</span></span>
+    </div>
+    <div class="cov-row total">
+        <span class="cov-label">건폐율</span>
+        <span class="cov-val"><span id="coverageRatio">–</span><span class="cov-unit">%</span></span>
+    </div>
 </div>
 
 <div id="vmap"></div>
@@ -195,7 +296,7 @@
     var viewer;
 
     // ===== 신축 건물 상태 =====
-    var mode = "select"; // "select" | "draw" | "edit" | "drawGround" | "editGround"
+    var mode = "select"; // "select"|"draw"|"edit"|"drawGround"|"editGround"|"drawRoof"|"editRoof"
     var drawCoords = [];
     var draftHeight = 40;
     var draftEntities = [];
@@ -214,9 +315,19 @@
     var groundPolyDraftEnts = [];
     var groundPolyPointEnts = [];    // 드래그용 정점 점 엔티티 레퍼런스
     var groundPolyDraftSolid = null;
-    var groundPolygonsList = [];     // [{entity, baseH}]
+    var groundPolygonsList = [];     // [{entity, baseH, coords}]
     var groundDragHandler = null;
     var groundDragIndex = -1;
+
+    // ===== 지붕 디자인 상태 (시작 z = 신축 건물 최상단) =====
+    var roofHeightMeter = 3;
+    var roofPolyCoords = [];
+    var roofPolyDraftEnts = [];
+    var roofPolyPointEnts = [];      // 드래그용 정점 점 엔티티 레퍼런스
+    var roofPolyDraftSolid = null;
+    var roofPolygonsList = [];       // [{entity, coords}]
+    var roofDragHandler = null;
+    var roofDragIndex = -1;
 
     var ID_PROP_CANDIDATES = ["__OID__", "OBJTID", "OBJECTID", "FID", "BLD_NUM", "BLDG_ID", "id"];
 
@@ -241,6 +352,18 @@
     };
 
     // ====================================================================
+    // 탭 전환 (엑셀형) — 패널 보기만 전환, 작업 모드는 유지
+    // ====================================================================
+    function switchTab(t) {
+        ["A", "B", "C"].forEach(function(x) {
+            var pane = document.getElementById("tab" + x);
+            if (pane) pane.style.display = (x === t) ? "block" : "none";
+            var btn = document.querySelector('.tab[data-tab="' + x + '"]');
+            if (btn) btn.classList.toggle("active", x === t);
+        });
+    }
+
+    // ====================================================================
     // 지도 클릭 통합 핸들러
     // ====================================================================
     function onMapClick(windowPosition, ecefPosition, cartographic, modelObject) {
@@ -255,7 +378,12 @@
             if (c) { groundPolyCoords.push(c); rebuildGroundDraft(); updateStatus(); }
             return;
         }
-        if (mode === "edit" || mode === "editGround") return; // 드래그 핸들러가 처리
+        if (mode === "drawRoof") {
+            var c = extractLonLat(cartographic);
+            if (c) { roofPolyCoords.push(c); rebuildRoofDraft(); updateStatus(); }
+            return;
+        }
+        if (mode === "edit" || mode === "editGround" || mode === "editRoof") return; // 드래그 핸들러가 처리
         if (modelObject) toggleTransparent(modelObject);
     }
 
@@ -314,9 +442,11 @@
         if (mode === "draw") {
             mode = "select";
         } else {
-            // 지면 폴리곤 모드 종료
+            // 지면/지붕 폴리곤 모드 종료
             if (mode === "editGround") { disableGroundVertexDrag(); }
             if (mode === "drawGround" || mode === "editGround") { clearGroundDraft(); groundPolyCoords = []; refreshGroundModeUI(); }
+            if (mode === "editRoof") { disableRoofVertexDrag(); }
+            if (mode === "drawRoof" || mode === "editRoof") { clearRoofDraft(); roofPolyCoords = []; refreshRoofModeUI(); }
             disableVertexDrag();
             mode = "draw";
         }
@@ -332,6 +462,8 @@
             if (drawCoords.length === 0) { alert("먼저 '점 찍기'로 정점을 만든 뒤 조정하세요."); return; }
             if (mode === "editGround") { disableGroundVertexDrag(); }
             if (mode === "drawGround" || mode === "editGround") { clearGroundDraft(); groundPolyCoords = []; refreshGroundModeUI(); }
+            if (mode === "editRoof") { disableRoofVertexDrag(); }
+            if (mode === "drawRoof" || mode === "editRoof") { clearRoofDraft(); roofPolyCoords = []; refreshRoofModeUI(); }
             mode = "edit";
             enableVertexDrag();
         }
@@ -349,8 +481,10 @@
         document.getElementById("modeLabel").textContent =
             mode === "draw"        ? "신축 건물 점 찍기" :
             mode === "edit"        ? "신축 건물 점 조정" :
-            mode === "drawGround"  ? "지면 폴리곤 그리기" :
-            mode === "editGround"  ? "지면 폴리곤 점 조정" :
+            mode === "drawGround"  ? "포디움 그리기" :
+            mode === "editGround"  ? "포디움 점 조정" :
+            mode === "drawRoof"    ? "지붕 폴리곤 그리기" :
+            mode === "editRoof"    ? "지붕 폴리곤 점 조정" :
             "건물 선택(투명)";
     }
 
@@ -375,6 +509,7 @@
             draftSolid.polygon.extrudedHeight = draftBaseH + elevateMeter + draftHeight;
             rebuildPaneling();
         } else { rebuildDraft(); }
+        updateRoofHeights(); // 건물 높이 변경 → 지붕 시작 z 갱신
         updateStatus();
     }
 
@@ -384,6 +519,123 @@
     }
     function geoDistance(a, b) {
         return Cesium.Cartesian3.distance(Cesium.Cartesian3.fromDegrees(a.lon, a.lat), Cesium.Cartesian3.fromDegrees(b.lon, b.lat));
+    }
+
+    // 좌표 배열의 수평투영면적(m²) — 신발끈(shoelace) 공식.
+    // 위경도를 위도 보정된 로컬 미터 좌표로 변환해 면적 계산(소규모 대지에 충분히 정확).
+    function areaOfCoords(coords) {
+        if (!coords || coords.length < 3) return 0;
+        var lat0 = 0; coords.forEach(function(c) { lat0 += c.lat; }); lat0 /= coords.length;
+        var mPerLat = 111320, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
+        var pts = coords.map(function(c) { return { x: c.lon * mPerLon, y: c.lat * mPerLat }; });
+        var area = 0;
+        for (var i = 0; i < pts.length; i++) {
+            var j = (i + 1) % pts.length;
+            area += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
+        }
+        return Math.abs(area) / 2;
+    }
+
+    // 점이 폴리곤(미터 좌표 {x,y} 배열) 내부에 있는지 — ray casting
+    function pointInPoly(x, y, poly) {
+        var inside = false;
+        for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            var xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y;
+            if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+        }
+        return inside;
+    }
+
+    // 전체 수평투영면적(합집합) = 신축 건물 ∪ 확정 포디움 ∪ 작성 중인 포디움.
+    // 겹치는 면적은 한 번만 산입한다.
+    //  · 폴리곤이 서로 겹치지 않으면 각 면적의 정확한 합을 반환(오차 없음).
+    //  · 겹치면 겹친 영역만 격자 샘플링으로 추정해 중복분을 빼므로, 오차는 작은
+    //    겹침 영역에만 한정된다.
+    function computeTotalProjArea() {
+        var polys = [];
+        if (drawCoords.length >= 3) polys.push(drawCoords);
+        groundPolygonsList.forEach(function(item) { if (item.coords && item.coords.length >= 3) polys.push(item.coords); });
+        if (groundPolyCoords.length >= 3) polys.push(groundPolyCoords);
+        roofPolygonsList.forEach(function(item) { if (item.coords && item.coords.length >= 3) polys.push(item.coords); });
+        if (roofPolyCoords.length >= 3) polys.push(roofPolyCoords);
+        if (!polys.length) return 0;
+
+        // 개별 면적의 정확한 합
+        var sum = 0;
+        polys.forEach(function(p) { sum += areaOfCoords(p); });
+        if (polys.length === 1) return sum;
+
+        // 공통 기준 위도로 미터 좌표 변환 + 폴리곤별 경계상자(bbox)
+        var latSum = 0, n = 0;
+        polys.forEach(function(p) { p.forEach(function(c) { latSum += c.lat; n++; }); });
+        var lat0 = latSum / n;
+        var mPerLat = 111320, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
+        var mpolys = polys.map(function(p) {
+            var minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+            var pts = p.map(function(c) {
+                var x = c.lon * mPerLon, y = c.lat * mPerLat;
+                if (x < minx) minx = x; if (x > maxx) maxx = x;
+                if (y < miny) miny = y; if (y > maxy) maxy = y;
+                return { x: x, y: y };
+            });
+            return { pts: pts, minx: minx, miny: miny, maxx: maxx, maxy: maxy };
+        });
+
+        // 두 bbox가 겹치는 구간들의 합집합 = 격자 샘플링이 필요한 영역
+        var rx0 = Infinity, ry0 = Infinity, rx1 = -Infinity, ry1 = -Infinity, anyOverlap = false;
+        for (var a = 0; a < mpolys.length; a++) {
+            for (var b = a + 1; b < mpolys.length; b++) {
+                var A = mpolys[a], B = mpolys[b];
+                var ix0 = Math.max(A.minx, B.minx), iy0 = Math.max(A.miny, B.miny);
+                var ix1 = Math.min(A.maxx, B.maxx), iy1 = Math.min(A.maxy, B.maxy);
+                if (ix0 < ix1 && iy0 < iy1) {
+                    anyOverlap = true;
+                    if (ix0 < rx0) rx0 = ix0; if (iy0 < ry0) ry0 = iy0;
+                    if (ix1 > rx1) rx1 = ix1; if (iy1 > ry1) ry1 = iy1;
+                }
+            }
+        }
+        if (!anyOverlap) return sum; // 겹침 없음 → 정확한 합
+
+        // 겹침 후보 영역만 격자 샘플링: count≥2 셀의 중복분(count-1)을 누적
+        var w = rx1 - rx0, h = ry1 - ry0, longest = Math.max(w, h);
+        var cell = longest / 500;
+        var nx = Math.ceil(w / cell), ny = Math.ceil(h / cell);
+        var maxCells = 250000;
+        while (nx * ny > maxCells) { cell *= 1.3; nx = Math.ceil(w / cell); ny = Math.ceil(h / cell); }
+        var cellArea = cell * cell, overlapExtra = 0;
+        for (var iy = 0; iy < ny; iy++) {
+            var py = ry0 + (iy + 0.5) * cell;
+            for (var ix = 0; ix < nx; ix++) {
+                var px = rx0 + (ix + 0.5) * cell, count = 0;
+                for (var k = 0; k < mpolys.length; k++) {
+                    var mp = mpolys[k];
+                    if (px < mp.minx || px > mp.maxx || py < mp.miny || py > mp.maxy) continue;
+                    if (pointInPoly(px, py, mp.pts)) count++;
+                }
+                if (count >= 2) overlapExtra += (count - 1) * cellArea;
+            }
+        }
+        return Math.max(0, sum - overlapExtra);
+    }
+
+    // 대지면적 입력 / 폴리곤 변경 시 전체 수평투영면적·건폐율 갱신
+    function updateCoverage() {
+        var proj = computeTotalProjArea();
+        var projEl = document.getElementById("projArea");
+        if (projEl) projEl.textContent = proj > 0 ? proj.toFixed(1) : "–";
+        var siteEl = document.getElementById("siteArea");
+        var ratioEl = document.getElementById("coverageRatio");
+        if (!ratioEl) return;
+        var site = siteEl ? Number(siteEl.value) : 0;
+        if (site > 0 && proj > 0) {
+            var ratio = proj / site * 100;
+            ratioEl.textContent = ratio.toFixed(1);
+            ratioEl.classList.toggle("over", ratio > 100);
+        } else {
+            ratioEl.textContent = "–";
+            ratioEl.classList.remove("over");
+        }
     }
 
     function rebuildDraft() {
@@ -432,6 +684,8 @@
             draftEntities.push(draftSolid);
         }
         rebuildPaneling();
+        updateCoverage();
+        updateRoofHeights(); // 건물 형상 변경 → 지붕 시작 z 동기화
     }
 
     // ====================================================================
@@ -447,10 +701,11 @@
         }
         groundPolygonsList.forEach(function(item) { item.entity.polygon.extrudedHeight = item.baseH + elevateMeter; });
         if (groundPolyCoords.length >= 3) rebuildGroundDraft();
+        updateRoofHeights(); // 건물이 위로 이동 → 지붕 시작 z 갱신
         updateStatus();
     }
 
-    // --- 지면 폴리곤 그리기 토글 ---
+    // --- 포디움 그리기 토글 ---
     function toggleGroundDraw() {
         if (mode === "drawGround") {
             mode = "select";
@@ -458,19 +713,23 @@
             if (elevateMeter <= 0) { alert("먼저 '지면에서 띄우기' 슬라이더를 1m 이상으로 설정하세요."); return; }
             if (mode === "editGround") { disableGroundVertexDrag(); }
             else if (mode === "draw" || mode === "edit") { disableVertexDrag(); }
+            if (mode === "editRoof") { disableRoofVertexDrag(); }
+            if (mode === "drawRoof" || mode === "editRoof") { clearRoofDraft(); roofPolyCoords = []; refreshRoofModeUI(); }
             mode = "drawGround";
         }
         refreshGroundModeUI(); refreshModeUI(); updateStatus();
     }
 
-    // --- 지면 폴리곤 점 위치 조정 토글 ---
+    // --- 포디움 점 위치 조정 토글 ---
     function toggleGroundEdit() {
         if (mode === "editGround") {
             mode = "select";
             disableGroundVertexDrag();
         } else {
-            if (groundPolyCoords.length === 0) { alert("먼저 '지면 폴리곤 그리기'로 정점을 만든 뒤 조정하세요."); return; }
+            if (groundPolyCoords.length === 0) { alert("먼저 '포디움 그리기'로 정점을 만든 뒤 조정하세요."); return; }
             if (mode === "draw" || mode === "edit") { disableVertexDrag(); }
+            if (mode === "editRoof") { disableRoofVertexDrag(); }
+            if (mode === "drawRoof" || mode === "editRoof") { clearRoofDraft(); roofPolyCoords = []; refreshRoofModeUI(); }
             // drawGround → editGround : 그냥 서브모드 전환 (draft 유지)
             mode = "editGround";
             enableGroundVertexDrag();
@@ -483,7 +742,7 @@
         var editBtn = document.getElementById("groundEditBtn");
         if (drawBtn) {
             drawBtn.classList.toggle("active", mode === "drawGround");
-            drawBtn.textContent = (mode === "drawGround") ? "그리는 중…" : "지면 폴리곤 그리기";
+            drawBtn.textContent = (mode === "drawGround") ? "그리는 중…" : "포디움 그리기";
         }
         if (editBtn) {
             editBtn.classList.toggle("active", mode === "editGround");
@@ -491,7 +750,7 @@
         }
     }
 
-    // --- 지면 폴리곤 드래프트 재빌드 ---
+    // --- 포디움 드래프트 재빌드 ---
     function rebuildGroundDraft() {
         clearGroundDraft();
         if (!viewer) return;
@@ -533,11 +792,12 @@
             groundPolyDraftSolid = viewer.entities.add({ polygon: {
                 hierarchy: Cesium.Cartesian3.fromDegreesArray(pflat),
                 height: baseH2, extrudedHeight: baseH2 + elevateMeter,
-                material: Cesium.Color.fromBytes(180, 170, 155, 160), outline: true,
-                outlineColor: Cesium.Color.fromBytes(100, 90, 80, 255)
+                material: Cesium.Color.fromBytes(191, 191, 191, 255), outline: true,
+                outlineColor: Cesium.Color.fromBytes(100, 100, 100, 255)
             }});
             groundPolyDraftEnts.push(groundPolyDraftSolid);
         }
+        updateCoverage();
     }
 
     function clearGroundDraft() {
@@ -575,15 +835,15 @@
         var ent = viewer.entities.add({ polygon: {
             hierarchy: Cesium.Cartesian3.fromDegreesArray(pflat),
             height: baseH3, extrudedHeight: baseH3 + elevateMeter,
-            material: Cesium.Color.fromBytes(175, 168, 155, 230), outline: true,
-            outlineColor: Cesium.Color.fromBytes(100, 90, 80, 255)
+            material: Cesium.Color.fromBytes(191, 191, 191, 255), outline: true,
+            outlineColor: Cesium.Color.fromBytes(100, 100, 100, 255)
         }});
-        groundPolygonsList.push({ entity: ent, baseH: baseH3 });
+        groundPolygonsList.push({ entity: ent, baseH: baseH3, coords: groundPolyCoords.slice() });
         groundPolyCoords = [];
 
         // 다음 폴리곤을 바로 그릴 수 있도록 drawGround 모드로
         if (mode === "editGround" || mode === "drawGround") mode = "drawGround";
-        refreshGroundModeUI(); refreshModeUI(); updateStatus();
+        refreshGroundModeUI(); refreshModeUI(); updateStatus(); updateCoverage();
     }
 
     function clearAllGroundPolygons() {
@@ -592,10 +852,10 @@
         if (viewer) { groundPolygonsList.forEach(function(item) { try { viewer.entities.remove(item.entity); } catch(x){} }); }
         groundPolygonsList = []; groundPolyCoords = [];
         if (mode === "drawGround" || mode === "editGround") mode = "select";
-        refreshGroundModeUI(); refreshModeUI(); updateStatus();
+        refreshGroundModeUI(); refreshModeUI(); updateStatus(); updateCoverage();
     }
 
-    // --- 지면 폴리곤 정점 드래그 ---
+    // --- 포디움 정점 드래그 ---
     function enableGroundVertexDrag() {
         rebuildGroundDraft(); // 점을 주황색으로 재빌드
         if (!viewer || groundDragHandler) return;
@@ -625,6 +885,207 @@
         groundDragIndex = -1;
         setCameraInteractions(true);
         if (mode !== "editGround") rebuildGroundDraft(); // 점 색 원복
+    }
+
+    // ====================================================================
+    // 지붕 디자인 (시작 z = 신축 건물 최상단, 높이 = 슬라이더)
+    // ====================================================================
+    // 신축 건물 최상단 높이(m) = 지반 + 띄우기 + 건물 높이
+    function buildingTopH() { return draftBaseH + elevateMeter + draftHeight; }
+
+    // 확정된 모든 지붕 폴리곤의 시작·끝 z를 현재 건물 최상단/슬라이더 값에 맞춰 갱신
+    function updateRoofHeights() {
+        var topH = buildingTopH();
+        roofPolygonsList.forEach(function(item) {
+            item.entity.polygon.height = topH;
+            item.entity.polygon.extrudedHeight = topH + roofHeightMeter;
+        });
+        if (mode === "drawRoof" || mode === "editRoof") rebuildRoofDraft();
+    }
+
+    // 높이 슬라이더 변경
+    function onRoofHeightChange() {
+        roofHeightMeter = Number(document.getElementById("roofRange").value) || 0;
+        document.getElementById("roofVal").textContent = roofHeightMeter.toFixed(1) + " m";
+        updateRoofHeights();
+        updateStatus();
+    }
+
+    // --- 지붕 폴리곤 그리기 토글 ---
+    function toggleRoofDraw() {
+        if (mode === "drawRoof") {
+            mode = "select";
+        } else {
+            if (drawCoords.length < 3) { alert("먼저 신축 건물을 그린 뒤 지붕을 디자인하세요."); return; }
+            if (mode === "editRoof") { disableRoofVertexDrag(); }
+            else {
+                if (mode === "editGround") { disableGroundVertexDrag(); }
+                if (mode === "drawGround" || mode === "editGround") { clearGroundDraft(); groundPolyCoords = []; refreshGroundModeUI(); }
+                if (mode === "draw" || mode === "edit") { disableVertexDrag(); }
+            }
+            mode = "drawRoof";
+        }
+        refreshRoofModeUI(); refreshModeUI(); updateStatus();
+    }
+
+    // --- 지붕 폴리곤 점 위치 조정 토글 ---
+    function toggleRoofEdit() {
+        if (mode === "editRoof") {
+            mode = "select";
+            disableRoofVertexDrag();
+        } else {
+            if (roofPolyCoords.length === 0) { alert("먼저 '지붕 폴리곤 그리기'로 정점을 만든 뒤 조정하세요."); return; }
+            if (mode === "editGround") { disableGroundVertexDrag(); }
+            if (mode === "drawGround" || mode === "editGround") { clearGroundDraft(); groundPolyCoords = []; refreshGroundModeUI(); }
+            if (mode === "draw" || mode === "edit") { disableVertexDrag(); }
+            // drawRoof → editRoof : 서브모드 전환 (draft 유지)
+            mode = "editRoof";
+            enableRoofVertexDrag();
+        }
+        refreshRoofModeUI(); refreshModeUI(); updateStatus();
+    }
+
+    function refreshRoofModeUI() {
+        var drawBtn = document.getElementById("roofDrawBtn");
+        var editBtn = document.getElementById("roofEditBtn");
+        if (drawBtn) {
+            drawBtn.classList.toggle("active", mode === "drawRoof");
+            drawBtn.textContent = (mode === "drawRoof") ? "그리는 중…" : "지붕 폴리곤 그리기";
+        }
+        if (editBtn) {
+            editBtn.classList.toggle("active", mode === "editRoof");
+            editBtn.textContent = (mode === "editRoof") ? "조정 중… (드래그)" : "점 위치 조정";
+        }
+    }
+
+    // --- 지붕 폴리곤 드래프트 재빌드 (정점·연결선·솔리드 모두 건물 최상단 높이에) ---
+    function rebuildRoofDraft() {
+        clearRoofDraft();
+        if (!viewer) return;
+        var isEdit = (mode === "editRoof");
+        var topH = buildingTopH();
+
+        // 정점 점 — 건물 최상단 높이에 표시
+        roofPolyCoords.forEach(function(c) {
+            var p = viewer.entities.add({
+                position: Cesium.Cartesian3.fromDegrees(c.lon, c.lat, topH),
+                point: {
+                    pixelSize: isEdit ? 12 : 9,
+                    color: isEdit ? Cesium.Color.ORANGE : Cesium.Color.fromBytes(80, 170, 255, 255),
+                    outlineColor: Cesium.Color.BLACK, outlineWidth: 2,
+                    disableDepthTestDistance: Number.POSITIVE_INFINITY
+                }
+            });
+            roofPolyPointEnts.push(p);
+            roofPolyDraftEnts.push(p);
+        });
+
+        // 연결선 — 건물 최상단 높이
+        if (roofPolyCoords.length >= 2) {
+            var ring = roofPolyCoords.slice();
+            if (roofPolyCoords.length >= 3) ring.push(roofPolyCoords[0]);
+            var flat = []; ring.forEach(function(c) { flat.push(c.lon, c.lat, topH); });
+            roofPolyDraftEnts.push(viewer.entities.add({
+                polyline: { positions: Cesium.Cartesian3.fromDegreesArrayHeights(flat), width: 2,
+                    material: Cesium.Color.fromBytes(80, 170, 255, 220) }
+            }));
+        }
+
+        // 미리보기 솔리드 — base = 건물 최상단, extrude = +지붕 높이
+        roofPolyDraftSolid = null;
+        if (roofPolyCoords.length >= 3) {
+            var pflat = []; roofPolyCoords.forEach(function(c) { pflat.push(c.lon, c.lat); });
+            roofPolyDraftSolid = viewer.entities.add({ polygon: {
+                hierarchy: Cesium.Cartesian3.fromDegreesArray(pflat),
+                height: topH, extrudedHeight: topH + roofHeightMeter,
+                material: Cesium.Color.fromBytes(130, 130, 130, 255), outline: true,
+                outlineColor: Cesium.Color.fromBytes(70, 70, 70, 255)
+            }});
+            roofPolyDraftEnts.push(roofPolyDraftSolid);
+        }
+        updateCoverage();
+    }
+
+    function clearRoofDraft() {
+        if (viewer) { roofPolyDraftEnts.forEach(function(e) { try { viewer.entities.remove(e); } catch(x){} }); }
+        roofPolyDraftEnts = [];
+        roofPolyPointEnts = [];
+        roofPolyDraftSolid = null;
+    }
+
+    function undoRoofPoint() {
+        if (roofPolyCoords.length > 0) { roofPolyCoords.pop(); rebuildRoofDraft(); updateStatus(); }
+    }
+
+    // 현재 드래프트 폴리곤 확정 → drawRoof 모드 유지해 연속 작업 가능
+    function confirmRoofPoly() {
+        if (roofDragHandler) { roofDragHandler.destroy(); roofDragHandler = null; }
+        roofDragIndex = -1;
+        setCameraInteractions(true);
+
+        if (roofPolyCoords.length < 3) {
+            clearRoofDraft();
+            roofPolyCoords = [];
+            if (mode === "editRoof") { mode = "drawRoof"; }
+            refreshRoofModeUI(); refreshModeUI(); updateStatus();
+            return;
+        }
+        clearRoofDraft();
+
+        var topH = buildingTopH();
+        var pflat = []; roofPolyCoords.forEach(function(c) { pflat.push(c.lon, c.lat); });
+        var ent = viewer.entities.add({ polygon: {
+            hierarchy: Cesium.Cartesian3.fromDegreesArray(pflat),
+            height: topH, extrudedHeight: topH + roofHeightMeter,
+            material: Cesium.Color.fromBytes(130, 130, 130, 255), outline: true,
+            outlineColor: Cesium.Color.fromBytes(70, 70, 70, 255)
+        }});
+        roofPolygonsList.push({ entity: ent, coords: roofPolyCoords.slice() });
+        roofPolyCoords = [];
+
+        if (mode === "editRoof" || mode === "drawRoof") mode = "drawRoof";
+        refreshRoofModeUI(); refreshModeUI(); updateStatus(); updateCoverage();
+    }
+
+    function clearAllRoofPolygons() {
+        if (mode === "editRoof") { disableRoofVertexDrag(); }
+        clearRoofDraft();
+        if (viewer) { roofPolygonsList.forEach(function(item) { try { viewer.entities.remove(item.entity); } catch(x){} }); }
+        roofPolygonsList = []; roofPolyCoords = [];
+        if (mode === "drawRoof" || mode === "editRoof") mode = "select";
+        refreshRoofModeUI(); refreshModeUI(); updateStatus(); updateCoverage();
+    }
+
+    // --- 지붕 폴리곤 정점 드래그 ---
+    function enableRoofVertexDrag() {
+        rebuildRoofDraft(); // 점을 주황색으로 재빌드
+        if (!viewer || roofDragHandler) return;
+        roofDragHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+
+        roofDragHandler.setInputAction(function(e) {
+            var picked = viewer.scene.pick(e.position);
+            if (picked && picked.id) {
+                var idx = roofPolyPointEnts.indexOf(picked.id);
+                if (idx !== -1) { roofDragIndex = idx; setCameraInteractions(false); }
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+
+        roofDragHandler.setInputAction(function(e) {
+            if (roofDragIndex < 0) return;
+            var ll = pickGlobeLonLat(e.endPosition);
+            if (ll) { roofPolyCoords[roofDragIndex] = ll; rebuildRoofDraft(); }
+        }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+        roofDragHandler.setInputAction(function() {
+            roofDragIndex = -1; setCameraInteractions(true); updateStatus();
+        }, Cesium.ScreenSpaceEventType.LEFT_UP);
+    }
+
+    function disableRoofVertexDrag() {
+        if (roofDragHandler) { roofDragHandler.destroy(); roofDragHandler = null; }
+        roofDragIndex = -1;
+        setCameraInteractions(true);
+        if (mode !== "editRoof") rebuildRoofDraft(); // 점 색 원복
     }
 
     // ---- 입면 모듈 패널링 ----
@@ -769,8 +1230,13 @@
 
     function clearBuilding() {
         if (drawCoords.length === 0 && !draftSolid) { alert("삭제할 건물이 없습니다."); return; }
+        // 건물 최상단에 종속된 지붕 폴리곤도 함께 제거
+        if (mode === "editRoof") disableRoofVertexDrag();
+        clearRoofDraft();
+        if (viewer) { roofPolygonsList.forEach(function(item) { try { viewer.entities.remove(item.entity); } catch(x){} }); }
+        roofPolygonsList = []; roofPolyCoords = []; refreshRoofModeUI();
         clearDraftHelpers(); drawCoords = []; mode = "select";
-        disableVertexDrag(); refreshModeUI(); updateStatus();
+        disableVertexDrag(); refreshModeUI(); updateStatus(); updateCoverage();
     }
 
     // ====================================================================
@@ -816,7 +1282,14 @@
             var gCount = groundPolygonsList.length, gDraft = groundPolyCoords.length;
             if (mode === "drawGround") gh.textContent = "현재 정점 " + gDraft + "개 · 확정 " + gCount + "개";
             else if (mode === "editGround") gh.textContent = "드래그로 정점 이동 (정점 " + gDraft + "개) · 확정 " + gCount + "개";
-            else gh.textContent = gCount > 0 ? "확정된 지면 폴리곤 " + gCount + "개" : "";
+            else gh.textContent = gCount > 0 ? "확정된 포디움 " + gCount + "개" : "";
+        }
+        var rh = document.getElementById("roofHint");
+        if (rh) {
+            var rCount = roofPolygonsList.length, rDraft = roofPolyCoords.length;
+            if (mode === "drawRoof") rh.textContent = "현재 정점 " + rDraft + "개 · 확정 " + rCount + "개";
+            else if (mode === "editRoof") rh.textContent = "드래그로 정점 이동 (정점 " + rDraft + "개) · 확정 " + rCount + "개";
+            else rh.textContent = rCount > 0 ? "확정된 지붕 폴리곤 " + rCount + "개" : "";
         }
         if (mode === "draw") {
             s.textContent = "점 찍기: 지면 클릭 → 정점 추가 (" + drawCoords.length + "개" + (perim ? ", 둘레 " + perim.toFixed(1) + "m" : "") + "). 3개↑이면 솔리드 미리보기.";
@@ -824,9 +1297,13 @@
             var se = getStory();
             s.textContent = "신축 건물 점 조정: 주황 정점 드래그 (" + drawCoords.length + "개, 둘레 " + perim.toFixed(1) + "m, " + se.floors + "층 × " + se.h + "m).";
         } else if (mode === "drawGround") {
-            s.textContent = "지면 폴리곤 그리기: 지면 클릭 → 정점 추가 (" + groundPolyCoords.length + "개). 3개 이상 후 '이 폴리곤 확정'.";
+            s.textContent = "포디움 그리기: 지면 클릭 → 정점 추가 (" + groundPolyCoords.length + "개). 3개 이상 후 '이 폴리곤 확정'.";
         } else if (mode === "editGround") {
-            s.textContent = "지면 폴리곤 점 조정: 주황 정점을 드래그해 이동 (정점 " + groundPolyCoords.length + "개).";
+            s.textContent = "포디움 점 조정: 주황 정점을 드래그해 이동 (정점 " + groundPolyCoords.length + "개).";
+        } else if (mode === "drawRoof") {
+            s.textContent = "지붕 폴리곤 그리기: 지면 클릭 → 정점 추가 (" + roofPolyCoords.length + "개). 건물 최상단 +" + roofHeightMeter.toFixed(1) + "m. 3개 이상 후 '이 폴리곤 확정'.";
+        } else if (mode === "editRoof") {
+            s.textContent = "지붕 폴리곤 점 조정: 주황 정점을 드래그해 이동 (정점 " + roofPolyCoords.length + "개).";
         } else {
             if (drawCoords.length >= 3) {
                 var st = getStory(), elevStr = elevateMeter > 0 ? ", 띄우기 " + elevateMeter.toFixed(1) + "m" : "";
