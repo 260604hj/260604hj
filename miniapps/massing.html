@@ -242,15 +242,14 @@
         </div>
         <div class="row" style="gap:6px; margin-top:6px;">
             <div style="flex:1; text-align:center;">
-                <img id="thumbCornerR" class="layer-thumb" alt="">
-                <div class="hint" style="margin-top:2px;">우코너 frame-3</div>
+                <img id="thumbCornerL" class="layer-thumb" alt="">
+                <div class="hint" style="margin-top:2px;">좌끝 frame-4</div>
             </div>
             <div style="flex:1; text-align:center;">
-                <img id="thumbCornerL" class="layer-thumb" alt="">
-                <div class="hint" style="margin-top:2px;">좌코너 frame-4</div>
+                <img id="thumbCornerR" class="layer-thumb" alt="">
+                <div class="hint" style="margin-top:2px;">우끝 frame-3</div>
             </div>
         </div>
-
         <div class="ai-caption" style="margin-top:8px;">CARTRIDGE (모듈마다 랜덤)</div>
         <div class="row" style="gap:6px;">
             <div style="flex:1; text-align:center;">
@@ -1481,12 +1480,13 @@
     // ====================================================================
     // 1) FRAME 레이어(타일 텍스처) 즉시 플레이스홀더 세팅(항상 non-null)
     var PANEL_LAYERS = {
-        outer:   makeFallbackDataURL(), // 외측 frame-1
+        outer:   makeFallbackDataURL(), // 외측 frame-1 (가운데 모듈)
         inner:   makeFallbackDataURL(), // 내측 frame-2
-        corner3: makeFallbackDataURL(), // frame-3 우(오른쪽) 코너 모듈
-        corner4: makeFallbackDataURL()  // frame-4 좌(왼쪽) 코너 모듈
+        corner3: makeFallbackDataURL(), // frame-3 = 외측 오른쪽 끝 모듈
+        corner4: makeFallbackDataURL()  // frame-4 = 외측 왼쪽 끝 모듈
     };
     var CART_IMG = [null, null];  // CARTRIDGE: cart-1, cart-2 (캔버스 합성용 Image)
+    var CART_URL = [makeFallbackDataURL(), makeFallbackDataURL()]; // cart-1/2 dataURL(코너 채움용)
     var cartCanvasCache = {};     // 베이크된 cart 텍스처 캐시
     var layerGap = 0.5;           // 레이어 등간격 깊이(m)
 
@@ -1565,6 +1565,7 @@
                 var reader = new FileReader();
                 reader.onload = function(e) {
                     var url = e.target.result;
+                    CART_URL[idx] = url;
                     setLayerThumb(thumbId, url);
                     var img = new Image();
                     img.onload = function() { CART_IMG[idx] = img; cartCanvasCache = {}; rebuildPaneling(); };
@@ -1626,10 +1627,10 @@
         onCartRatioChange();                                   // 비율 라벨 동기화
         var il = document.getElementById("interiorLightVal");
         if (il) il.textContent = getInteriorLight();           // 명도 라벨 동기화
-        loadLayerImage("frame-1.png", "outer",   "thumbFrameOuter"); // 외측 frame
-        loadLayerImage("frame-2.png", "inner",   "thumbFrameInner"); // 내측 frame
-        loadLayerImage("frame-3.png", "corner3", "thumbCornerR");    // 우 코너
-        loadLayerImage("frame-4.png", "corner4", "thumbCornerL");    // 좌 코너
+        loadLayerImage("frame-1.png", "outer",   "thumbFrameOuter"); // 외측 가운데
+        loadLayerImage("frame-2.png", "inner",   "thumbFrameInner"); // 내측
+        loadLayerImage("frame-3.png", "corner3", "thumbCornerR");    // 외측 우측 끝
+        loadLayerImage("frame-4.png", "corner4", "thumbCornerL");    // 외측 좌측 끝
         loadCartImage("cart-1.png", 0, "thumbCart1");              // cartridge 1
         loadCartImage("cart-2.png", 1, "thumbCart2");              // cartridge 2
     }
@@ -1649,22 +1650,57 @@
         return { A: { lon: A.lon + dLon, lat: A.lat + dLat }, B: { lon: B.lon + dLon, lat: B.lat + dLat } };
     }
 
-    // 변의 바깥(중심 반대) 단위 법선 + 좌표 변환계수 반환
-    function edgeOutwardNormal(A, B, centroid) {
-        var lat0 = (A.lat + B.lat) / 2;
+    // 폴리곤을 바깥으로 d미터 마이터 오프셋 — 인접 변의 오프셋선 교점으로 코너를 연장·접합.
+    // 반환: 같은 정점 수의 lon/lat 배열(코너가 닫힌 외곽 링).
+    function offsetPolygon(coords, d) {
+        var n = coords.length;
+        if (n < 3) return coords.map(function(c) { return { lon: c.lon, lat: c.lat }; });
+        var lon0 = 0, lat0 = 0;
+        coords.forEach(function(c) { lon0 += c.lon; lat0 += c.lat; });
+        lon0 /= n; lat0 /= n;
         var mPerLat = 111320, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
-        var dx = (B.lon - A.lon) * mPerLon, dy = (B.lat - A.lat) * mPerLat;
-        var L = Math.sqrt(dx * dx + dy * dy) || 1;
-        var ex = dx / L, ey = dy / L;
-        var nx = -ey, ny = ex;
-        var midLon = (A.lon + B.lon) / 2, midLat = (A.lat + B.lat) / 2;
-        var cdx = (centroid.lon - midLon) * mPerLon, cdy = (centroid.lat - midLat) * mPerLat;
-        if (nx * cdx + ny * cdy > 0) { nx = -nx; ny = -ny; } // 바깥 방향
-        return { nx: nx, ny: ny, ex: ex, ey: ey, mPerLon: mPerLon, mPerLat: mPerLat };
+        var P = coords.map(function(c) { return { x: (c.lon - lon0) * mPerLon, y: (c.lat - lat0) * mPerLat }; });
+        // winding(부호 면적)으로 외향 법선 방향 결정 — 오목/가는 형상에서도 모든 변이 올바르게 바깥으로
+        var A2 = 0;
+        for (var i = 0; i < n; i++) { var j = (i + 1) % n; A2 += P[i].x * P[j].y - P[j].x * P[i].y; }
+        var sgn = (A2 > 0) ? 1 : -1;
+        var E = [];
+        for (var i = 0; i < n; i++) {
+            var a = P[i], b = P[(i + 1) % n];
+            var dx = b.x - a.x, dy = b.y - a.y, L = Math.sqrt(dx * dx + dy * dy) || 1;
+            var nx = sgn * dy / L, ny = -sgn * dx / L; // 외향 단위 법선(변에 수직)
+            E.push({ nx: nx, ny: ny, dx: dx, dy: dy });
+        }
+        var out = [];
+        for (var i = 0; i < n; i++) {
+            var pe = E[(i - 1 + n) % n], ce = E[i], V = P[i];
+            var A0x = V.x + pe.nx * d, A0y = V.y + pe.ny * d; // 이전 변 오프셋선 통과점 (방향 pe.d)
+            var A1x = V.x + ce.nx * d, A1y = V.y + ce.ny * d; // 현재 변 오프셋선 통과점 (방향 ce.d)
+            var den = pe.dx * ce.dy - pe.dy * ce.dx;          // cross(prev, cur)
+            var ix, iy;
+            if (Math.abs(den) < 1e-6) { ix = (A0x + A1x) / 2; iy = (A0y + A1y) / 2; } // 평행
+            else {
+                var t = ((A1x - A0x) * ce.dy - (A1y - A0y) * ce.dx) / den;
+                ix = A0x + t * pe.dx; iy = A0y + t * pe.dy;
+            }
+            out.push({ lon: lon0 + ix / mPerLon, lat: lat0 + iy / mPerLat });
+        }
+        return out;
     }
-    // 정점 V 를 법선 방향으로 t미터 이동
-    function offV(V, nrm, t) {
-        return { lon: V.lon + nrm.nx * t / nrm.mPerLon, lat: V.lat + nrm.ny * t / nrm.mPerLat };
+
+    // 두 점 사이 선형보간(짧은 변에서 충분)
+    function lerpPt(P0, P1, t) { return { lon: P0.lon + (P1.lon - P0.lon) * t, lat: P0.lat + (P1.lat - P0.lat) * t }; }
+
+    // 변 a→b 에서 (외부에서 봤을 때) b 가 오른쪽 끝인가? cross(외향법선, 변방향)>0
+    function rightEndIsJ(a, b, cen) {
+        var lat0 = (a.lat + b.lat) / 2;
+        var mPerLat = 111320, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
+        var ex = (b.lon - a.lon) * mPerLon, ey = (b.lat - a.lat) * mPerLat;
+        var nx = -ey, ny = ex;
+        var mx = (a.lon + b.lon) / 2, my = (a.lat + b.lat) / 2;
+        var cdx = (cen.lon - mx) * mPerLon, cdy = (cen.lat - my) * mPerLat;
+        if (nx * cdx + ny * cdy > 0) { nx = -nx; ny = -ny; } // 바깥
+        return (nx * ey - ny * ex) > 0;
     }
 
     // 정점을 중심 방향으로 d미터 들이기 — 불투명 코어를 외피보다 약간 내측에 배치
@@ -1682,9 +1718,6 @@
         if (drawCoords.length < 3) return;
         var modW = getModuleW(), story = getStory(), gap = getLayerGap(), ratio2 = getCartRatio();
         var base = draftBaseH + elevateMeter, top = base + story.h * story.floors, rows = story.floors;
-        var cx = 0, cy = 0; drawCoords.forEach(function(p) { cx += p.lon; cy += p.lat; });
-        var centroid = { lon: cx / drawCoords.length, lat: cy / drawCoords.length };
-        var ring = drawCoords.slice(); ring.push(drawCoords[0]);
         // 벽 1장 추가 헬퍼
         function addPanelWall(A, B, img, rx, ry) {
             panelEntities.push(viewer.entities.add({ wall: {
@@ -1693,25 +1726,46 @@
                 material: new Cesium.ImageMaterialProperty({ image: img, repeat: new Cesium.Cartesian2(rx, ry), transparent: true })
             }}));
         }
-        var depth = gap * 2; // 외측 돌출 깊이
-        // 내측 frame-2(0=벽면) → 중간 cart(gap, 모듈마다 랜덤) → 외측 frame-1(2*gap) 바깥으로 돌출
-        // + 각 변의 양 코너를 막음: 오른쪽 frame-3, 왼쪽 frame-4
-        for (var e = 0; e < ring.length - 1; e++) {
-            var Va = ring[e], Vb = ring[e + 1];
-            var nrm = edgeOutwardNormal(Va, Vb, centroid);
-            var L = geoDistance(Va, Vb);
-            var ncols = Math.max(1, Math.round(L / modW)); // 변마다 정수 모듈 수(레이어 정렬)
-            var cartTex = getCartTexture(e, ncols, rows, ratio2);
-            addPanelWall(offV(Va, nrm, 0),     offV(Vb, nrm, 0),     PANEL_LAYERS.inner, ncols, rows); // 내측 frame-2
-            addPanelWall(offV(Va, nrm, gap),   offV(Vb, nrm, gap),   cartTex,            1,     1);     // 중간 cart
-            addPanelWall(offV(Va, nrm, depth), offV(Vb, nrm, depth), PANEL_LAYERS.outer, ncols, rows); // 외측 frame-1
-            // 코너 리턴(외측 끝점 → 원래 정점). cross(n,e)>0 이면 Vb 가 오른쪽 코너
-            var cr = nrm.nx * nrm.ey - nrm.ny * nrm.ex;
-            var rightV = (cr > 0) ? Vb : Va, leftV = (cr > 0) ? Va : Vb;
-            addPanelWall(offV(rightV, nrm, depth), { lon: rightV.lon, lat: rightV.lat }, PANEL_LAYERS.corner3, 1, rows); // 우 코너 frame-3
-            addPanelWall(offV(leftV,  nrm, depth), { lon: leftV.lon,  lat: leftV.lat },  PANEL_LAYERS.corner4, 1, rows); // 좌 코너 frame-4
+        // 3개 주 패널은 '면 법선으로 평행이동'(같은 길이 L, 같은 모듈 분할)하여 법선 방향으로 정확히 정렬.
+        // 코너(평행이동으로 생긴 틈)는 별도 조각으로 채움 — 길이는 마이터 지점까지(=gap 비례).
+        var n = drawCoords.length;
+        var lon0 = 0, lat0 = 0; drawCoords.forEach(function(p) { lon0 += p.lon; lat0 += p.lat; });
+        lon0 /= n; lat0 /= n;
+        var mPerLat = 111320, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
+        var Pm = drawCoords.map(function(c) { return { x: (c.lon - lon0) * mPerLon, y: (c.lat - lat0) * mPerLat }; });
+        var A2 = 0; for (var i = 0; i < n; i++) { var j = (i + 1) % n; A2 += Pm[i].x * Pm[j].y - Pm[j].x * Pm[i].y; }
+        var sgn = (A2 > 0) ? 1 : -1;
+        var N = [];
+        for (var i = 0; i < n; i++) {
+            var j = (i + 1) % n, dx = Pm[j].x - Pm[i].x, dy = Pm[j].y - Pm[i].y, L = Math.sqrt(dx * dx + dy * dy) || 1;
+            N.push({ nx: sgn * dy / L, ny: -sgn * dx / L, ex: dx / L, ey: dy / L });
         }
-        var roofFlat = []; drawCoords.forEach(function(p) { roofFlat.push(p.lon, p.lat); });
+        // 정점 k 를 변 ei 의 외향 법선으로 t미터 이동 → lon/lat
+        function tv(k, ei, t) { var x = Pm[k].x + N[ei].nx * t, y = Pm[k].y + N[ei].ny * t; return { lon: lon0 + x / mPerLon, lat: lat0 + y / mPerLat }; }
+        var cartRing  = offsetPolygon(drawCoords, gap);     // 중간 cart 마이터(코너 지점용)
+        var outerRing = offsetPolygon(drawCoords, gap * 2); // 외측 frame-1 마이터(코너 지점용)
+        function addCorner(P, Q, img) { if (geoDistance(P, Q) > 0.05) addPanelWall(P, Q, img, 1, rows); }
+        for (var i = 0; i < n; i++) {
+            var j = (i + 1) % n;
+            var L = geoDistance(drawCoords[i], drawCoords[j]);
+            var ncols = Math.max(1, Math.round(L / modW));
+            // 내측 frame-2 (offset 0) — 원래 변(코너에서 자동 접합, 연속)
+            addPanelWall(drawCoords[i], drawCoords[j], PANEL_LAYERS.inner, ncols, rows);
+            // 중간 cart — 면 법선으로 평행이동(정렬). 코너 틈은 cart-1 로 채움
+            var cA = tv(i, i, gap), cB = tv(j, i, gap);
+            addPanelWall(cA, cB, getCartTexture(i, ncols, rows, ratio2), 1, 1);
+            addCorner(cartRing[i], cA, CART_URL[0]);
+            addCorner(cB, cartRing[j], CART_URL[0]);
+            // 외측 frame-1 — 면 법선으로 평행이동(정렬). 코너 연장은 frame-3(우)/frame-4(좌)
+            var oA = tv(i, i, gap * 2), oB = tv(j, i, gap * 2);
+            addPanelWall(oA, oB, PANEL_LAYERS.outer, ncols, rows);
+            var crossv = N[i].nx * N[i].ey - N[i].ny * N[i].ex; // >0 이면 j 가 오른쪽 끝
+            var iImg = (crossv > 0) ? PANEL_LAYERS.corner4 : PANEL_LAYERS.corner3; // i측 코너
+            var jImg = (crossv > 0) ? PANEL_LAYERS.corner3 : PANEL_LAYERS.corner4; // j측 코너
+            addCorner(outerRing[i], oA, iImg);
+            addCorner(oB, outerRing[j], jImg);
+        }
+        var roofFlat = []; outerRing.forEach(function(p) { roofFlat.push(p.lon, p.lat); }); // 외측 링까지 천장 캡
         panelEntities.push(viewer.entities.add({ polygon: {
             hierarchy: Cesium.Cartesian3.fromDegreesArray(roofFlat), height: top + 0.1,
             material: Cesium.Color.fromBytes(200,200,205,255), outline: true, outlineColor: Cesium.Color.fromBytes(120,120,120,255)
