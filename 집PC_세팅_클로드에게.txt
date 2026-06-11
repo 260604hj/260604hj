@@ -1,0 +1,38 @@
+﻿[집 PC의 Claude에게 그대로 붙여넣으세요]
+
+내 GitHub 저장소를 이 PC에도 내려받아서, 파일을 수정하면 더블클릭만으로
+자동으로 commit + push 되어 GitHub Pages에 배포되는 환경을 만들어줘.
+회사 PC에 이미 똑같이 구성해놨고, 집 PC도 동일하게 맞추고 싶어.
+
+[저장소 정보]
+- 저장소: https://github.com/260604hj/260604hj  (공개, 기본 브랜치 main)
+- GitHub 계정: 260604hj   ← 인증할 때 반드시 이 계정으로 로그인
+- 배포 사이트: https://260604hj.github.io/260604hj/  (GitHub Pages 이미 활성화됨)
+- clone 받을 위치: 바탕화면 (Desktop\260604hj 폴더로)
+
+[해줬으면 하는 것]
+1. git 이 설치돼 있는지 확인하고, 없으면 설치 안내(또는 winget으로 설치).
+2. GitHub CLI(gh)가 없으면 `winget install --id GitHub.cli -e` 로 설치.
+   설치 경로는 보통 "C:\Program Files\GitHub CLI\gh.exe" 라서, 방금 설치한
+   경우 현재 세션 PATH에 없을 수 있으니 절대경로로 호출해줘.
+3. `gh auth login` 은 브라우저 로그인이 필요한 대화형 과정이라 네가 직접
+   실행 못 하니까, 나한테 실행할 명령과 선택지(GitHub.com → HTTPS → Yes →
+   Login with a web browser, 계정은 260604hj)를 안내해주고, 내가 "인증 완료"
+   라고 하면 `gh auth status` 로 확인한 뒤 `gh auth setup-git` 실행.
+4. 위 저장소를 Desktop\260604hj 로 clone.
+5. clone 한 폴더 안에 배포 스크립트(배포.bat, 최신버전_받기.bat 등)가 이미
+   들어 있을 거야. 없다면 회사 PC와 동일하게 다시 만들어줘:
+   - 배포.bat / 최신버전_받기.bat 은 순수 ASCII 런처로 만들고,
+     실제 로직과 한글 메시지는 UTF-8(BOM) PowerShell 파일(_deploy.ps1 /
+     _pull.ps1)에 두기. (cmd 가 .bat 안의 한글을 코드페이지에 따라 깨뜨려서
+     이렇게 분리함.)
+   - 배포.bat: git add -A → 변경 없으면 안내 후 종료, 있으면 commit(메시지
+     기본값 "update 날짜시간") → git push origin main → 성공 시 사이트 주소 안내.
+   - 최신버전_받기.bat: git pull origin main.
+6. git 사용자 정보 설정: user.name "260604hj",
+   user.email "260604hj@users.noreply.github.com" (이 저장소 로컬 설정으로).
+7. 마지막에 배포가 실제로 되는지 가볍게 검증하고(예: push --dry-run 또는
+   사소한 변경 후 Pages 빌드 상태 확인), 사용법을 한국어로 정리해줘.
+
+[중요] 회사/집 두 PC를 오가며 쓸 거라, 편집 전에 항상 최신버전_받기(git pull)를
+먼저 하는 규칙도 안내에 포함해줘.
