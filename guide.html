@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>우리 팀 웹앱 작업 가이드</title>
+<style>
+  :root{
+    --bg:#0f172a; --bg2:#1e293b;
+    --card:#ffffff; --ink:#1e293b; --muted:#64748b;
+    --accent:#2563eb; --accent2:#3b82f6;
+    --good:#16a34a; --warn:#dc2626; --warnbg:#fef2f2; --softbg:#f1f5f9;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:'Pretendard','Malgun Gothic','맑은 고딕',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:linear-gradient(135deg,var(--bg),var(--bg2));
+    color:var(--ink); overflow:hidden; -webkit-font-smoothing:antialiased;
+  }
+  /* progress bar */
+  #progress{position:fixed; top:0; left:0; height:5px; background:linear-gradient(90deg,var(--accent),var(--accent2)); width:0; transition:width .35s ease; z-index:50;}
+  /* stage */
+  .stage{position:relative; height:100vh; width:100vw; display:flex; align-items:center; justify-content:center; padding:48px 24px;}
+  .slide{
+    display:none; width:100%; max-width:880px; background:var(--card);
+    border-radius:var(--radius); padding:56px 60px; box-shadow:0 30px 70px rgba(0,0,0,.35);
+    animation:fade .45s ease; max-height:88vh; overflow:auto;
+  }
+  .slide.active{display:block;}
+  @keyframes fade{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:none;}}
+  .kicker{display:inline-block; font-size:14px; font-weight:700; letter-spacing:.12em; color:var(--accent); background:#eff6ff; padding:6px 14px; border-radius:999px; margin-bottom:22px;}
+  h1{font-size:46px; line-height:1.2; margin-bottom:18px; letter-spacing:-.02em;}
+  h2{font-size:34px; line-height:1.25; margin-bottom:26px; letter-spacing:-.02em;}
+  p{font-size:20px; line-height:1.7; color:#334155;}
+  .lead{font-size:23px; color:var(--muted); line-height:1.6;}
+  .big-emoji{font-size:64px; display:block; margin-bottom:18px;}
+  ul{list-style:none; display:flex; flex-direction:column; gap:14px; margin-top:8px;}
+  li{font-size:20px; line-height:1.6; display:flex; gap:14px; align-items:flex-start; color:#334155;}
+  li .dot{flex:none; width:30px; height:30px; border-radius:50%; background:#eff6ff; color:var(--accent); font-weight:800; display:flex; align-items:center; justify-content:center; font-size:15px; margin-top:2px;}
+  /* 3-step cards */
+  .steps{display:grid; grid-template-columns:1fr auto 1fr auto 1fr; align-items:center; gap:10px; margin-top:14px;}
+  .stepcard{background:var(--softbg); border-radius:16px; padding:26px 16px; text-align:center;}
+  .stepcard .n{font-size:13px; font-weight:800; color:var(--accent); letter-spacing:.1em;}
+  .stepcard .t{font-size:24px; font-weight:800; margin:8px 0 4px;}
+  .stepcard .s{font-size:15px; color:var(--muted);}
+  .arrow{font-size:30px; color:#cbd5e1; text-align:center;}
+  /* generic info cards */
+  .cards{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-top:10px;}
+  .card2{background:var(--softbg); border-radius:16px; padding:24px 20px;}
+  .card2 .ic{font-size:34px;}
+  .card2 .h{font-size:20px; font-weight:800; margin:10px 0 6px;}
+  .card2 .d{font-size:16px; color:var(--muted); line-height:1.55;}
+  /* prompt example box */
+  .prompt{background:#0f172a; color:#e2e8f0; border-radius:14px; padding:22px 24px; font-size:18px; line-height:1.65; margin-top:18px; border-left:5px solid var(--accent2);}
+  .prompt .label{display:block; font-size:13px; font-weight:700; letter-spacing:.1em; color:#7dd3fc; margin-bottom:10px;}
+  .prompt .you{color:#fff;}
+  .btnbig{display:inline-flex; align-items:center; gap:10px; background:var(--accent); color:#fff; font-size:21px; font-weight:800; padding:16px 26px; border-radius:14px; margin:18px 0 6px;}
+  .codeblock{background:#0f172a; color:#cbd5e1; border-radius:12px; padding:20px 22px; font-family:Consolas,'Courier New',monospace; font-size:16px; line-height:1.8; margin-top:14px; white-space:pre; overflow:auto;}
+  .warnbox{background:var(--warnbg); border:2px solid #fecaca; border-radius:14px; padding:18px 22px; margin-top:14px;}
+  .warnbox .h{color:var(--warn); font-weight:800; font-size:19px; display:flex; gap:10px; align-items:center;}
+  .warnbox .d{color:#7f1d1d; font-size:17px; line-height:1.55; margin-top:6px;}
+  .note{font-size:16px; color:var(--muted); margin-top:20px; line-height:1.6;}
+  .url{display:inline-block; background:#ecfdf5; color:var(--good); font-weight:700; padding:8px 16px; border-radius:10px; font-size:18px; margin-top:8px;}
+  .center{text-align:center;}
+  /* nav */
+  #nav{position:fixed; bottom:26px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:18px; z-index:40;}
+  .navbtn{width:52px; height:52px; border-radius:50%; border:none; background:rgba(255,255,255,.14); color:#fff; font-size:24px; cursor:pointer; backdrop-filter:blur(6px); transition:background .2s;}
+  .navbtn:hover{background:rgba(255,255,255,.28);}
+  .navbtn:disabled{opacity:.3; cursor:default;}
+  #dots{display:flex; gap:9px;}
+  .dot-i{width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,.3); cursor:pointer; transition:all .2s;}
+  .dot-i.on{background:#fff; width:26px; border-radius:6px;}
+  #counter{position:fixed; top:18px; right:22px; color:rgba(255,255,255,.7); font-size:15px; font-weight:600; z-index:40;}
+  .hint{position:fixed; bottom:92px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,.55); font-size:14px; z-index:40;}
+  @media(max-width:680px){
+    .slide{padding:36px 26px;} h1{font-size:34px;} h2{font-size:26px;} p,li{font-size:17px;}
+    .steps{grid-template-columns:1fr; } .arrow{transform:rotate(90deg);} .cards{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="counter"></div>
+
+<div class="stage">
+
+  <!-- 1 cover -->
+  <section class="slide active center">
+    <span class="big-emoji">📘</span>
+    <span class="kicker">팀원용 가이드</span>
+    <h1>우리 팀 웹앱<br>작업 가이드</h1>
+    <p class="lead">코딩을 전혀 몰라도 괜찮습니다.<br>이 슬라이드대로 따라만 하면 됩니다.</p>
+    <div class="url">https://260604hj.github.io/260604hj/</div>
+  </section>
+
+  <!-- 2 big picture -->
+  <section class="slide">
+    <span class="kicker">큰 그림</span>
+    <h2>작업은 딱 3단계의 반복입니다</h2>
+    <div class="steps">
+      <div class="stepcard"><div class="n">STEP 1</div><div class="t">📥 받기</div><div class="s">최신본 가져오기</div></div>
+      <div class="arrow">→</div>
+      <div class="stepcard"><div class="n">STEP 2</div><div class="t">✏️ 수정</div><div class="s">클로드에게 부탁</div></div>
+      <div class="arrow">→</div>
+      <div class="stepcard"><div class="n">STEP 3</div><div class="t">🚀 올리기</div><div class="s">웹에 자동 반영</div></div>
+    </div>
+    <p class="note">이 세 가지의 반복이 전부입니다. 1~2분 뒤면 누구나 인터넷에서 결과를 볼 수 있어요.</p>
+  </section>
+
+  <!-- 3 terms -->
+  <section class="slide">
+    <span class="kicker">용어 3개만</span>
+    <h2>이 단어들만 알면 됩니다</h2>
+    <div class="cards">
+      <div class="card2"><div class="ic">🗄️</div><div class="h">GitHub<br>(깃허브)</div><div class="d">우리 팀 <b>공용 파일 창고</b>. 여기 올린 파일이 자동으로 웹사이트가 됩니다.</div></div>
+      <div class="card2"><div class="ic">💻</div><div class="h">내 PC 폴더</div><div class="d">그 창고를 내 컴퓨터에 <b>복사해 둔 것</b>. 여기서 편집합니다.</div></div>
+      <div class="card2"><div class="ic">🚀</div><div class="h">배포<br>(deploy)</div><div class="d">수정한 걸 창고에 <b>올려서 웹에 반영</b>하는 것.</div></div>
+    </div>
+  </section>
+
+  <!-- 4 first-time setup -->
+  <section class="slide">
+    <span class="kicker">처음 한 번만</span>
+    <h2>내 PC 준비하기</h2>
+    <ul>
+      <li><span class="dot">1</span><div>새 컴퓨터라면, 창고 안의 <b>「집PC_세팅_클로드에게.txt」</b> 내용을 복사해 <b>클로드에게 그대로 붙여넣기</b>. 설치와 준비를 알아서 해줍니다.</div></li>
+      <li><span class="dot">2</span><div>준비가 끝나면 바탕화면에 <b>「260604hj」 폴더</b>가 생깁니다. 앞으로 모든 작업은 이 폴더 안에서.</div></li>
+      <li><span class="dot">3</span><div>로그인 단계에서는 <b>반드시 팀 계정 「260604hj」</b>로 로그인하세요. (클로드가 그 시점에 안내해 줍니다.)</div></li>
+    </ul>
+  </section>
+
+  <!-- 5 step1 -->
+  <section class="slide">
+    <span class="kicker">STEP 1 · 받기</span>
+    <h2>편집 전 — 최신본 받기 ⭐</h2>
+    <div class="btnbig">🖱️ 「최신버전_받기.bat」 더블클릭</div>
+    <ul>
+      <li><span class="dot">✓</span><div>다른 팀원이 바꾼 <b>최신 내용을 먼저 받아옵니다.</b></div></li>
+      <li><span class="dot">!</span><div>이걸 건너뛰면 작업이 <b>충돌</b>할 수 있어요. <b>편집 전 습관</b>으로 만드세요.</div></li>
+    </ul>
+  </section>
+
+  <!-- 6 step2 make -->
+  <section class="slide">
+    <span class="kicker">STEP 2 · 수정 (1) 만들기</span>
+    <h2>클로드에게 “만들어줘” 라고 하기</h2>
+    <p>파일을 직접 짤 줄 몰라도 됩니다. <b>원하는 걸 말로 설명</b>하면 클로드가 HTML을 만들어 줍니다.</p>
+    <div class="prompt">
+      <span class="label">클로드에게 이렇게 ↓</span>
+      <span class="you">“260604hj 폴더의 miniapps 안에 <b>‘회의록’ 페이지</b>를 새로 만들어줘. 날짜와 내용을 입력해 목록으로 보여주는 간단한 HTML로. 그리고 index.html 메뉴에 <b>링크도 추가</b>해줘.”</span>
+    </div>
+    <p class="note">💡 “무엇을 / 어디에” 만들지 구체적으로 말할수록 결과가 정확합니다.</p>
+  </section>
+
+  <!-- 7 step2 edit -->
+  <section class="slide">
+    <span class="kicker">STEP 2 · 수정 (2) 고치기</span>
+    <h2>클로드에게 “수정해줘” 라고 하기</h2>
+    <p>이미 있는 화면을 바꾸고 싶을 때도 <b>그냥 말하면</b> 됩니다.</p>
+    <div class="prompt">
+      <span class="label">클로드에게 이렇게 ↓</span>
+      <span class="you">“index.html 맨 위 제목을 <b>‘○○팀 업무 포털’</b>로 바꾸고, 글씨를 더 크고 진하게 해줘. 배경은 흰색으로.”</span>
+    </div>
+    <ul style="margin-top:18px;">
+      <li><span class="dot">↺</span><div>맘에 안 들면 그냥 다시 말하면 됩니다 — “버튼을 파란색으로 바꿔줘.”</div></li>
+      <li><span class="dot">⚠</span><div>오류가 나면 <b>화면의 오류 메시지를 그대로 복사해</b> 클로드에게 보여주세요.</div></li>
+    </ul>
+  </section>
+
+  <!-- 8 step3 deploy -->
+  <section class="slide">
+    <span class="kicker">STEP 3 · 올리기</span>
+    <h2>웹에 올리기 (배포)</h2>
+    <div class="btnbig">🖱️ 「배포.bat」 더블클릭</div>
+    <ul>
+      <li><span class="dot">✓</span><div>바뀐 내용이 <b>자동으로 깃허브에 올라갑니다.</b></div></li>
+      <li><span class="dot">⏱</span><div>1~2분 뒤 사이트에 반영됩니다. 검은 창에 “배포 완료!”가 뜨면 성공.</div></li>
+    </ul>
+    <div class="url center" style="display:block; margin-top:18px;">https://260604hj.github.io/260604hj/</div>
+  </section>
+
+  <!-- 9 files -->
+  <section class="slide">
+    <span class="kicker">파일 관리</span>
+    <h2>파일은 어디에 두나</h2>
+    <div class="codeblock">260604hj/
+├─ index.html        ← 메인 페이지
+├─ miniapps/         ← 기능(탭)별 페이지
+├─ IMG/              ← 이미지 모음
+├─ data/             ← 엑셀·csv 데이터
+├─ 배포.bat          ← [버튼] 올리기
+└─ 최신버전_받기.bat  ← [버튼] 받기</div>
+    <p class="note">이미지는 IMG/, 엑셀은 data/ 에 넣고 클로드에게 “이걸 화면에 넣어줘”라고 하면 됩니다. 파일을 추가·이동해도 마지막에 <b>배포.bat만 누르면</b> 그대로 반영됩니다.</p>
+  </section>
+
+  <!-- 10 warnings -->
+  <section class="slide">
+    <span class="kicker">꼭 지켜주세요</span>
+    <h2>⚠️ 주의사항</h2>
+    <div class="warnbox">
+      <div class="h">🔴 이 창고는 “공개”입니다 — 올리면 전 세계에 공개돼요</div>
+      <div class="d">비밀번호·개인정보·대외비·고객 데이터는 <b>절대 올리지 마세요.</b> 민감한 데이터는 로그인이 걸린 별도 서버에 저장해야 합니다(담당자 문의).</div>
+    </div>
+    <div class="warnbox">
+      <div class="h">🔴 큰 파일은 올라가지 않습니다</div>
+      <div class="d">한 파일이 <b>100MB를 넘으면 거부</b>됩니다. 대용량 원본(큰 PPT·CAD·동영상)은 따로 보관하고, 웹 이미지는 용량을 줄여서 넣으세요.</div>
+    </div>
+    <p class="note">🟡 “push 실패”가 뜨면 → 「최신버전_받기.bat」 한 번 실행 후 다시 「배포.bat」.</p>
+  </section>
+
+  <!-- 11 summary -->
+  <section class="slide center">
+    <span class="big-emoji">✅</span>
+    <span class="kicker">요약 카드</span>
+    <h2>이것만 기억하세요</h2>
+    <div class="codeblock" style="text-align:left; font-size:18px;">작업할 때:
+   1. 최신버전_받기.bat   더블클릭   (받기)
+   2. 클로드에게 만들기/수정 부탁    (수정)
+   3. 배포.bat            더블클릭   (올리기)
+   → 1~2분 뒤 사이트에서 확인
+
+절대 하지 말 것:
+   ✗ 비밀번호·개인정보·대외비 올리기
+   ✗ 100MB 넘는 큰 파일 올리기</div>
+    <p class="note">헷갈리면 혼자 끙끙대지 말고 <b>담당자에게 문의</b>하세요. 🙂</p>
+  </section>
+
+</div>
+
+<div class="hint" id="hint">← → 방향키 또는 화면 양옆을 눌러 넘기세요</div>
+<div id="nav">
+  <button class="navbtn" id="prev">‹</button>
+  <div id="dots"></div>
+  <button class="navbtn" id="next">›</button>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  const dotsWrap=document.getElementById('dots');
+  slides.forEach((_,n)=>{const d=document.createElement('div');d.className='dot-i'+(n===0?' on':'');d.onclick=()=>go(n);dotsWrap.appendChild(d);});
+  const dots=[...document.querySelectorAll('.dot-i')];
+  const prog=document.getElementById('progress');
+  const counter=document.getElementById('counter');
+  const prevB=document.getElementById('prev'), nextB=document.getElementById('next');
+  function render(){
+    slides.forEach((s,n)=>s.classList.toggle('active',n===i));
+    dots.forEach((d,n)=>d.classList.toggle('on',n===i));
+    prog.style.width=((i)/(slides.length-1)*100)+'%';
+    counter.textContent=(i+1)+' / '+slides.length;
+    prevB.disabled=(i===0); nextB.disabled=(i===slides.length-1);
+    document.getElementById('hint').style.opacity = i===0?1:0;
+  }
+  function go(n){i=Math.max(0,Math.min(slides.length-1,n));render();}
+  function next(){go(i+1);} function prev(){go(i-1);}
+  nextB.onclick=next; prevB.onclick=prev;
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();next();}
+    if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();prev();}
+    if(e.key==='Home')go(0); if(e.key==='End')go(slides.length-1);
+  });
+  // click left/right half of screen
+  document.querySelector('.stage').addEventListener('click',e=>{
+    if(e.target.closest('a,button,.dot-i,.prompt,.codeblock'))return;
+    const x=e.clientX/window.innerWidth;
+    if(x>0.6)next(); else if(x<0.4)prev();
+  });
+  // touch swipe
+  let sx=null;
+  addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+  addEventListener('touchend',e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>50){dx<0?next():prev();}sx=null;},{passive:true});
+  render();
+</script>
+</body>
+</html>
