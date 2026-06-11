@@ -139,17 +139,6 @@
         #coverageRatio{ font-size:15px; font-weight:800; }
         #coverageRatio.over{ color:var(--danger); }
         .cov-unit{ color:var(--muted); font-weight:400; font-size:11px; margin-left:2px; }
-
-        /* 건축제한 섹터 (위치 검색 하단) */
-        .rs-row{ display:flex; align-items:flex-start; justify-content:space-between;
-            gap:10px; margin-bottom:7px; }
-        .rs-row:last-of-type{ margin-bottom:0; }
-        .rs-k{ font-size:12px; color:#4b5159; white-space:nowrap; }
-        .rs-sub{ display:block; font-weight:400; font-size:10px; color:var(--muted);
-            letter-spacing:-0.02em; margin-top:1px; }
-        .rs-v{ font-size:12.5px; font-weight:600; color:var(--ink); text-align:right;
-            word-break:keep-all; }
-        .rs-row.hl .rs-v{ font-size:14px; font-weight:800; }
     </style>
     <script src="https://map.vworld.kr/js/webglMapInit.js.do?version=3.0&apiKey=B5CEDD7D-84D6-314E-875C-9B5BF7E1233A"></script>
 </head>
@@ -178,21 +167,6 @@
             <button class="btn-primary btn-search" style="flex:0 0 auto; padding:9px 16px;"
                     onclick="searchAddress()">검색</button>
         </div>
-        <div class="hint">도로명 주소를 입력하면 대지경계선이 지도에 표시되고, 아래에 건축제한이 뜹니다.</div>
-    </div>
-
-    <!-- 건축제한 (도로명 주소 기준) -->
-    <div class="card" id="restrictCard">
-        <div class="label"><span class="dot"></span>건축제한</div>
-        <div class="rs-row"><span class="rs-k">소재지</span><span class="rs-v" id="rsAddr">–</span></div>
-        <div class="rs-row"><span class="rs-k">용도지역</span><span class="rs-v" id="rsZone">–</span></div>
-        <div class="rs-row"><span class="rs-k">대지면적</span><span class="rs-v" id="rsArea">–</span></div>
-        <div class="rs-row hl"><span class="rs-k">건폐율<span class="rs-sub">법정 상한</span></span>
-            <span class="rs-v" id="rsBCR">–</span></div>
-        <div class="rs-row hl"><span class="rs-k">용적률<span class="rs-sub">법정 상한</span></span>
-            <span class="rs-v" id="rsFAR">–</span></div>
-        <div class="hint" id="restrictStatus" style="margin-top:8px;">도로명 주소를 입력하고 검색하세요.</div>
-        <div class="hint" style="margin-top:2px;">※ 국토계획법 시행령 기준 상한 — 실제 한도는 지자체 조례에 따라 더 엄격할 수 있습니다.</div>
     </div>
 
     <!-- ② 건물 선택·투명화 -->
@@ -507,11 +481,6 @@
     var roofDragIndex = -1;
 
     var ID_PROP_CANDIDATES = ["__OID__", "OBJTID", "OBJECTID", "FID", "BLD_NUM", "BLDG_ID", "id"];
-
-    // ===== 대지경계선 / 건축제한 (도로명 주소 검색) =====
-    var VWORLD_KEY = "B5CEDD7D-84D6-314E-875C-9B5BF7E1233A"; // 지도·지오코더·데이터 API 공용 키
-    var siteBoundaryEnts = [];   // 대지경계선 표시 엔티티(폴리라인·라벨)
-    var siteBoundaryCoords = []; // 대지경계 좌표(면적 계산용)
 
     window.onload = function() {
         map = new vw.Map();
@@ -1871,195 +1840,16 @@
     }
 
     // ====================================================================
-    // 주소 검색 + 대지경계선 + 건축제한
+    // 주소 검색
     // ====================================================================
-    // 용도지역별 법정 상한(국토의 계획 및 이용에 관한 법률 시행령 §84·§85).
-    // 값 = { bcr: 건폐율 상한(%), far: 용적률 상한(%) }. 지자체 조례는 더 엄격할 수 있음.
-    var ZONING_TABLE = {
-        "제1종전용주거지역": { bcr: 50, far: 100 },
-        "제2종전용주거지역": { bcr: 50, far: 150 },
-        "제1종일반주거지역": { bcr: 60, far: 200 },
-        "제2종일반주거지역": { bcr: 60, far: 250 },
-        "제3종일반주거지역": { bcr: 50, far: 300 },
-        "준주거지역":        { bcr: 70, far: 500 },
-        "중심상업지역":      { bcr: 90, far: 1500 },
-        "일반상업지역":      { bcr: 80, far: 1300 },
-        "근린상업지역":      { bcr: 70, far: 900 },
-        "유통상업지역":      { bcr: 80, far: 1100 },
-        "전용공업지역":      { bcr: 70, far: 300 },
-        "일반공업지역":      { bcr: 70, far: 350 },
-        "준공업지역":        { bcr: 70, far: 400 },
-        "보전녹지지역":      { bcr: 20, far: 80 },
-        "생산녹지지역":      { bcr: 20, far: 100 },
-        "자연녹지지역":      { bcr: 20, far: 100 },
-        "보전관리지역":      { bcr: 20, far: 80 },
-        "생산관리지역":      { bcr: 20, far: 80 },
-        "계획관리지역":      { bcr: 40, far: 100 },
-        "농림지역":          { bcr: 20, far: 80 },
-        "자연환경보전지역":  { bcr: 20, far: 80 }
-    };
-
-    function setRestrictStatus(msg) { var el = document.getElementById("restrictStatus"); if (el) el.textContent = msg; }
-    function setRestrictField(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
-    function resetRestrictFields() {
-        ["rsAddr", "rsZone", "rsArea", "rsBCR", "rsFAR"].forEach(function(id) { setRestrictField(id, "–"); });
-    }
-
-    // VWORLD 지오코더: 도로명(ROAD) → 지번(PARCEL) 순으로 시도
-    async function geocodeVWorld(address) {
-        var types = ["ROAD", "PARCEL"];
-        for (var i = 0; i < types.length; i++) {
-            try {
-                var url = "https://api.vworld.kr/req/address?service=address&request=getCoord&version=2.0" +
-                    "&crs=EPSG:4326&type=" + types[i] + "&address=" + encodeURIComponent(address) +
-                    "&format=json&key=" + VWORLD_KEY;
-                var r = await fetch(url);
-                var d = await r.json();
-                var res = d.response;
-                if (res && res.status === "OK" && res.result && res.result.point) {
-                    return { lon: parseFloat(res.result.point.x), lat: parseFloat(res.result.point.y),
-                        refined: (res.refined && res.refined.text) || address };
-                }
-            } catch (e) { console.warn("VWORLD 지오코딩 실패(" + types[i] + "):", e); }
-        }
-        return null;
-    }
-
-    // 보조 지오코더(장소명 등) — OpenStreetMap Nominatim
-    async function geocodeNominatim(address) {
-        try {
-            var r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(address));
-            var data = await r.json();
-            if (data.length > 0) return { lon: parseFloat(data[0].lon), lat: parseFloat(data[0].lat), refined: data[0].display_name };
-        } catch (e) { console.warn("Nominatim 지오코딩 실패:", e); }
-        return null;
-    }
-
-    // GeoJSON 지오메트리 → 외곽 링 좌표({lon,lat}[]). Polygon/MultiPolygon 지원.
-    function extractOuterRing(geom) {
-        if (!geom || !geom.coordinates) return null;
-        var c = geom.coordinates;
-        var ring = (geom.type === "MultiPolygon") ? (c[0] && c[0][0]) : (geom.type === "Polygon") ? c[0] : null;
-        if (!ring) return null;
-        return ring.map(function(p) { return { lon: Number(p[0]), lat: Number(p[1]) }; });
-    }
-
-    // VWORLD 데이터 API: 좌표(POINT)와 겹치는 첫 피처를 GeoJSON으로 반환
-    async function fetchVWorldFeature(layer, lon, lat) {
-        try {
-            var url = "https://api.vworld.kr/req/data?service=data&version=2.0&request=GetFeature&format=json" +
-                "&data=" + layer + "&key=" + VWORLD_KEY + "&domain=" + encodeURIComponent(location.origin || location.href) +
-                "&geomFilter=POINT(" + lon + " " + lat + ")&geometry=true&attribute=true&crs=EPSG:4326&size=10";
-            var r = await fetch(url);
-            var d = await r.json();
-            var fc = d.response && d.response.result && d.response.result.featureCollection;
-            if (!fc || !fc.features || !fc.features.length) return null;
-            var f = fc.features[0];
-            return { coords: extractOuterRing(f.geometry), props: f.properties || {} };
-        } catch (e) { console.warn("VWORLD 데이터 실패(" + layer + "):", e); return null; }
-    }
-
-    // 피처 속성값들 중 용도지역명(ZONING_TABLE 키)과 일치하는 것을 탐색
-    function findZoneName(props) {
-        if (!props) return null;
-        var vals = Object.keys(props).map(function(k) { return String(props[k]); });
-        var keys = Object.keys(ZONING_TABLE);
-        for (var v = 0; v < vals.length; v++) {
-            for (var k = 0; k < keys.length; k++) {
-                if (vals[v].indexOf(keys[k]) !== -1) return keys[k];
-            }
-        }
-        // 표에 없더라도 '…지역' 형태의 이름이 있으면 그대로 표기
-        for (var v2 = 0; v2 < vals.length; v2++) { if (/[가-힣]지역$/.test(vals[v2])) return vals[v2]; }
-        return null;
-    }
-
-    function clearSiteBoundary() {
-        if (viewer) siteBoundaryEnts.forEach(function(e) { try { viewer.entities.remove(e); } catch (x) {} });
-        siteBoundaryEnts = [];
-        siteBoundaryCoords = [];
-    }
-
-    // 대지경계선을 건물 시작레벨(지면)과 같은 xy평면에 폴리라인으로 그림(빨강·clampToGround)
-    function drawSiteBoundary(coords, labelText) {
-        clearSiteBoundary();
-        if (!viewer || !coords || coords.length < 2) return;
-        siteBoundaryCoords = coords.slice();
-        var ring = coords.slice();
-        var first = ring[0], last = ring[ring.length - 1];
-        if (coords.length >= 3 && (first.lon !== last.lon || first.lat !== last.lat)) ring.push(first);
-        var flat = []; ring.forEach(function(c) { flat.push(c.lon, c.lat); });
-        siteBoundaryEnts.push(viewer.entities.add({ polyline: {
-            positions: Cesium.Cartesian3.fromDegreesArray(flat), width: 4, clampToGround: true,
-            material: Cesium.Color.fromBytes(230, 60, 70, 255)
-        }}));
-        if (labelText) {
-            var cx = 0, cy = 0; coords.forEach(function(c) { cx += c.lon; cy += c.lat; });
-            siteBoundaryEnts.push(viewer.entities.add({
-                position: Cesium.Cartesian3.fromDegrees(cx / coords.length, cy / coords.length),
-                label: { text: labelText, font: "bold 13px sans-serif", fillColor: Cesium.Color.WHITE,
-                    outlineColor: Cesium.Color.fromBytes(180, 30, 40, 255), outlineWidth: 3,
-                    style: Cesium.LabelStyle.FILL_AND_OUTLINE, showBackground: true,
-                    backgroundColor: Cesium.Color.fromBytes(200, 50, 60, 200),
-                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-                    disableDepthTestDistance: Number.POSITIVE_INFINITY,
-                    pixelOffset: new Cesium.Cartesian2(0, -8) }
-            }));
-        }
-    }
-
-    // 용도지역명 → 건폐율·용적률 상한을 건축제한 섹터에 반영
-    function applyZoning(zoneName) {
-        var matched = null, info = null;
-        if (zoneName) {
-            var keys = Object.keys(ZONING_TABLE);
-            for (var k = 0; k < keys.length; k++) {
-                if (zoneName.indexOf(keys[k]) !== -1) { matched = keys[k]; info = ZONING_TABLE[keys[k]]; break; }
-            }
-            if (!matched) matched = zoneName; // 표 밖 명칭은 이름만 표기
-        }
-        setRestrictField("rsZone", matched || "확인 안됨");
-        setRestrictField("rsBCR", info ? info.bcr + " %" : "–");
-        setRestrictField("rsFAR", info ? info.far + " %" : "–");
-    }
-
-    // 대지경계(연속지적도) + 용도지역(국토계획) 조회 후 표시
-    async function loadParcelAndRestrictions(lon, lat) {
-        clearSiteBoundary();
-        resetRestrictFields();
-        var gotAny = false;
-
-        // 1) 대지경계 — 연속지적도(부분) LP_PA_CBND_BUBUN
-        var parcel = await fetchVWorldFeature("LP_PA_CBND_BUBUN", lon, lat);
-        if (parcel && parcel.coords && parcel.coords.length >= 3) {
-            gotAny = true;
-            var jibun = parcel.props.addr || parcel.props.jibun || "";
-            drawSiteBoundary(parcel.coords, jibun || "대지경계");
-            var area = areaOfCoords(parcel.coords);
-            setRestrictField("rsAddr", jibun || "–");
-            setRestrictField("rsArea", area > 0 ? area.toFixed(1) + " m²" : "–");
-            // 건폐율 체크 패널의 대지면적 자동 입력
-            var siteEl = document.getElementById("siteArea");
-            if (siteEl && area > 0) { siteEl.value = area.toFixed(1); updateCoverage(); }
-        }
-
-        // 2) 용도지역 — 국토계획 용도지역 LT_C_UQ111
-        var zone = await fetchVWorldFeature("LT_C_UQ111", lon, lat);
-        if (zone) { gotAny = true; applyZoning(findZoneName(zone.props)); }
-
-        if (gotAny) setRestrictStatus("VWORLD 기준 정보입니다. 경계·용도지역은 참고용입니다.");
-        else setRestrictStatus("대지·용도지역 정보를 가져오지 못했습니다. (VWORLD 데이터 API 서비스 신청 및 배포 도메인 등록이 필요합니다)");
-    }
-
     async function searchAddress() {
-        var address = document.getElementById("address").value.trim();
-        if (!address) return;
-        setRestrictStatus("주소를 검색하는 중…");
-        var pt = await geocodeVWorld(address);
-        if (!pt) pt = await geocodeNominatim(address); // 장소명 등 보조 검색
-        if (!pt) { alert("검색 결과가 없습니다."); setRestrictStatus("검색 결과가 없습니다."); return; }
-        map.moveTo(new vw.CameraPosition(new vw.CoordZ(pt.lon, pt.lat, 500), new vw.Direction(0, -55, 0)));
-        await loadParcelAndRestrictions(pt.lon, pt.lat);
+        const address = document.getElementById("address").value.trim(); if (!address) return;
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`);
+            const data = await res.json();
+            if (data.length > 0) map.moveTo(new vw.CameraPosition(new vw.CoordZ(parseFloat(data[0].lon), parseFloat(data[0].lat), 3000), new vw.Direction(0,-60,0)));
+            else alert("검색 결과가 없습니다.");
+        } catch(err) { console.error(err); }
     }
 
     // ====================================================================
