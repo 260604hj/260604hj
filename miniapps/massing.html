@@ -540,6 +540,8 @@
     var siteBoundaryCoords = []; // 대지경계 좌표(면적 계산용)
     var roadEdgeFlags = [];      // 대지경계 각 변(i→i+1)이 도로에 접하는지 여부
     var buildableEnts = [];      // 최대 건축가능영역 표시 엔티티(면·폴리라인)
+    var sitePlaneH = 0;          // 대지 평균수평면 z (건물 없을 시 기준) — 경계·가능영역 폴리라인 공통 높이
+    var siteLabelText = "";      // 대지경계 라벨(지번) — 평면 z 재계산 시 재그리기용
 
     window.onload = function() {
         map = new vw.Map();
@@ -1933,6 +1935,14 @@
         ["rsAddr", "rsZone", "rsArea", "rsBCR", "rsFAR"].forEach(function(id) { setRestrictField(id, "–"); });
     }
 
+    // 대지 평균수평면 z — 각 정점의 지반고를 샘플링해 평균(건물 없을 시 기준)
+    function averageGroundHeight(coords) {
+        if (!coords || !coords.length) return 0;
+        var sum = 0;
+        coords.forEach(function(c) { sum += sampleGroundHeight(c.lon, c.lat); });
+        return sum / coords.length;
+    }
+
     // VWORLD REST API는 fetch(XHR) 시 CORS 헤더를 주지 않아 브라우저가 차단함.
     // 대신 <script> 주입 방식(JSONP, &callback=)으로 호출해 CORS를 우회한다.
     var __jsonpSeq = 0;
@@ -2152,14 +2162,18 @@
         if (!viewer || !coords || coords.length < 3) return;
         var ring = coords.slice(); ring.push(coords[0]);
         var flat = []; ring.forEach(function(c) { flat.push(c.lon, c.lat); });
+        var flatH = []; ring.forEach(function(c) { flatH.push(c.lon, c.lat, sitePlaneH); });
+        // 대지 평균수평면에 평평한 반투명 면
         buildableEnts.push(viewer.entities.add({ polygon: {
             hierarchy: Cesium.Cartesian3.fromDegreesArray(flat),
-            material: Cesium.Color.fromBytes(60, 200, 120, 70),
-            classificationType: Cesium.ClassificationType.TERRAIN
+            height: sitePlaneH, perPositionHeight: false,
+            material: Cesium.Color.fromBytes(60, 200, 120, 70)
         }}));
+        // 경계선 — 동일 z 고정 + depthFail로 항상 보이게
+        var grn = Cesium.Color.fromBytes(40, 175, 90, 255);
         buildableEnts.push(viewer.entities.add({ polyline: {
-            positions: Cesium.Cartesian3.fromDegreesArray(flat), width: 3, clampToGround: true,
-            material: Cesium.Color.fromBytes(40, 175, 90, 255)
+            positions: Cesium.Cartesian3.fromDegreesArrayHeights(flatH), width: 3,
+            material: grn, depthFailMaterial: grn
         }}));
     }
 
@@ -2191,27 +2205,57 @@
         clearSiteBoundary();
         if (!viewer || !coords || coords.length < 2) return;
         siteBoundaryCoords = coords.slice();
+        siteLabelText = labelText || "";
+        renderSiteBoundary();
+        refineSitePlaneH(); // 지형 로딩 후 평균수평면 z 정밀화(비동기) → 재그리기
+    }
+
+    // 대지경계 폴리라인·라벨을 현재 sitePlaneH로 (재)생성. 좌표·도로판정 상태는 보존.
+    function renderSiteBoundary() {
+        if (!viewer) return;
+        siteBoundaryEnts.forEach(function(e) { try { viewer.entities.remove(e); } catch (x) {} });
+        siteBoundaryEnts = [];
+        var coords = siteBoundaryCoords;
+        if (!coords || coords.length < 2) return;
         var ring = coords.slice();
         var first = ring[0], last = ring[ring.length - 1];
         if (coords.length >= 3 && (first.lon !== last.lon || first.lat !== last.lat)) ring.push(first);
-        var flat = []; ring.forEach(function(c) { flat.push(c.lon, c.lat); });
+        // 모든 점을 동일 z(대지 평균수평면)로 고정. depthFailMaterial로 건물·지형에 가려도 보이게.
+        var flatH = []; ring.forEach(function(c) { flatH.push(c.lon, c.lat, sitePlaneH); });
+        var red = Cesium.Color.fromBytes(230, 60, 70, 255);
         siteBoundaryEnts.push(viewer.entities.add({ polyline: {
-            positions: Cesium.Cartesian3.fromDegreesArray(flat), width: 4, clampToGround: true,
-            material: Cesium.Color.fromBytes(230, 60, 70, 255)
+            positions: Cesium.Cartesian3.fromDegreesArrayHeights(flatH), width: 4,
+            material: red, depthFailMaterial: red
         }}));
-        if (labelText) {
+        if (siteLabelText) {
             var cx = 0, cy = 0; coords.forEach(function(c) { cx += c.lon; cy += c.lat; });
             siteBoundaryEnts.push(viewer.entities.add({
-                position: Cesium.Cartesian3.fromDegrees(cx / coords.length, cy / coords.length),
-                label: { text: labelText, font: "bold 13px sans-serif", fillColor: Cesium.Color.WHITE,
+                position: Cesium.Cartesian3.fromDegrees(cx / coords.length, cy / coords.length, sitePlaneH),
+                label: { text: siteLabelText, font: "bold 13px sans-serif", fillColor: Cesium.Color.WHITE,
                     outlineColor: Cesium.Color.fromBytes(180, 30, 40, 255), outlineWidth: 3,
                     style: Cesium.LabelStyle.FILL_AND_OUTLINE, showBackground: true,
                     backgroundColor: Cesium.Color.fromBytes(200, 50, 60, 200),
-                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
                     disableDepthTestDistance: Number.POSITIVE_INFINITY,
                     pixelOffset: new Cesium.Cartesian2(0, -8) }
             }));
         }
+    }
+
+    // 지형 타일이 로딩되기 전 getHeight는 0을 줄 수 있어, 가장 상세한 지형을 비동기로 샘플링해
+    // 평균수평면 z를 보정하고 경계·가능영역을 다시 그린다(도로판정 상태는 유지).
+    async function refineSitePlaneH() {
+        if (!viewer || !siteBoundaryCoords.length) return;
+        try {
+            var tp = viewer.terrainProvider;
+            if (!tp || typeof Cesium.sampleTerrainMostDetailed !== "function") return;
+            var cartos = siteBoundaryCoords.map(function(c) { return Cesium.Cartographic.fromDegrees(c.lon, c.lat); });
+            var res = await Cesium.sampleTerrainMostDetailed(tp, cartos);
+            var sum = 0, n = 0;
+            res.forEach(function(cg) { if (cg && isFinite(cg.height)) { sum += cg.height; n++; } });
+            if (!n) return;
+            var h = sum / n;
+            if (Math.abs(h - sitePlaneH) > 0.2) { sitePlaneH = h; renderSiteBoundary(); computeBuildable(); }
+        } catch (e) { /* 지형 샘플 실패 시 기존 z 유지 */ }
     }
 
     // 용도지역명 → 건폐율·용적률 상한을 건축제한 섹터에 반영
@@ -2240,6 +2284,7 @@
         if (parcel && parcel.coords && parcel.coords.length >= 3) {
             gotAny = true;
             var jibun = parcel.props.addr || parcel.props.jibun || "";
+            sitePlaneH = averageGroundHeight(parcel.coords); // 건물 없을 시 대지 평균수평면
             drawSiteBoundary(parcel.coords, jibun || "대지경계");
             var area = areaOfCoords(parcel.coords);
             setRestrictField("rsAddr", jibun || "–");
