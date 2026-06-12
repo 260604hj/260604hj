@@ -2309,44 +2309,6 @@
 
     // 최대 건축가능영역 안에서 건폐율(목표)을 만족하는 직사각형을 만들어 신축 footprint(drawCoords)로 설정.
     // 방향 = 가능영역 최장변, 가능영역 안에 들어가는 최대 중심 직사각형을 이분탐색 → 목표면적으로 축소.
-    // 폴리곤(미터좌표 P) 내 최대 내접 직사각형 — th로 회전한 프레임에서 격자+히스토그램 DP.
-    // 반환: { area, cx, cy, hw, hh, th } (cx,cy,hw,hh는 회전프레임 기준)
-    function maxRectInPoly(P, th) {
-        var cs = Math.cos(th), sn = Math.sin(th);
-        var R = P.map(function(p) { return { x: p.x * cs + p.y * sn, y: -p.x * sn + p.y * cs }; }); // -th 회전
-        var minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
-        R.forEach(function(p) { if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x; if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y; });
-        var W = maxx - minx, H = maxy - miny;
-        if (W <= 0.2 || H <= 0.2) return null;
-        var N = 150, cell = Math.max(W, H) / N;
-        var nx = Math.max(1, Math.ceil(W / cell)), ny = Math.max(1, Math.ceil(H / cell));
-        var cw = W / nx, ch = H / ny;
-        var grid = [];
-        for (var r = 0; r < ny; r++) {
-            var row = new Uint8Array(nx), py = miny + (r + 0.5) * ch;
-            for (var c = 0; c < nx; c++) row[c] = pointInPoly(minx + (c + 0.5) * cw, py, R) ? 1 : 0;
-            grid.push(row);
-        }
-        var heights = new Int32Array(nx), best = { area: 0 };
-        for (var r = 0; r < ny; r++) {
-            for (var c = 0; c < nx; c++) heights[c] = grid[r][c] ? heights[c] + 1 : 0;
-            var stack = [];
-            for (var c = 0; c <= nx; c++) {
-                var h = c < nx ? heights[c] : 0, start = c;
-                while (stack.length && stack[stack.length - 1].h >= h) {
-                    var tp = stack.pop(), width = c - tp.s, area = tp.h * width * cw * ch;
-                    if (area > best.area) best = { area: area, c0: tp.s, c1: c - 1, r1: r, rows: tp.h };
-                    start = tp.s;
-                }
-                stack.push({ h: h, s: start });
-            }
-        }
-        if (!best.area) return null;
-        var x0 = minx + best.c0 * cw, x1 = minx + (best.c1 + 1) * cw;
-        var y0 = miny + (best.r1 - best.rows + 1) * ch, y1 = miny + (best.r1 + 1) * ch;
-        return { area: best.area, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, hw: (x1 - x0) / 2, hh: (y1 - y0) / 2, th: th };
-    }
-
     function makePresetRectangle() {
         var ph = document.getElementById("presetHint");
         if (!buildableCoords || buildableCoords.length < 3) {
@@ -2363,35 +2325,38 @@
         var mLat = 111320, mLon = 111320 * Math.cos(lat0 * Math.PI / 180);
         var P = buildableCoords.map(function(c) { return { x: (c.lon - lon0) * mLon, y: (c.lat - lat0) * mLat }; });
 
-        // 후보 방향 = 각 변 방향(0~180°, 4° 내 중복 제거) — 대지 변에 정렬된 직사각형
-        var angs = [];
-        for (var i = 0; i < n; i++) {
-            var a = P[i], b = P[(i + 1) % n], t = Math.atan2(b.y - a.y, b.x - a.x);
-            t = ((t % Math.PI) + Math.PI) % Math.PI;
-            var dup = angs.some(function(x) { return Math.abs(x - t) < 0.07 || Math.abs(x - t - Math.PI) < 0.07; });
-            if (!dup) angs.push(t);
-        }
-        if (!angs.length) angs.push(0);
+        // 방향 = 최장변
+        var th = 0, best = -1;
+        for (var i = 0; i < n; i++) { var a = P[i], b = P[(i + 1) % n], dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy; if (L > best) { best = L; th = Math.atan2(dy, dx); } }
+        var cs = Math.cos(th), sn = Math.sin(th);
+        var R = P.map(function(p) { return { x: p.x * cs + p.y * sn, y: -p.x * sn + p.y * cs }; }); // -th 회전
+        var minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+        R.forEach(function(p) { if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x; if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y; });
+        var cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, hw = (maxx - minx) / 2, hh = (maxy - miny) / 2;
+        if (hw <= 0.1 || hh <= 0.1) { alert("건축가능영역이 너무 좁습니다."); return; }
 
-        // 방향별 최대 내접 직사각형(격자+히스토그램)을 구해 가장 큰 것 선택
-        var best = null;
-        for (var ai = 0; ai < angs.length; ai++) {
-            var r = maxRectInPoly(P, angs[ai]);
-            if (r && (!best || r.area > best.area)) best = r;
+        function rectFits(s) {
+            var rw = hw * s, rh = hh * s;
+            var corners = [[cx - rw, cy - rh], [cx + rw, cy - rh], [cx + rw, cy + rh], [cx - rw, cy + rh]];
+            for (var e = 0; e < 4; e++) {
+                var A = corners[e], B = corners[(e + 1) % 4];
+                for (var t = 0; t <= 1.0001; t += 0.2) {
+                    if (!pointInPoly(A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, R)) return false;
+                }
+            }
+            return true;
         }
-        if (!best || best.area < 1) {
-            alert("건축가능영역 안에 직사각형을 만들 수 없습니다. '직접 그리기'를 사용하세요.");
-            return;
-        }
-        var maxArea = best.area, s = 1, met = true;
-        if (maxArea >= targetArea) s = Math.sqrt(targetArea / maxArea); // 중심 유지 축소로 목표면적 달성
-        else met = false; // 직사각형 최대치로도 건폐율 미달(부정형 대지/후퇴 과다)
+        if (!rectFits(0.02)) { alert("건축가능영역 형상이 복잡해 직사각형을 자동 배치할 수 없습니다. '직접 그리기'를 사용하세요."); return; }
+        var lo = 0.02, hi = 1;
+        for (var it = 0; it < 26; it++) { var mid = (lo + hi) / 2; if (rectFits(mid)) lo = mid; else hi = mid; }
+        var sMax = lo, maxArea = (2 * hw * sMax) * (2 * hh * sMax), s = sMax, met = true;
+        if (maxArea >= targetArea) s = sMax * Math.sqrt(targetArea / maxArea);
+        else met = false; // 최대치로도 건폐율 미달(후퇴 과다)
 
-        var cs = Math.cos(best.th), sn = Math.sin(best.th);
-        var hw = best.hw * s, hh = best.hh * s, ccx = best.cx, ccy = best.cy;
-        var rectR = [[ccx - hw, ccy - hh], [ccx + hw, ccy - hh], [ccx + hw, ccy + hh], [ccx - hw, ccy + hh]];
+        var rw = hw * s, rh = hh * s;
+        var rectR = [[cx - rw, cy - rh], [cx + rw, cy - rh], [cx + rw, cy + rh], [cx - rw, cy + rh]];
         var corners = rectR.map(function(p) {
-            var X = p[0] * cs - p[1] * sn, Y = p[0] * sn + p[1] * cs; // 회전프레임 → 미터프레임(+th)
+            var X = p[0] * cs - p[1] * sn, Y = p[0] * sn + p[1] * cs; // +th 회전
             return { lon: lon0 + X / mLon, lat: lat0 + Y / mLat };
         });
 
@@ -2402,10 +2367,9 @@
         rebuildDraft();
         refreshModeUI();
         var footArea = areaOfCoords(corners);
-        var achieved = (footArea / siteArea * 100);
         if (ph) ph.textContent = met
             ? ("생성 완료 · 건폐율 " + bcr + "% (≈" + footArea.toFixed(1) + "㎡). 아래 층고·층수와 입면 모듈 패널링으로 진행하세요.")
-            : ("최대 직사각형 ≈" + footArea.toFixed(1) + "㎡ (건폐율 " + achieved.toFixed(1) + "%). 부정형 대지라 직사각형으로는 목표 " + bcr + "%에 못 미칩니다 — 직접 그리기로 보완하세요.");
+            : ("최대 직사각형 생성(≈" + footArea.toFixed(1) + "㎡) · 후퇴가 커서 건폐율 " + bcr + "% 미달. 후퇴거리를 줄이세요.");
         updateStatus();
     }
 
