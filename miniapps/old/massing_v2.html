@@ -1905,27 +1905,6 @@
         ["rsAddr", "rsZone", "rsArea", "rsBCR", "rsFAR"].forEach(function(id) { setRestrictField(id, "–"); });
     }
 
-    // VWORLD REST API는 fetch(XHR) 시 CORS 헤더를 주지 않아 브라우저가 차단함.
-    // 대신 <script> 주입 방식(JSONP, &callback=)으로 호출해 CORS를 우회한다.
-    var __jsonpSeq = 0;
-    function jsonpGet(baseUrl) {
-        return new Promise(function(resolve, reject) {
-            var cbName = "__vwjsonp_" + (++__jsonpSeq) + "_" + Date.now();
-            var script = document.createElement("script");
-            var timer = setTimeout(function() { cleanup(); reject(new Error("JSONP 시간 초과")); }, 15000);
-            function cleanup() {
-                clearTimeout(timer);
-                try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
-                if (script.parentNode) script.parentNode.removeChild(script);
-            }
-            window[cbName] = function(data) { cleanup(); resolve(data); };
-            script.onerror = function() { cleanup(); reject(new Error("JSONP 로드 실패")); };
-            var sep = baseUrl.indexOf("?") === -1 ? "?" : "&";
-            script.src = baseUrl + sep + "callback=" + cbName;
-            document.head.appendChild(script);
-        });
-    }
-
     // VWORLD 지오코더: 도로명(ROAD) → 지번(PARCEL) 순으로 시도
     async function geocodeVWorld(address) {
         var types = ["ROAD", "PARCEL"];
@@ -1934,7 +1913,8 @@
                 var url = "https://api.vworld.kr/req/address?service=address&request=getCoord&version=2.0" +
                     "&crs=EPSG:4326&type=" + types[i] + "&address=" + encodeURIComponent(address) +
                     "&format=json&key=" + VWORLD_KEY;
-                var d = await jsonpGet(url);
+                var r = await fetch(url);
+                var d = await r.json();
                 var res = d.response;
                 if (res && res.status === "OK" && res.result && res.result.point) {
                     return { lon: parseFloat(res.result.point.x), lat: parseFloat(res.result.point.y),
@@ -1970,7 +1950,8 @@
             var url = "https://api.vworld.kr/req/data?service=data&version=2.0&request=GetFeature&format=json" +
                 "&data=" + layer + "&key=" + VWORLD_KEY + "&domain=" + encodeURIComponent(location.origin || location.href) +
                 "&geomFilter=POINT(" + lon + " " + lat + ")&geometry=true&attribute=true&crs=EPSG:4326&size=10";
-            var d = await jsonpGet(url);
+            var r = await fetch(url);
+            var d = await r.json();
             var fc = d.response && d.response.result && d.response.result.featureCollection;
             if (!fc || !fc.features || !fc.features.length) return null;
             var f = fc.features[0];
