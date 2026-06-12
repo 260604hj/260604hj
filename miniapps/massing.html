@@ -1946,11 +1946,11 @@
     // VWORLD REST API는 fetch(XHR) 시 CORS 헤더를 주지 않아 브라우저가 차단함.
     // 대신 <script> 주입 방식(JSONP, &callback=)으로 호출해 CORS를 우회한다.
     var __jsonpSeq = 0;
-    function jsonpGet(baseUrl) {
+    function jsonpOnce(baseUrl) {
         return new Promise(function(resolve, reject) {
             var cbName = "__vwjsonp_" + (++__jsonpSeq) + "_" + Date.now();
             var script = document.createElement("script");
-            var timer = setTimeout(function() { cleanup(); reject(new Error("JSONP 시간 초과")); }, 15000);
+            var timer = setTimeout(function() { cleanup(); reject(new Error("JSONP 시간 초과")); }, 12000);
             function cleanup() {
                 clearTimeout(timer);
                 try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
@@ -1962,6 +1962,14 @@
             script.src = baseUrl + sep + "callback=" + cbName;
             document.head.appendChild(script);
         });
+    }
+    // 간헐적 실패에 대비해 1회 재시도
+    async function jsonpGet(baseUrl) {
+        var lastErr;
+        for (var attempt = 0; attempt < 2; attempt++) {
+            try { return await jsonpOnce(baseUrl); } catch (e) { lastErr = e; }
+        }
+        throw lastErr;
     }
 
     // VWORLD 지오코더: 도로명(ROAD) → 지번(PARCEL) 순으로 시도
@@ -2074,7 +2082,7 @@
             var lat0 = (minLat + maxLat) / 2;
             var padLat = 12 / 111320, padLon = 12 / (111320 * Math.cos(lat0 * Math.PI / 180));
             var box = "BOX(" + (minLon - padLon) + "," + (minLat - padLat) + "," + (maxLon + padLon) + "," + (maxLat + padLat) + ")";
-            var feats = await fetchVWorldFeatures("LP_PA_CBND_BUBUN", box, 300);
+            var feats = await fetchVWorldFeatures("LP_PA_CBND_BUBUN", box, 120);
             var roads = [];
             feats.forEach(function(f) {
                 if (isRoadJibun(f.props && f.props.jibun)) allOuterRings(f.geometry).forEach(function(r) { roads.push(r); });
@@ -2094,33 +2102,116 @@
     }
 
     // 폴리곤 변별 부호거리 오프셋(양수=바깥, 음수=안쪽). 인접 변 오프셋선 교점으로 정점 산출.
-    function offsetPolygonSigned(coords, sd) {
+    // 최대 건축가능영역 = 대지경계를 각 변의 후퇴거리만큼 안쪽으로 들인 반평면들의 교집합.
+    // (마이터 교점 방식은 정점 많은 실제 필지에서 첨점·자기교차로 면적이 폭발하므로,
+    //  변마다 안쪽으로 평행이동한 직선으로 폴리곤을 차례로 클리핑한다 — 절대 대지 밖으로 안 나감.)
+    function buildableByClip(coords, setback) {
         var n = coords.length;
-        if (n < 3) return coords.map(function(c) { return { lon: c.lon, lat: c.lat }; });
+        if (n < 3) return [];
         var lon0 = 0, lat0 = 0; coords.forEach(function(c) { lon0 += c.lon; lat0 += c.lat; }); lon0 /= n; lat0 /= n;
         var mPerLat = 111320, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
         var P = coords.map(function(c) { return { x: (c.lon - lon0) * mPerLon, y: (c.lat - lat0) * mPerLat }; });
         var A2 = 0; for (var i = 0; i < n; i++) { var j = (i + 1) % n; A2 += P[i].x * P[j].y - P[j].x * P[i].y; }
         var sgn = (A2 > 0) ? 1 : -1;
-        var E = [];
+        // 각 변의 외향 단위법선 nx,ny 과 임계값 T: 유지 조건 = (x*nx + y*ny) <= T (안쪽)
+        var planes = [];
         for (var i = 0; i < n; i++) {
             var a = P[i], b = P[(i + 1) % n];
             var dx = b.x - a.x, dy = b.y - a.y, L = Math.sqrt(dx * dx + dy * dy) || 1;
-            E.push({ nx: sgn * dy / L, ny: -sgn * dx / L, dx: dx, dy: dy }); // 외향 단위 법선
+            var nx = sgn * dy / L, ny = -sgn * dx / L;
+            planes.push({ nx: nx, ny: ny, T: (a.x * nx + a.y * ny) - (setback[i] || 0) });
         }
+        var poly = P.slice();
+        for (var p = 0; p < planes.length && poly.length >= 3; p++) poly = clipHalfPlane(poly, planes[p]);
+        if (poly.length < 3) return [];
+        return poly.map(function(q) { return { lon: lon0 + q.x / mPerLon, lat: lat0 + q.y / mPerLat }; });
+    }
+
+    // 반평면 (x*nx+y*ny <= T) 으로 폴리곤 클리핑 (Sutherland–Hodgman)
+    function clipHalfPlane(poly, pl) {
+        var out = [], m = poly.length, EPS = 1e-7;
+        function d(q) { return q.x * pl.nx + q.y * pl.ny - pl.T; }
+        for (var i = 0; i < m; i++) {
+            var cur = poly[i], prev = poly[(i + m - 1) % m];
+            var dc = d(cur), dp = d(prev);
+            var ci = dc <= EPS, pi = dp <= EPS;
+            if (ci) {
+                if (!pi) { var t = dp / (dp - dc); out.push({ x: prev.x + t * (cur.x - prev.x), y: prev.y + t * (cur.y - prev.y) }); }
+                out.push(cur);
+            } else if (pi) {
+                var t2 = dp / (dp - dc); out.push({ x: prev.x + t2 * (cur.x - prev.x), y: prev.y + t2 * (cur.y - prev.y) });
+            }
+        }
+        return out;
+    }
+
+    // 미터좌표 부호면적
+    function areaSignedM(P) { var a = 0; for (var i = 0; i < P.length; i++) { var j = (i + 1) % P.length; a += P[i].x * P[j].y - P[j].x * P[i].y; } return a / 2; }
+    // 두 선분이 교차하는가(끝점 공유 제외)
+    function segCross(a, b, c, d) {
+        function cr(o, p, q) { return (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x); }
+        var d1 = cr(c, d, a), d2 = cr(c, d, b), d3 = cr(a, b, c), d4 = cr(a, b, d);
+        return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+    }
+    function polySelfIntersects(P) {
+        var n = P.length;
+        for (var i = 0; i < n; i++) for (var j = i + 1; j < n; j++) {
+            if (i === (j + 1) % n || j === (i + 1) % n) continue;
+            if (segCross(P[i], P[(i + 1) % n], P[j], P[(j + 1) % n])) return true;
+        }
+        return false;
+    }
+    // 변별 안쪽 후퇴(미터, 양수=안쪽). 마이터 교점 + 리밋(첨점 방지)
+    function insetMiterMeters(P, setback) {
+        var n = P.length, sgn = (areaSignedM(P) > 0) ? 1 : -1, MITER = 2.0, E = [];
+        for (var i = 0; i < n; i++) { var a = P[i], b = P[(i + 1) % n], dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1; E.push({ nx: sgn * dy / L, ny: -sgn * dx / L, dx: dx, dy: dy }); }
         var out = [];
         for (var i = 0; i < n; i++) {
             var pe = E[(i - 1 + n) % n], ce = E[i], V = P[i];
-            var dp = sd[(i - 1 + n) % n], dc = sd[i];
-            var A0x = V.x + pe.nx * dp, A0y = V.y + pe.ny * dp;
-            var A1x = V.x + ce.nx * dc, A1y = V.y + ce.ny * dc;
-            var den = pe.dx * ce.dy - pe.dy * ce.dx;
-            var ix, iy;
-            if (Math.abs(den) < 1e-6) { ix = (A0x + A1x) / 2; iy = (A0y + A1y) / 2; }
+            var dp = -(setback[(i - 1 + n) % n] || 0), dc = -(setback[i] || 0);
+            var A0x = V.x + pe.nx * dp, A0y = V.y + pe.ny * dp, A1x = V.x + ce.nx * dc, A1y = V.y + ce.ny * dc;
+            var den = pe.dx * ce.dy - pe.dy * ce.dx, ix, iy;
+            if (Math.abs(den) < 1e-9) { ix = (A0x + A1x) / 2; iy = (A0y + A1y) / 2; }
             else { var t = ((A1x - A0x) * ce.dy - (A1y - A0y) * ce.dx) / den; ix = A0x + t * pe.dx; iy = A0y + t * pe.dy; }
-            out.push({ lon: lon0 + ix / mPerLon, lat: lat0 + iy / mPerLat });
+            var vx = ix - V.x, vy = iy - V.y, vl = Math.hypot(vx, vy), cap = MITER * Math.max(Math.abs(dp), Math.abs(dc), 0.001);
+            if (vl > cap) { ix = V.x + vx / vl * cap; iy = V.y + vy / vl * cap; }
+            out.push({ x: ix, y: iy });
         }
         return out;
+    }
+    // 대지경계를 변별 후퇴거리만큼 안쪽으로 — 마이터 우선(요철 유지), 자기교차/면적이상 시 반평면 클리핑 폴백(항상 유효)
+    function insetPolygon(coords, setback) {
+        var n = coords.length; if (n < 3) return [];
+        var lon0 = 0, lat0 = 0; coords.forEach(function(c) { lon0 += c.lon; lat0 += c.lat; }); lon0 /= n; lat0 /= n;
+        var mLat = 111320, mLon = 111320 * Math.cos(lat0 * Math.PI / 180);
+        var P = coords.map(function(c) { return { x: (c.lon - lon0) * mLon, y: (c.lat - lat0) * mLat }; });
+        var n2 = P.length;
+        var pA = areaSignedM(P), pSign = pA > 0 ? 1 : -1, parcelA = Math.abs(pA);
+        var M = insetMiterMeters(P, setback), mAs = areaSignedM(M), mA = Math.abs(mAs);
+        // 변 방향 보존 검사: 과도 후퇴로 변이 뒤집히면(원변과 반대) 무효(후퇴영역이 서로 겹친 것)
+        var edgeOk = true;
+        for (var i = 0; i < n2; i++) {
+            var sx = P[(i + 1) % n2].x - P[i].x, sy = P[(i + 1) % n2].y - P[i].y;
+            var ox = M[(i + 1) % n2].x - M[i].x, oy = M[(i + 1) % n2].y - M[i].y;
+            if (sx * ox + sy * oy < -1e-6) { edgeOk = false; break; }
+        }
+        // 유효 조건: 면적>0 · 대지 이하 · 같은 회전방향 · 변 방향 보존 · 자기교차 없음
+        if (M.length >= 3 && mA > 1e-6 && (mAs > 0 ? 1 : -1) === pSign && mA <= parcelA * 1.0001 && edgeOk && !polySelfIntersects(M)) {
+            return M.map(function(q) { return { lon: lon0 + q.x / mLon, lat: lat0 + q.y / mLat }; });
+        }
+        return buildableByClip(coords, setback); // 폴백(항상 유효, 보수적)
+    }
+
+    // 인접 정점이 거의 겹치는(지적도 노이즈) 변을 제거 — 오프셋 안정화
+    function cleanRing(coords) {
+        if (!coords || coords.length < 3) return coords;
+        var mLat = 111320, mLon = 111320 * Math.cos(coords[0].lat * Math.PI / 180), out = [];
+        for (var i = 0; i < coords.length; i++) {
+            var c = coords[i], prev = out.length ? out[out.length - 1] : coords[coords.length - 1];
+            if (Math.hypot((c.lon - prev.lon) * mLon, (c.lat - prev.lat) * mLat) > 0.05) out.push(c);
+        }
+        if (out.length > 2) { var f = out[0], l = out[out.length - 1]; if (Math.hypot((f.lon - l.lon) * mLon, (f.lat - l.lat) * mLat) <= 0.05) out.pop(); }
+        return out.length >= 3 ? out : coords;
     }
 
     function getSetbacks() {
@@ -2139,15 +2230,14 @@
         var coords = siteBoundaryCoords;
         if (!coords || coords.length < 3) { setRestrictField("rsBuildable", "–"); return; }
         var sb = getSetbacks();
-        var sd = [];
+        var setback = [];
         for (var i = 0; i < coords.length; i++) {
-            var base = roadEdgeFlags[i] ? sb.road : sb.adj;
-            sd.push(-(base + sb.extra)); // 음수 = 안쪽
+            var base = roadEdgeFlags[i] ? sb.road : sb.adj; // 도로변=도로측, 그 외=인접대지
+            setback.push(base + sb.extra);
         }
-        var poly = offsetPolygonSigned(coords, sd);
-        var area = areaOfCoords(poly);
-        var parcelArea = areaOfCoords(coords);
-        if (!(area > 0) || area >= parcelArea * 1.001) {
+        var poly = insetPolygon(coords, setback);
+        var area = poly.length >= 3 ? areaOfCoords(poly) : 0;
+        if (!(area > 0)) {
             setRestrictField("rsBuildable", "후퇴 과다 — 영역 없음");
             return;
         }
@@ -2277,11 +2367,17 @@
     async function loadParcelAndRestrictions(lon, lat) {
         clearSiteBoundary();
         resetRestrictFields();
+
+        // 1) 건축제한 정보 먼저 — 대지경계·용도지역을 병렬 조회해 즉시 표기(무거운 도로판정에 막히지 않음)
+        var results = await Promise.all([
+            fetchVWorldFeature("LP_PA_CBND_BUBUN", lon, lat),
+            fetchVWorldFeature("LT_C_UQ111", lon, lat)
+        ]);
+        var parcel = results[0], zone = results[1];
         var gotAny = false;
 
-        // 1) 대지경계 — 연속지적도(부분) LP_PA_CBND_BUBUN
-        var parcel = await fetchVWorldFeature("LP_PA_CBND_BUBUN", lon, lat);
         if (parcel && parcel.coords && parcel.coords.length >= 3) {
+            parcel.coords = cleanRing(parcel.coords); // 지적도 노이즈 정점 정리(오프셋 안정화)
             gotAny = true;
             var jibun = parcel.props.addr || parcel.props.jibun || "";
             sitePlaneH = averageGroundHeight(parcel.coords); // 건물 없을 시 대지 평균수평면
@@ -2292,9 +2388,17 @@
             // 건폐율 체크 패널의 대지면적 자동 입력
             var siteEl = document.getElementById("siteArea");
             if (siteEl && area > 0) { siteEl.value = area.toFixed(1); updateCoverage(); }
-            // 도로 접면 자동판정 → 최대 건축가능영역 산정
+        }
+        if (zone) { gotAny = true; applyZoning(findZoneName(zone.props)); }
+
+        if (gotAny) setRestrictStatus("VWORLD 기준 정보입니다. 경계·용도지역은 참고용입니다.");
+        else setRestrictStatus("대지·용도지역 정보를 가져오지 못했습니다. (VWORLD 데이터 API 서비스 신청 및 배포 도메인 등록이 필요합니다)");
+
+        // 2) 도로 접면 자동판정 → 최대 건축가능영역 (정보 표기 이후 별도 진행)
+        if (parcel && parcel.coords && parcel.coords.length >= 3) {
             var bs = document.getElementById("buildableStatus");
             if (bs) bs.textContent = "도로 접면 판정 중…";
+            computeBuildable(); // 우선 인접대지 후퇴 기준으로 즉시 표시
             roadEdgeFlags = await detectRoadEdges(parcel.coords);
             var roadCnt = roadEdgeFlags.filter(Boolean).length;
             if (bs) bs.textContent = roadCnt > 0
@@ -2302,13 +2406,6 @@
                 : "도로 접면 자동판정 안됨 — 후퇴거리로 직접 조정하세요.";
             computeBuildable();
         }
-
-        // 2) 용도지역 — 국토계획 용도지역 LT_C_UQ111
-        var zone = await fetchVWorldFeature("LT_C_UQ111", lon, lat);
-        if (zone) { gotAny = true; applyZoning(findZoneName(zone.props)); }
-
-        if (gotAny) setRestrictStatus("VWORLD 기준 정보입니다. 경계·용도지역은 참고용입니다.");
-        else setRestrictStatus("대지·용도지역 정보를 가져오지 못했습니다. (VWORLD 데이터 API 서비스 신청 및 배포 도메인 등록이 필요합니다)");
     }
 
     async function searchAddress() {
