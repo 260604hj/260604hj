@@ -237,39 +237,14 @@
     <!-- 신축 건물 그리기 -->
     <div class="card">
         <div class="label"><span class="dot"></span>신축 건물 그리기</div>
-
-        <!-- 모드 선택 -->
         <div class="row">
-            <button id="bmPresetBtn" class="btn-draw" onclick="setBuildMode('preset')">프리셋</button>
-            <button id="bmManualBtn" class="btn-draw active" onclick="setBuildMode('manual')">직접 그리기</button>
+            <button id="drawBtn" class="btn-draw" onclick="toggleDraw()">점 찍기</button>
+            <button id="editBtn" class="btn-edit" onclick="toggleEdit()">점 위치 조정</button>
         </div>
-
-        <!-- 모드 1: 프리셋 (최대 건축가능영역 내 건폐율 직사각형) -->
-        <div id="buildPreset" style="display:none;">
-            <div class="row" style="margin-top:10px;">
-                <span class="field">목표 건폐율</span>
-                <input id="presetBCR" type="number" min="1" max="100" step="1" value="60" style="width:64px;"><span class="cov-unit">%</span>
-                <span class="hint" style="margin:0 0 0 8px;">용도지역 법정 상한 자동입력</span>
-            </div>
-            <div class="row" style="margin-top:8px;">
-                <button class="btn-primary" onclick="makePresetRectangle()">최대영역 내 직사각형 생성</button>
-            </div>
-            <div class="hint" id="presetHint" style="margin-top:6px;">탭 A에서 주소 검색 후, 최대 건축가능영역 안에 건폐율을 만족하는 직사각형을 자동 생성합니다.</div>
+        <div class="hint">'점 찍기' 후 지면 클릭 → 정점 추가 · '점 위치 조정' 후 정점 드래그 → 이동</div>
+        <div class="row" style="margin-top:8px;">
+            <button class="btn-ghost btn-undo" onclick="undoPoint()">마지막 점 취소</button>
         </div>
-
-        <!-- 모드 2: 직접 그리기 -->
-        <div id="buildManual">
-            <div class="row" style="margin-top:10px;">
-                <button id="drawBtn" class="btn-draw" onclick="toggleDraw()">점 찍기</button>
-                <button id="editBtn" class="btn-edit" onclick="toggleEdit()">점 위치 조정</button>
-            </div>
-            <div class="hint">'점 찍기' 후 지면 클릭 → 정점 추가 · '점 위치 조정' 후 정점 드래그 → 이동</div>
-            <div class="row" style="margin-top:8px;">
-                <button class="btn-ghost btn-undo" onclick="undoPoint()">마지막 점 취소</button>
-            </div>
-        </div>
-
-        <!-- 공통: 층고 · 층수 · 수평투영 -->
         <div class="row" style="margin-top:10px;">
             <span class="field">층고(m)</span>
             <input id="storyH" type="number" value="4" min="0.5" step="0.1" style="width:72px;"
@@ -565,8 +540,6 @@
     var siteBoundaryCoords = []; // 대지경계 좌표(면적 계산용)
     var roadEdgeFlags = [];      // 대지경계 각 변(i→i+1)이 도로에 접하는지 여부
     var buildableEnts = [];      // 최대 건축가능영역 표시 엔티티(면·폴리라인)
-    var buildableCoords = [];    // 최대 건축가능영역 폴리곤 좌표(프리셋 직사각형 산출용)
-    var buildMode = "manual";    // 신축 건물 그리기 모드: "preset" | "manual"
     var sitePlaneH = 0;          // 대지 평균수평면 z (건물 없을 시 기준) — 경계·가능영역 폴리라인 공통 높이
     var siteLabelText = "";      // 대지경계 라벨(지번) — 평면 z 재계산 시 재그리기용
 
@@ -2265,105 +2238,13 @@
         var poly = insetPolygon(coords, setback);
         var area = poly.length >= 3 ? areaOfCoords(poly) : 0;
         if (!(area > 0)) {
-            buildableCoords = [];
             setRestrictField("rsBuildable", "후퇴 과다 — 영역 없음");
             return;
         }
-        buildableCoords = poly.slice(); // 프리셋 직사각형 산출용으로 보관
         setRestrictField("rsBuildable", area.toFixed(1) + " m²");
         var on = document.getElementById("buildableOn");
         if (on && !on.checked) return;
         drawBuildable(poly);
-    }
-
-    // ====================================================================
-    // 신축 건물 그리기 — 모드(프리셋/직접) 전환 & 프리셋 직사각형 생성
-    // ====================================================================
-    function setBuildMode(m) {
-        buildMode = m;
-        var pre = document.getElementById("buildPreset"), man = document.getElementById("buildManual");
-        if (pre) pre.style.display = (m === "preset") ? "block" : "none";
-        if (man) man.style.display = (m === "manual") ? "block" : "none";
-        var pb = document.getElementById("bmPresetBtn"), mb = document.getElementById("bmManualBtn");
-        if (pb) pb.classList.toggle("active", m === "preset");
-        if (mb) mb.classList.toggle("active", m === "manual");
-        // 프리셋으로 전환 시 진행 중인 그리기/편집 모드 해제
-        if (m === "preset") {
-            if (mode === "edit") disableVertexDrag();
-            if (mode === "draw" || mode === "edit") { mode = "select"; refreshModeUI(); updateStatus(); }
-        }
-    }
-
-    function getTargetBCR() {
-        var v = Number(document.getElementById("presetBCR").value);
-        if (isNaN(v) || v <= 0) v = 60;
-        return Math.min(100, v);
-    }
-
-    // 최대 건축가능영역 안에서 건폐율(목표)을 만족하는 직사각형을 만들어 신축 footprint(drawCoords)로 설정.
-    // 방향 = 가능영역 최장변, 가능영역 안에 들어가는 최대 중심 직사각형을 이분탐색 → 목표면적으로 축소.
-    function makePresetRectangle() {
-        var ph = document.getElementById("presetHint");
-        if (!buildableCoords || buildableCoords.length < 3) {
-            alert("최대 건축가능영역이 없습니다. 탭 A에서 주소를 검색하고 후퇴거리를 확인하세요.");
-            return;
-        }
-        var siteArea = areaOfCoords(siteBoundaryCoords);
-        if (!(siteArea > 0)) { alert("대지면적을 알 수 없습니다. 주소를 먼저 검색하세요."); return; }
-        var bcr = getTargetBCR();
-        var targetArea = siteArea * bcr / 100;
-
-        var n = buildableCoords.length;
-        var lon0 = 0, lat0 = 0; buildableCoords.forEach(function(c) { lon0 += c.lon; lat0 += c.lat; }); lon0 /= n; lat0 /= n;
-        var mLat = 111320, mLon = 111320 * Math.cos(lat0 * Math.PI / 180);
-        var P = buildableCoords.map(function(c) { return { x: (c.lon - lon0) * mLon, y: (c.lat - lat0) * mLat }; });
-
-        // 방향 = 최장변
-        var th = 0, best = -1;
-        for (var i = 0; i < n; i++) { var a = P[i], b = P[(i + 1) % n], dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy; if (L > best) { best = L; th = Math.atan2(dy, dx); } }
-        var cs = Math.cos(th), sn = Math.sin(th);
-        var R = P.map(function(p) { return { x: p.x * cs + p.y * sn, y: -p.x * sn + p.y * cs }; }); // -th 회전
-        var minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
-        R.forEach(function(p) { if (p.x < minx) minx = p.x; if (p.x > maxx) maxx = p.x; if (p.y < miny) miny = p.y; if (p.y > maxy) maxy = p.y; });
-        var cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, hw = (maxx - minx) / 2, hh = (maxy - miny) / 2;
-        if (hw <= 0.1 || hh <= 0.1) { alert("건축가능영역이 너무 좁습니다."); return; }
-
-        function rectFits(s) {
-            var rw = hw * s, rh = hh * s;
-            var corners = [[cx - rw, cy - rh], [cx + rw, cy - rh], [cx + rw, cy + rh], [cx - rw, cy + rh]];
-            for (var e = 0; e < 4; e++) {
-                var A = corners[e], B = corners[(e + 1) % 4];
-                for (var t = 0; t <= 1.0001; t += 0.2) {
-                    if (!pointInPoly(A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, R)) return false;
-                }
-            }
-            return true;
-        }
-        if (!rectFits(0.02)) { alert("건축가능영역 형상이 복잡해 직사각형을 자동 배치할 수 없습니다. '직접 그리기'를 사용하세요."); return; }
-        var lo = 0.02, hi = 1;
-        for (var it = 0; it < 26; it++) { var mid = (lo + hi) / 2; if (rectFits(mid)) lo = mid; else hi = mid; }
-        var sMax = lo, maxArea = (2 * hw * sMax) * (2 * hh * sMax), s = sMax, met = true;
-        if (maxArea >= targetArea) s = sMax * Math.sqrt(targetArea / maxArea);
-        else met = false; // 최대치로도 건폐율 미달(후퇴 과다)
-
-        var rw = hw * s, rh = hh * s;
-        var rectR = [[cx - rw, cy - rh], [cx + rw, cy - rh], [cx + rw, cy + rh], [cx - rw, cy + rh]];
-        var corners = rectR.map(function(p) {
-            var X = p[0] * cs - p[1] * sn, Y = p[0] * sn + p[1] * cs; // +th 회전
-            return { lon: lon0 + X / mLon, lat: lat0 + Y / mLat };
-        });
-
-        // 진행 중 그리기/편집 해제 후 footprint로 설정
-        if (mode === "edit") disableVertexDrag();
-        mode = "select";
-        drawCoords = corners;
-        rebuildDraft();
-        refreshModeUI();
-        var footArea = areaOfCoords(corners);
-        if (ph) ph.textContent = met
-            ? ("생성 완료 · 건폐율 " + bcr + "% (≈" + footArea.toFixed(1) + "㎡). 아래 층고·층수와 입면 모듈 패널링으로 진행하세요.")
-            : ("최대 직사각형 생성(≈" + footArea.toFixed(1) + "㎡) · 후퇴가 커서 건폐율 " + bcr + "% 미달. 후퇴거리를 줄이세요.");
-        updateStatus();
     }
 
     // 최대 건축가능영역을 지면 평면에 초록 폴리라인 + 반투명 면으로 표시
@@ -2480,9 +2361,6 @@
         setRestrictField("rsZone", matched || "확인 안됨");
         setRestrictField("rsBCR", info ? info.bcr + " %" : "–");
         setRestrictField("rsFAR", info ? info.far + " %" : "–");
-        // 프리셋 목표 건폐율을 법정 상한으로 자동 입력
-        var pb = document.getElementById("presetBCR");
-        if (pb && info) pb.value = info.bcr;
     }
 
     // 대지경계(연속지적도) + 용도지역(국토계획) 조회 후 표시
