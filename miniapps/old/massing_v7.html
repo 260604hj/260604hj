@@ -2495,17 +2495,19 @@
 
     // 지형 타일이 로딩되기 전 getHeight는 0을 줄 수 있어, 가장 상세한 지형을 비동기로 샘플링해
     // 평균수평면 z를 보정하고 경계·가능영역을 다시 그린다(도로판정 상태는 유지).
-    // 지형 타일이 로딩되며 globe.getHeight 값이 바뀔 수 있어 잠깐 뒤 재샘플.
-    // ※ 반드시 건물 바닥과 동일한 기준(globe.getHeight=sampleGroundHeight)을 써야 함.
-    //    지형 provider(sampleTerrainMostDetailed)는 렌더 표면과 표고 기준이 달라 경계가 떠버리므로 쓰지 않는다.
     async function refineSitePlaneH() {
         if (!viewer || !siteBoundaryCoords.length) return;
-        for (var attempt = 0; attempt < 3; attempt++) {
-            await new Promise(function(r) { setTimeout(r, 400); });
-            if (!siteBoundaryCoords.length) return;
-            var h = averageGroundHeight(siteBoundaryCoords);
+        try {
+            var tp = viewer.terrainProvider;
+            if (!tp || typeof Cesium.sampleTerrainMostDetailed !== "function") return;
+            var cartos = siteBoundaryCoords.map(function(c) { return Cesium.Cartographic.fromDegrees(c.lon, c.lat); });
+            var res = await Cesium.sampleTerrainMostDetailed(tp, cartos);
+            var sum = 0, n = 0;
+            res.forEach(function(cg) { if (cg && isFinite(cg.height)) { sum += cg.height; n++; } });
+            if (!n) return;
+            var h = sum / n;
             if (Math.abs(h - sitePlaneH) > 0.2) { sitePlaneH = h; renderSiteBoundary(); computeBuildable(); }
-        }
+        } catch (e) { /* 지형 샘플 실패 시 기존 z 유지 */ }
     }
 
     // 용도지역명 → 건폐율·용적률 상한을 건축제한 섹터에 반영
