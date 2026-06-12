@@ -195,32 +195,6 @@
         <div class="hint" style="margin-top:2px;">※ 국토계획법 시행령 기준 상한 — 실제 한도는 지자체 조례에 따라 더 엄격할 수 있습니다.</div>
     </div>
 
-    <!-- 최대 건축가능영역 (건축선후퇴) -->
-    <div class="card" id="buildableCard">
-        <div class="label"><span class="dot"></span>최대 건축가능영역</div>
-        <div class="row">
-            <span class="field">도로측 후퇴</span>
-            <input id="sbRoad" type="number" min="0" step="0.1" value="0" style="width:64px;"
-                   oninput="computeBuildable()"><span class="cov-unit">m</span>
-            <span class="field" style="margin-left:auto;">인접대지</span>
-            <input id="sbAdj" type="number" min="0" step="0.1" value="0.5" style="width:64px;"
-                   oninput="computeBuildable()"><span class="cov-unit">m</span>
-        </div>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">추가 후퇴</span>
-            <input id="sbExtra" type="number" min="0" step="0.1" value="0" style="width:64px;"
-                   oninput="computeBuildable()"><span class="cov-unit">m</span>
-            <span class="hint" style="margin:0 0 0 8px;">대지안의 공지·지구단위 등 일괄</span>
-        </div>
-        <label class="check" style="margin-top:10px;">
-            <input type="checkbox" id="buildableOn" checked onchange="computeBuildable()">
-            평면에 최대 건축가능영역 표시(초록)
-        </label>
-        <div class="rs-row hl" style="margin-top:10px;">
-            <span class="rs-k">건축가능면적</span><span class="rs-v" id="rsBuildable">–</span></div>
-        <div class="hint" id="buildableStatus" style="margin-top:6px;">주소 검색 후 대지경계 기준으로 자동 산정됩니다. (도로 접면 자동판정)</div>
-    </div>
-
     <!-- ② 건물 선택·투명화 -->
     <div class="card">
         <div class="label"><span class="dot"></span>건물 선택 · 투명화</div>
@@ -538,8 +512,6 @@
     var VWORLD_KEY = "B5CEDD7D-84D6-314E-875C-9B5BF7E1233A"; // 지도·지오코더·데이터 API 공용 키
     var siteBoundaryEnts = [];   // 대지경계선 표시 엔티티(폴리라인·라벨)
     var siteBoundaryCoords = []; // 대지경계 좌표(면적 계산용)
-    var roadEdgeFlags = [];      // 대지경계 각 변(i→i+1)이 도로에 접하는지 여부
-    var buildableEnts = [];      // 최대 건축가능영역 표시 엔티티(면·폴리라인)
 
     window.onload = function() {
         map = new vw.Map();
@@ -1989,13 +1961,7 @@
         var c = geom.coordinates;
         var ring = (geom.type === "MultiPolygon") ? (c[0] && c[0][0]) : (geom.type === "Polygon") ? c[0] : null;
         if (!ring) return null;
-        var pts = ring.map(function(p) { return { lon: Number(p[0]), lat: Number(p[1]) }; });
-        // GeoJSON 링은 첫 점을 끝에 반복하므로 제거(변 오프셋 계산용)
-        if (pts.length >= 2) {
-            var f = pts[0], l = pts[pts.length - 1];
-            if (f.lon === l.lon && f.lat === l.lat) pts.pop();
-        }
-        return pts;
+        return ring.map(function(p) { return { lon: Number(p[0]), lat: Number(p[1]) }; });
     }
 
     // VWORLD 데이터 API: 좌표(POINT)와 겹치는 첫 피처를 GeoJSON으로 반환
@@ -2010,157 +1976,6 @@
             var f = fc.features[0];
             return { coords: extractOuterRing(f.geometry), props: f.properties || {} };
         } catch (e) { console.warn("VWORLD 데이터 실패(" + layer + "):", e); return null; }
-    }
-
-    // 임의 WKT(geomFilter)로 여러 피처를 조회 — 인접 도로 필지 판정용
-    async function fetchVWorldFeatures(layer, geomFilter, size) {
-        try {
-            var url = "https://api.vworld.kr/req/data?service=data&version=2.0&request=GetFeature&format=json" +
-                "&data=" + layer + "&key=" + VWORLD_KEY + "&domain=" + encodeURIComponent(location.origin || location.href) +
-                "&geomFilter=" + geomFilter + "&geometry=true&attribute=true&crs=EPSG:4326&size=" + (size || 10);
-            var d = await jsonpGet(url);
-            var fc = d.response && d.response.result && d.response.result.featureCollection;
-            if (!fc || !fc.features) return [];
-            return fc.features.map(function(f) { return { geometry: f.geometry, props: f.properties || {} }; });
-        } catch (e) { console.warn("VWORLD 데이터 다건 실패(" + layer + "):", e); return []; }
-    }
-
-    // 지오메트리의 모든 외곽 링을 lon/lat 배열로
-    function allOuterRings(geom) {
-        var out = [];
-        if (!geom || !geom.coordinates) return out;
-        function push(poly) { if (poly && poly[0]) out.push(poly[0].map(function(p) { return { lon: Number(p[0]), lat: Number(p[1]) }; })); }
-        if (geom.type === "Polygon") push(geom.coordinates);
-        else if (geom.type === "MultiPolygon") geom.coordinates.forEach(push);
-        return out;
-    }
-
-    // 지번 끝 글자가 지목 '도'(도로)면 도로 필지로 판정
-    function isRoadJibun(jibun) {
-        if (!jibun) return false;
-        var s = String(jibun).trim();
-        return s.charAt(s.length - 1) === "도";
-    }
-
-    // lon/lat 폴리곤 내부 점 판정(ray casting, 소규모 대지에 충분)
-    function pointInLonLatPoly(pt, ring) {
-        var inside = false;
-        for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-            var xi = ring[i].lon, yi = ring[i].lat, xj = ring[j].lon, yj = ring[j].lat;
-            if (((yi > pt.lat) !== (yj > pt.lat)) && (pt.lon < (xj - xi) * (pt.lat - yi) / (yj - yi) + xi)) inside = !inside;
-        }
-        return inside;
-    }
-
-    // 대지경계 각 변이 도로에 접하는지 자동판정 — 인접 필지를 BOX로 받아 도로 필지 내부 여부로 결정
-    async function detectRoadEdges(coords) {
-        var flags = coords.map(function() { return false; });
-        try {
-            var minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
-            coords.forEach(function(c) {
-                if (c.lon < minLon) minLon = c.lon; if (c.lon > maxLon) maxLon = c.lon;
-                if (c.lat < minLat) minLat = c.lat; if (c.lat > maxLat) maxLat = c.lat;
-            });
-            var lat0 = (minLat + maxLat) / 2;
-            var padLat = 12 / 111320, padLon = 12 / (111320 * Math.cos(lat0 * Math.PI / 180));
-            var box = "BOX(" + (minLon - padLon) + "," + (minLat - padLat) + "," + (maxLon + padLon) + "," + (maxLat + padLat) + ")";
-            var feats = await fetchVWorldFeatures("LP_PA_CBND_BUBUN", box, 300);
-            var roads = [];
-            feats.forEach(function(f) {
-                if (isRoadJibun(f.props && f.props.jibun)) allOuterRings(f.geometry).forEach(function(r) { roads.push(r); });
-            });
-            if (!roads.length) return flags;
-            var cen = { lon: 0, lat: 0 };
-            coords.forEach(function(c) { cen.lon += c.lon; cen.lat += c.lat; });
-            cen.lon /= coords.length; cen.lat /= coords.length;
-            for (var i = 0; i < coords.length; i++) {
-                var A = coords[i], B = coords[(i + 1) % coords.length];
-                var e = offsetEdgeOutward(A, B, cen, 1.5); // 변 중점을 바깥으로 1.5m
-                var mid = { lon: (e.A.lon + e.B.lon) / 2, lat: (e.A.lat + e.B.lat) / 2 };
-                for (var k = 0; k < roads.length; k++) { if (pointInLonLatPoly(mid, roads[k])) { flags[i] = true; break; } }
-            }
-        } catch (e) { console.warn("도로 접면 판정 실패:", e); }
-        return flags;
-    }
-
-    // 폴리곤 변별 부호거리 오프셋(양수=바깥, 음수=안쪽). 인접 변 오프셋선 교점으로 정점 산출.
-    function offsetPolygonSigned(coords, sd) {
-        var n = coords.length;
-        if (n < 3) return coords.map(function(c) { return { lon: c.lon, lat: c.lat }; });
-        var lon0 = 0, lat0 = 0; coords.forEach(function(c) { lon0 += c.lon; lat0 += c.lat; }); lon0 /= n; lat0 /= n;
-        var mPerLat = 111320, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
-        var P = coords.map(function(c) { return { x: (c.lon - lon0) * mPerLon, y: (c.lat - lat0) * mPerLat }; });
-        var A2 = 0; for (var i = 0; i < n; i++) { var j = (i + 1) % n; A2 += P[i].x * P[j].y - P[j].x * P[i].y; }
-        var sgn = (A2 > 0) ? 1 : -1;
-        var E = [];
-        for (var i = 0; i < n; i++) {
-            var a = P[i], b = P[(i + 1) % n];
-            var dx = b.x - a.x, dy = b.y - a.y, L = Math.sqrt(dx * dx + dy * dy) || 1;
-            E.push({ nx: sgn * dy / L, ny: -sgn * dx / L, dx: dx, dy: dy }); // 외향 단위 법선
-        }
-        var out = [];
-        for (var i = 0; i < n; i++) {
-            var pe = E[(i - 1 + n) % n], ce = E[i], V = P[i];
-            var dp = sd[(i - 1 + n) % n], dc = sd[i];
-            var A0x = V.x + pe.nx * dp, A0y = V.y + pe.ny * dp;
-            var A1x = V.x + ce.nx * dc, A1y = V.y + ce.ny * dc;
-            var den = pe.dx * ce.dy - pe.dy * ce.dx;
-            var ix, iy;
-            if (Math.abs(den) < 1e-6) { ix = (A0x + A1x) / 2; iy = (A0y + A1y) / 2; }
-            else { var t = ((A1x - A0x) * ce.dy - (A1y - A0y) * ce.dx) / den; ix = A0x + t * pe.dx; iy = A0y + t * pe.dy; }
-            out.push({ lon: lon0 + ix / mPerLon, lat: lat0 + iy / mPerLat });
-        }
-        return out;
-    }
-
-    function getSetbacks() {
-        function v(id, dflt) { var x = Number(document.getElementById(id).value); return (isNaN(x) || x < 0) ? dflt : x; }
-        return { road: v("sbRoad", 0), adj: v("sbAdj", 0), extra: v("sbExtra", 0) };
-    }
-
-    function clearBuildable() {
-        if (viewer) buildableEnts.forEach(function(e) { try { viewer.entities.remove(e); } catch (x) {} });
-        buildableEnts = [];
-    }
-
-    // 최대 건축가능영역 = 대지경계를 변별 후퇴거리만큼 안쪽으로 오프셋
-    function computeBuildable() {
-        clearBuildable();
-        var coords = siteBoundaryCoords;
-        if (!coords || coords.length < 3) { setRestrictField("rsBuildable", "–"); return; }
-        var sb = getSetbacks();
-        var sd = [];
-        for (var i = 0; i < coords.length; i++) {
-            var base = roadEdgeFlags[i] ? sb.road : sb.adj;
-            sd.push(-(base + sb.extra)); // 음수 = 안쪽
-        }
-        var poly = offsetPolygonSigned(coords, sd);
-        var area = areaOfCoords(poly);
-        var parcelArea = areaOfCoords(coords);
-        if (!(area > 0) || area >= parcelArea * 1.001) {
-            setRestrictField("rsBuildable", "후퇴 과다 — 영역 없음");
-            return;
-        }
-        setRestrictField("rsBuildable", area.toFixed(1) + " m²");
-        var on = document.getElementById("buildableOn");
-        if (on && !on.checked) return;
-        drawBuildable(poly);
-    }
-
-    // 최대 건축가능영역을 지면 평면에 초록 폴리라인 + 반투명 면으로 표시
-    function drawBuildable(coords) {
-        if (!viewer || !coords || coords.length < 3) return;
-        var ring = coords.slice(); ring.push(coords[0]);
-        var flat = []; ring.forEach(function(c) { flat.push(c.lon, c.lat); });
-        buildableEnts.push(viewer.entities.add({ polygon: {
-            hierarchy: Cesium.Cartesian3.fromDegreesArray(flat),
-            material: Cesium.Color.fromBytes(60, 200, 120, 70),
-            classificationType: Cesium.ClassificationType.TERRAIN
-        }}));
-        buildableEnts.push(viewer.entities.add({ polyline: {
-            positions: Cesium.Cartesian3.fromDegreesArray(flat), width: 3, clampToGround: true,
-            material: Cesium.Color.fromBytes(40, 175, 90, 255)
-        }}));
     }
 
     // 피처 속성값들 중 용도지역명(ZONING_TABLE 키)과 일치하는 것을 탐색
@@ -2182,8 +1997,6 @@
         if (viewer) siteBoundaryEnts.forEach(function(e) { try { viewer.entities.remove(e); } catch (x) {} });
         siteBoundaryEnts = [];
         siteBoundaryCoords = [];
-        roadEdgeFlags = [];
-        clearBuildable();
     }
 
     // 대지경계선을 건물 시작레벨(지면)과 같은 xy평면에 폴리라인으로 그림(빨강·clampToGround)
@@ -2247,15 +2060,6 @@
             // 건폐율 체크 패널의 대지면적 자동 입력
             var siteEl = document.getElementById("siteArea");
             if (siteEl && area > 0) { siteEl.value = area.toFixed(1); updateCoverage(); }
-            // 도로 접면 자동판정 → 최대 건축가능영역 산정
-            var bs = document.getElementById("buildableStatus");
-            if (bs) bs.textContent = "도로 접면 판정 중…";
-            roadEdgeFlags = await detectRoadEdges(parcel.coords);
-            var roadCnt = roadEdgeFlags.filter(Boolean).length;
-            if (bs) bs.textContent = roadCnt > 0
-                ? ("도로 접면 " + roadCnt + "개 변 자동판정 · 후퇴거리 조정 가능")
-                : "도로 접면 자동판정 안됨 — 후퇴거리로 직접 조정하세요.";
-            computeBuildable();
         }
 
         // 2) 용도지역 — 국토계획 용도지역 LT_C_UQ111
