@@ -213,11 +213,6 @@
             <span class="hint" style="margin:0 0 0 8px;">대지안의 공지·지구단위 등 일괄</span>
         </div>
         <label class="check" style="margin-top:10px;">
-            <input type="checkbox" id="autoRoad" checked onchange="computeBuildable()">
-            도로 접면 자동판정
-        </label>
-        <div class="hint" style="margin:2px 0 0 24px;">해제하면 모든 변에 ‘인접대지’ 후퇴를 적용합니다(전면도로 없는 대지 등).</div>
-        <label class="check" style="margin-top:8px;">
             <input type="checkbox" id="buildableOn" checked onchange="computeBuildable()">
             평면에 최대 건축가능영역 표시(초록)
         </label>
@@ -2262,12 +2257,10 @@
         var coords = siteBoundaryCoords;
         if (!coords || coords.length < 3) { setRestrictField("rsBuildable", "–"); return; }
         var sb = getSetbacks();
-        var autoEl = document.getElementById("autoRoad");
-        var useAuto = autoEl ? autoEl.checked : true; // 해제 시 모든 변을 인접대지로
         var setback = [];
         for (var i = 0; i < coords.length; i++) {
-            var isRoad = useAuto && !!roadEdgeFlags[i]; // 도로변=도로측, 그 외(또는 자동판정 해제)=인접대지
-            setback.push((isRoad ? sb.road : sb.adj) + sb.extra);
+            var base = roadEdgeFlags[i] ? sb.road : sb.adj; // 도로변=도로측, 그 외=인접대지
+            setback.push(base + sb.extra);
         }
         var poly = insetPolygon(coords, setback);
         var area = poly.length >= 3 ? areaOfCoords(poly) : 0;
