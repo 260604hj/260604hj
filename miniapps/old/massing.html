@@ -1982,7 +1982,7 @@
         return new Promise(function(resolve, reject) {
             var cbName = "__vwjsonp_" + (++__jsonpSeq) + "_" + Date.now();
             var script = document.createElement("script");
-            var timer = setTimeout(function() { cleanup(); reject(new Error("JSONP 시간 초과")); }, 9000);
+            var timer = setTimeout(function() { cleanup(); reject(new Error("JSONP 시간 초과")); }, 12000);
             function cleanup() {
                 clearTimeout(timer);
                 try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
@@ -1995,12 +1995,11 @@
             document.head.appendChild(script);
         });
     }
-    // 간헐적 실패에 대비해 최대 3회 재시도(짧은 백오프)
+    // 간헐적 실패에 대비해 1회 재시도
     async function jsonpGet(baseUrl) {
         var lastErr;
-        for (var attempt = 0; attempt < 3; attempt++) {
-            try { return await jsonpOnce(baseUrl); }
-            catch (e) { lastErr = e; if (attempt < 2) await new Promise(function(r) { setTimeout(r, 400); }); }
+        for (var attempt = 0; attempt < 2; attempt++) {
+            try { return await jsonpOnce(baseUrl); } catch (e) { lastErr = e; }
         }
         throw lastErr;
     }
@@ -2061,18 +2060,6 @@
             var f = fc.features[0];
             return { coords: extractOuterRing(f.geometry), props: f.properties || {} };
         } catch (e) { console.warn("VWORLD 데이터 실패(" + layer + "):", e); return null; }
-    }
-
-    // 위 조회를 결과가 나올 때까지 재시도 — "건축제한이 한 번에 안 뜨는" 간헐 실패 방지.
-    // (유효 주소면 대지·용도지역은 항상 존재하므로 null은 보통 일시적 실패 → 재시도)
-    async function fetchFeatureResilient(layer, lon, lat, tries) {
-        tries = tries || 3;
-        for (var i = 0; i < tries; i++) {
-            var f = await fetchVWorldFeature(layer, lon, lat);
-            if (f) return f;
-            if (i < tries - 1) await new Promise(function(r) { setTimeout(r, 500); });
-        }
-        return null;
     }
 
     // 임의 WKT(geomFilter)로 여러 피처를 조회 — 인접 도로 필지 판정용
@@ -2546,8 +2533,8 @@
 
         // 1) 건축제한 정보 먼저 — 대지경계·용도지역을 병렬 조회해 즉시 표기(무거운 도로판정에 막히지 않음)
         var results = await Promise.all([
-            fetchFeatureResilient("LP_PA_CBND_BUBUN", lon, lat, 3),
-            fetchFeatureResilient("LT_C_UQ111", lon, lat, 3)
+            fetchVWorldFeature("LP_PA_CBND_BUBUN", lon, lat),
+            fetchVWorldFeature("LT_C_UQ111", lon, lat)
         ]);
         var parcel = results[0], zone = results[1];
         var gotAny = false;
