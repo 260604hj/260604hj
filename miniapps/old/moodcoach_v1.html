@@ -93,29 +93,6 @@
     }
     .chip:hover{ border-color:#bbb; color:#222; }
 
-    /* ── API 키 입력 ── */
-    .keyrow{ margin-top:20px; }
-    .keyrow .label span{ font-weight:400; letter-spacing:0; text-transform:none; color:#b8b8b4; }
-    .key-line{ display:flex; gap:8px; }
-    .key-input{
-        flex:1; font-family:inherit; font-size:13px; color:var(--ink);
-        background:#fafaf9; border:1px solid var(--line); border-radius:9px;
-        padding:10px 12px; outline:none; transition:border-color .15s, background .15s;
-    }
-    .key-input:focus{ border-color:#9a9a96; background:#fff; }
-    .key-save{
-        font-family:inherit; font-size:13px; font-weight:600; color:#fff; background:var(--ink);
-        border:none; border-radius:9px; padding:0 16px; cursor:pointer; transition:background .15s;
-    }
-    .key-save:hover{ background:#000; }
-    .key-hint{ font-size:11px; color:#b4b8bd; margin-top:7px; line-height:1.5; }
-    .key-toggle{
-        display:inline-block; margin-top:14px; font-size:12px; color:var(--muted);
-        background:none; border:none; cursor:pointer; font-family:inherit; padding:0;
-    }
-    .key-toggle:hover{ color:var(--ink); }
-    .key-saved{ font-size:12px; color:#2e7d52; margin-top:7px; display:none; }
-
     /* ── 버튼 ── */
     .go{
         margin-top:22px; width:100%;
@@ -220,18 +197,6 @@
             <input type="range" id="anger" min="1" max="5" value="3" step="1">
         </div>
 
-        <div class="keyrow" id="keyrow">
-            <label class="label" for="keyInput">Gemini API 키 <span>· 이 브라우저에만 저장돼요</span></label>
-            <div class="key-line">
-                <input type="password" id="keyInput" class="key-input" placeholder="AI… 형식의 키를 붙여넣으세요" autocomplete="off">
-                <button class="key-save" id="keySave" type="button">저장</button>
-            </div>
-            <p class="key-hint">키는 깃허브·서버 어디에도 올라가지 않고, 지금 보고 있는 브라우저에만 보관됩니다. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:#8a8f98;">키 발급하기 ↗</a></p>
-            <p class="key-saved" id="keySaved">✓ 키가 저장되었습니다.</p>
-        </div>
-
-        <button class="key-toggle" id="keyToggle" type="button" style="display:none;">🔑 API 키 변경</button>
-
         <button class="go" id="go">두 스승의 조언 듣기</button>
 
         <div class="breath" id="breath">
@@ -244,18 +209,12 @@
     <div class="advice" id="advice"></div>
 
     <p class="footnote">
-        ※ 본 조언은 Gemini AI가 두 인물의 화법을 본떠 매번 새로 생성하는 메시지로, 실제 인물의 발언이 아닙니다.<br>
+        ※ 본 조언은 두 인물의 화법을 본떠 만든 자동 생성 메시지로, 실제 인물의 발언이 아닙니다.<br>
         마음이 많이 힘들 땐 전문가의 상담을 권합니다.
     </p>
 </div>
 
 <script>
-/* ───────── Gemini 설정 ───────── */
-// 키는 코드/깃허브에 저장하지 않습니다. 사용자가 입력하면 이 브라우저(localStorage)에만 보관됩니다.
-const GEMINI_MODEL = 'gemini-2.5-flash';
-const KEY_STORE = 'moodcoach_gemini_key';
-const getKey = ()=> (localStorage.getItem(KEY_STORE)||'').trim();
-
 /* ───────── 상황 빠른 입력 칩 ───────── */
 const quickChips = [
     "상사가 사람들 앞에서 면박을 줬다",
@@ -290,26 +249,6 @@ function paintGauge(){
 }
 angerEl.addEventListener('input',paintGauge);
 paintGauge();
-
-/* ───────── API 키 UI ───────── */
-const keyrow=document.getElementById('keyrow');
-const keyToggle=document.getElementById('keyToggle');
-const keyInput=document.getElementById('keyInput');
-const keySaved=document.getElementById('keySaved');
-function refreshKeyUI(){
-    if(getKey()){ keyrow.style.display='none'; keyToggle.style.display='inline-block'; }
-    else{ keyrow.style.display='block'; keyToggle.style.display='none'; }
-}
-document.getElementById('keySave').addEventListener('click',()=>{
-    const v=keyInput.value.trim();
-    if(!v){ keyInput.focus(); keyInput.style.borderColor='#e88a6a'; setTimeout(()=>keyInput.style.borderColor='',1200); return; }
-    localStorage.setItem(KEY_STORE,v);
-    keyInput.value='';
-    keySaved.style.display='block';
-    setTimeout(()=>{ keySaved.style.display='none'; refreshKeyUI(); },900);
-});
-keyToggle.addEventListener('click',()=>{ keyrow.style.display='block'; keyToggle.style.display='none'; keyInput.focus(); });
-refreshKeyUI();
 
 /* ───────── 상황 분류 (키워드 기반) ───────── */
 const categories = [
@@ -391,107 +330,42 @@ const adviceEl=document.getElementById('advice');
 const go=document.getElementById('go');
 const breath=document.getElementById('breath');
 
-go.addEventListener('click', async ()=>{
+go.addEventListener('click',()=>{
     const text=ta.value.trim();
     if(!text){ ta.focus(); ta.style.borderColor='#e88a6a'; setTimeout(()=>ta.style.borderColor='',1200); return; }
 
-    if(!getKey()){
-        keyrow.style.display='block'; keyToggle.style.display='none';
-        keyInput.focus(); keyInput.style.borderColor='#e88a6a';
-        setTimeout(()=>keyInput.style.borderColor='',1500);
-        keyInput.placeholder='먼저 Gemini API 키를 입력해 주세요';
-        return;
-    }
-
-    const cat=classify(text);                 // 폴백 + 라벨용
+    const cat=classify(text);
     const level=parseInt(angerEl.value,10);
     const pre=intensityPrefix(level);
 
+    // 욱한 정도가 높으면 잠시 호흡 안내 후 조언
     adviceEl.innerHTML='';
+    const delay = level>=4 ? 2600 : 600;
     go.disabled=true; breath.classList.add('on');
 
-    let result, note='';
-    try{
-        result = await generateWithGemini(text, level);   // ← 매번 다른 AI 답변
-    }catch(err){
-        console.warn('Gemini 호출 실패, 기본 조언으로 대체:', err);
-        result = {
-            label: cat.label,
-            hun:{ quote:HUN.quote[cat.key], advice:pre.hun+HUN.advice[cat.key] },
-            oh: { quote:OH.quote[cat.key],  advice:pre.oh +OH.advice[cat.key] },
-        };
-        note='⚠️ AI 연결에 실패하여 기본 조언을 보여드립니다. (네트워크·키·쿼터 확인)';
-    }
-
-    breath.classList.remove('on'); go.disabled=false;
-    renderAdvice(result, note);
-    document.getElementById('advice').scrollIntoView({behavior:'smooth',block:'start'});
+    setTimeout(()=>{
+        breath.classList.remove('on'); go.disabled=false;
+        renderAdvice(cat,pre);
+        document.getElementById('advice').scrollIntoView({behavior:'smooth',block:'start'});
+    }, delay);
 });
 
-/* Gemini 호출 — 두 인물의 조언을 JSON으로 생성 */
-async function generateWithGemini(situation, level){
-    const levelText = angerLevels[level-1].t;
-    const sys = `너는 직장에서 욱한 사람에게 두 인물의 목소리로 조언하는 역할이다. 반드시 한국어로, 지정한 JSON 형식으로만 답하라.
+function renderAdvice(cat,pre){
+    const hunQ=HUN.quote[cat.key], hunA=pre.hun+HUN.advice[cat.key];
+    const ohQ=OH.quote[cat.key],  ohA=pre.oh+OH.advice[cat.key];
 
-[상황] ${situation}
-[욱한 정도] ${level}/5 (${levelText})
-
-두 인물의 조언을 만들어라. 매번 표현을 새롭게 하고, 상황의 구체적 내용을 반영하라.
-
-1) 청학동 훈장님 — 따끔하지만 정 있는 예절 조언. 옛 선비 말투("이 사람아", "허허", "~하느니라", "~하게"), 예(禮)·인내·군자의 도리를 강조. 짧은 격언 한 줄 + 2~4문장 조언.
-2) 오은영 박사님 — 냉철하지만 따뜻한 심리 해석. 먼저 감정을 인정("그럴 수 있어요", "당연해요") → 화의 진짜 원인 짚기 → 구체적이고 실천 가능한 행동 제안 1가지. 따뜻한 한 줄 + 3~5문장 조언.
-
-situationLabel은 '~한 상황' 형태의 짧은 한 줄 요약.`;
-
-    const body = {
-        contents:[{ role:'user', parts:[{text:sys}] }],
-        generationConfig:{
-            temperature:1.15,
-            topP:0.95,
-            responseMimeType:'application/json',
-            responseSchema:{
-                type:'object',
-                properties:{
-                    situationLabel:{type:'string'},
-                    hun:{ type:'object', properties:{ quote:{type:'string'}, advice:{type:'string'} }, required:['quote','advice'] },
-                    oh: { type:'object', properties:{ quote:{type:'string'}, advice:{type:'string'} }, required:['quote','advice'] }
-                },
-                required:['situationLabel','hun','oh']
-            }
-        }
-    };
-
-    const url=`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${getKey()}`;
-    // 503(일시적 과부하)은 짧게 재시도
-    let res;
-    for(let attempt=0; attempt<3; attempt++){
-        res = await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-        if(res.ok) break;
-        if(res.status===503 && attempt<2){ await new Promise(r=>setTimeout(r, 900*(attempt+1))); continue; }
-        throw new Error('HTTP '+res.status+' '+(await res.text()).slice(0,300));
-    }
-    const data = await res.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if(!raw) throw new Error('빈 응답');
-    const parsed = JSON.parse(raw);
-    return { label:parsed.situationLabel||'마음이 흔들린 상황', hun:parsed.hun, oh:parsed.oh };
-}
-
-function renderAdvice(r, note){
-    const noteHtml = note ? `<p class="footnote" style="margin:0 0 14px;color:#c0392b;">${note}</p>` : '';
     adviceEl.innerHTML=`
-      ${noteHtml}
       <div class="voice hun">
         <div class="voice-head">
             <div class="avatar">📜</div>
             <div>
                 <div class="voice-name">청학동 훈장님</div>
-                <div class="voice-tag">따끔한 예절 한 마디 · ${r.label}</div>
+                <div class="voice-tag">따끔한 예절 한 마디 · ${cat.label}</div>
             </div>
         </div>
         <div class="voice-body">
-            <div class="quote">“${r.hun.quote}”</div>
-            <p>${(r.hun.advice||'').replace(/\n/g,'<br>')}</p>
+            <div class="quote">“${hunQ}”</div>
+            <p>${hunA}</p>
         </div>
       </div>
 
@@ -500,12 +374,12 @@ function renderAdvice(r, note){
             <div class="avatar">🩺</div>
             <div>
                 <div class="voice-name">오은영 박사님</div>
-                <div class="voice-tag">냉철하지만 따뜻한 해석 · ${r.label}</div>
+                <div class="voice-tag">냉철하지만 따뜻한 해석 · ${cat.label}</div>
             </div>
         </div>
         <div class="voice-body">
-            <div class="quote">“${r.oh.quote}”</div>
-            <p>${(r.oh.advice||'').replace(/\n/g,'<br>')}</p>
+            <div class="quote">“${ohQ}”</div>
+            <p>${ohA}</p>
         </div>
       </div>
     `;
