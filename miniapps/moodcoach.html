@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마음 두 스승 — 욱할 때 듣는 두 가지 조언</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+<style>
+    :root{
+        --ink:#15171c;
+        --muted:#8a8f98;
+        --line:#e4e6e9;
+        --paper:#f2f2f0;
+        --white:#ffffff;
+        --hun:#7a5c2e;       /* 훈장님 — 먹/나무색 */
+        --hun-bg:#faf6ee;
+        --oh:#2e5d7a;        /* 오은영 — 차분한 청록 */
+        --oh-bg:#eef4f7;
+    }
+    *, *::before, *::after{ box-sizing:border-box; margin:0; padding:0; }
+
+    body{
+        font-family:'Inter','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        color:var(--ink);
+        background:var(--paper);
+        -webkit-font-smoothing:antialiased;
+        min-height:100vh;
+        padding:40px 20px 80px;
+    }
+
+    .wrap{ width:100%; max-width:560px; margin:0 auto; }
+
+    /* ── 헤더 ── */
+    .top{ display:flex; align-items:baseline; justify-content:space-between; }
+    .back{
+        font-size:12px; color:var(--muted); text-decoration:none;
+        letter-spacing:0.02em; transition:color .2s;
+    }
+    .back:hover{ color:var(--ink); }
+    h1{
+        font-family:'Gowun Batang','Noto Sans KR',serif;
+        font-weight:700; font-size:30px; letter-spacing:-0.01em; margin-top:18px;
+    }
+    .sub{ margin-top:10px; font-size:13px; color:var(--muted); line-height:1.6; }
+
+    /* ── 입력 카드 ── */
+    .card{
+        margin-top:28px;
+        background:var(--white);
+        border:1px solid var(--line);
+        border-radius:14px;
+        padding:22px 22px 24px;
+    }
+    .label{
+        font-size:10px; font-weight:700; letter-spacing:0.14em;
+        text-transform:uppercase; color:#b8b8b4; margin-bottom:9px;
+        display:block;
+    }
+    textarea{
+        width:100%; min-height:120px; resize:vertical;
+        font-family:inherit; font-size:14.5px; line-height:1.65; color:var(--ink);
+        background:#fafaf9; border:1px solid var(--line); border-radius:10px;
+        padding:13px 14px; outline:none; transition:border-color .15s, background .15s;
+    }
+    textarea:focus{ border-color:#9a9a96; background:#fff; }
+    textarea::placeholder{ color:#bcbfc4; }
+
+    /* ── 분노 게이지 ── */
+    .gauge{ margin-top:20px; }
+    .gauge-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+    .gauge-val{ font-size:13px; font-weight:600; color:var(--ink); }
+    .gauge-val .em{ font-size:16px; margin-right:5px; }
+    input[type=range]{
+        -webkit-appearance:none; appearance:none;
+        width:100%; height:3px; border-radius:2px; outline:none; cursor:pointer;
+        background:linear-gradient(to right,#cfd3d8,#e88a6a);
+    }
+    input[type=range]::-webkit-slider-thumb{
+        -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+        background:var(--ink); cursor:pointer; border:3px solid #fff;
+        box-shadow:0 1px 4px rgba(0,0,0,.18); transition:transform .1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover{ transform:scale(1.12); }
+
+    /* ── 빠른 상황 칩 ── */
+    .chips{ margin-top:20px; display:flex; flex-wrap:wrap; gap:7px; }
+    .chip{
+        font-size:12px; font-family:inherit; color:#666;
+        background:#fff; border:1px solid var(--line); border-radius:20px;
+        padding:6px 13px; cursor:pointer; transition:all .15s;
+    }
+    .chip:hover{ border-color:#bbb; color:#222; }
+
+    /* ── 버튼 ── */
+    .go{
+        margin-top:22px; width:100%;
+        background:var(--ink); color:#fff;
+        font-family:inherit; font-size:14px; font-weight:600; letter-spacing:0.02em;
+        padding:14px; border:none; border-radius:11px; cursor:pointer;
+        transition:background .15s, transform .08s;
+    }
+    .go:hover{ background:#000; }
+    .go:active{ transform:scale(.99); }
+    .go:disabled{ background:#c8cace; cursor:not-allowed; }
+
+    /* ── 호흡 안내 ── */
+    .breath{
+        margin-top:18px; display:none;
+        text-align:center; color:var(--muted); font-size:13px;
+    }
+    .breath.on{ display:block; }
+    .orb{
+        width:64px; height:64px; border-radius:50%; margin:0 auto 14px;
+        background:radial-gradient(circle at 35% 30%, #fff, #d9e4ea 70%);
+        animation:breathe 5.5s ease-in-out infinite;
+    }
+    @keyframes breathe{
+        0%,100%{ transform:scale(.7); opacity:.65; }
+        50%{ transform:scale(1.12); opacity:1; }
+    }
+
+    /* ── 조언 결과 ── */
+    .advice{ margin-top:26px; display:flex; flex-direction:column; gap:18px; }
+    .voice{
+        border:1px solid var(--line); border-radius:14px; overflow:hidden;
+        opacity:0; transform:translateY(10px);
+        animation:rise .5s ease forwards;
+    }
+    .voice:nth-child(2){ animation-delay:.18s; }
+    @keyframes rise{ to{ opacity:1; transform:none; } }
+
+    .voice-head{
+        display:flex; align-items:center; gap:13px;
+        padding:16px 20px; border-bottom:1px solid var(--line);
+    }
+    .avatar{
+        width:42px; height:42px; border-radius:50%; flex-shrink:0;
+        display:flex; align-items:center; justify-content:center;
+        font-size:22px;
+    }
+    .voice-name{ font-size:15px; font-weight:700; }
+    .voice-tag{ font-size:11px; color:var(--muted); margin-top:2px; }
+
+    .voice-body{ padding:18px 20px 20px; font-size:14.5px; line-height:1.78; }
+    .voice-body p{ margin-bottom:11px; }
+    .voice-body p:last-child{ margin-bottom:0; }
+    .voice-body .quote{
+        font-weight:600; padding:10px 14px; border-radius:9px; margin:4px 0 13px;
+        font-size:14px; line-height:1.6;
+    }
+
+    .hun{ }
+    .hun .voice-head{ background:var(--hun-bg); }
+    .hun .avatar{ background:#efe4cf; }
+    .hun .voice-name{ color:var(--hun); }
+    .hun .voice-body{ font-family:'Gowun Batang','Noto Sans KR',serif; }
+    .hun .quote{ background:var(--hun-bg); color:var(--hun); border-left:3px solid var(--hun); }
+
+    .oh .voice-head{ background:var(--oh-bg); }
+    .oh .avatar{ background:#dbe8ee; }
+    .oh .voice-name{ color:var(--oh); }
+    .oh .quote{ background:var(--oh-bg); color:var(--oh); border-left:3px solid var(--oh); }
+
+    .footnote{
+        margin-top:26px; font-size:11px; color:#b4b8bd; line-height:1.6; text-align:center;
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="top">
+        <span style="font-size:11px;letter-spacing:0.14em;color:#b8b8b4;font-weight:700;">MOOD COACH</span>
+        <a class="back" href="../index.html">← 목록으로</a>
+    </div>
+
+    <h1>마음 두 스승</h1>
+    <p class="sub">
+        직장에서 욱하는 순간, 잠깐 멈춰보세요.<br>
+        <b>청학동 훈장님</b>의 따끔한 예절 한 마디와
+        <b>오은영 박사님</b>의 냉철하고 따뜻한 해석을 들려드립니다.
+    </p>
+
+    <!-- 입력 -->
+    <div class="card">
+        <label class="label" for="situation">무슨 일이 있었나요?</label>
+        <textarea id="situation" placeholder="예) 팀장이 내가 다 끝낸 보고서를 회의에서 자기가 한 것처럼 말했다. 사람들 앞에서 너무 화가 났다."></textarea>
+
+        <div class="chips" id="chips"></div>
+
+        <div class="gauge">
+            <div class="gauge-head">
+                <span class="label" style="margin:0;">지금 욱한 정도</span>
+                <span class="gauge-val" id="gaugeVal"><span class="em">😐</span>보통</span>
+            </div>
+            <input type="range" id="anger" min="1" max="5" value="3" step="1">
+        </div>
+
+        <button class="go" id="go">두 스승의 조언 듣기</button>
+
+        <div class="breath" id="breath">
+            <div class="orb"></div>
+            크게 한 번… 천천히 숨을 고르는 중입니다
+        </div>
+    </div>
+
+    <!-- 결과 -->
+    <div class="advice" id="advice"></div>
+
+    <p class="footnote">
+        ※ 본 조언은 두 인물의 화법을 본떠 만든 자동 생성 메시지로, 실제 인물의 발언이 아닙니다.<br>
+        마음이 많이 힘들 땐 전문가의 상담을 권합니다.
+    </p>
+</div>
+
+<script>
+/* ───────── 상황 빠른 입력 칩 ───────── */
+const quickChips = [
+    "상사가 사람들 앞에서 면박을 줬다",
+    "내 공을 동료가 가로챘다",
+    "후배가 같은 실수를 또 반복한다",
+    "퇴근 직전에 급한 일을 떠넘겼다",
+    "내 의견을 계속 무시한다",
+    "고객이 막말을 했다",
+];
+const chipsEl = document.getElementById('chips');
+const ta = document.getElementById('situation');
+quickChips.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='chip'; b.type='button'; b.textContent='+ '+c;
+    b.onclick=()=>{ ta.value = ta.value ? ta.value.trim()+' '+c : c; ta.focus(); };
+    chipsEl.appendChild(b);
+});
+
+/* ───────── 분노 게이지 ───────── */
+const angerLevels = [
+    {em:'🙂', t:'살짝 거슬림'},
+    {em:'😐', t:'은근히 답답'},
+    {em:'😤', t:'보통으로 욱'},
+    {em:'😠', t:'속이 부글부글'},
+    {em:'🤬', t:'폭발 직전'},
+];
+const angerEl=document.getElementById('anger');
+const gaugeVal=document.getElementById('gaugeVal');
+function paintGauge(){
+    const lv=angerLevels[angerEl.value-1];
+    gaugeVal.innerHTML=`<span class="em">${lv.em}</span>${lv.t}`;
+}
+angerEl.addEventListener('input',paintGauge);
+paintGauge();
+
+/* ───────── 상황 분류 (키워드 기반) ───────── */
+const categories = [
+    {key:'credit', kw:['가로채','공을','자기가 한','내 공','뺏','빼앗','성과를'],
+     label:'내 공을 빼앗긴 상황'},
+    {key:'humiliate', kw:['면박','무안','창피','사람들 앞','공개적','망신','비꼬','비난','지적질'],
+     label:'사람들 앞에서 무안을 당한 상황'},
+    {key:'ignore', kw:['무시','의견을','말을 안','반영','듣지 않','존중'],
+     label:'내 의견이 무시당한 상황'},
+    {key:'dump', kw:['떠넘','퇴근','야근','갑자기','급한','업무를','시켜','일을 시'],
+     label:'부당하게 일이 떠넘겨진 상황'},
+    {key:'repeat', kw:['또','반복','매번','계속','실수','후배','신입'],
+     label:'같은 문제가 반복되는 상황'},
+    {key:'rude', kw:['막말','반말','욕','소리','고객','진상','갑질','폭언'],
+     label:'무례한 말을 들은 상황'},
+];
+function classify(text){
+    let best=null,score=0;
+    categories.forEach(c=>{
+        const s=c.kw.reduce((a,k)=>a+(text.includes(k)?1:0),0);
+        if(s>score){score=s;best=c;}
+    });
+    return best || {key:'general',label:'마음이 크게 흔들린 상황'};
+}
+
+/* ───────── 훈장님 조언 ───────── */
+const HUN = {
+    quote:{
+        credit:'공(功)을 다투지 말고, 공을 쌓으라.',
+        humiliate:'남이 나를 가벼이 여겨도, 내가 나를 무겁게 하면 그뿐이니라.',
+        ignore:'말이 통하지 않거든 더 큰 그릇으로 기다리는 법이다.',
+        dump:'일이 내게 몰리는 것은 곧 사람이 나를 믿는다는 증표이기도 하니라.',
+        repeat:'한 번 일러 모르면 두 번 일러주고, 두 번에 모르면 본을 보이는 것이 스승의 도리다.',
+        rude:'개가 짖는다 하여 군자가 같이 짖지는 않는 법이니라.',
+        general:'노여움은 잠시요, 사람됨은 평생이니라.'
+    },
+    advice:{
+        credit:'이 사람아, 분한 마음 내 어찌 모르겠는가. 허나 빼앗긴 공을 두고 다투면 자네까지 그 사람과 똑같은 자리로 내려앉느니라. 진짜 공은 빼앗기지 않는 법, 윗사람과 동료가 자네의 일을 끝내 알아보게 되어 있다. 분을 삭이고 묵묵히 자네 길을 가게.',
+        humiliate:'여러 사람 앞에서 무안을 당했으니 그 부끄러움이 오죽하겠는가. 허나 그 자리에서 같이 언성을 높이면 구경하는 이들의 입에 자네 이름이 험하게 오르내릴 뿐이다. 군자는 모욕을 당해도 자세를 흩트리지 않느니라. 그 침착함이 도리어 자네를 높이는 법이다.',
+        ignore:'자네 말이 받아들여지지 않으니 답답함이 하늘을 찌르겠구나. 허나 사람의 마음은 억지로 문을 두드린다고 열리지 않는다. 한 번 더 차분히, 글로 정리하여 예(禮)를 갖추어 청해 보게. 같은 말도 그릇이 다르면 다르게 들리는 법이니라.',
+        dump:'퇴근을 앞두고 일이 떨어졌으니 그 노여움 충분히 헤아리네. 허나 화부터 내면 일도 사람도 다 그르치게 된다. 못 할 일은 못 한다 분명히, 허나 공손히 아뢰는 것이 도리다. 거절에도 예가 있어야 자네가 가벼이 보이지 않느니라.',
+        repeat:'같은 잘못을 거듭 보니 속이 터질 만하지. 허나 꾸짖음이 잦으면 가르침이 아니라 화풀이가 되느니라. 한 번은 또렷이 일러주되, 어찌하면 좋을지 본을 보여 주게. 아랫사람을 키우는 것 또한 윗사람의 그릇일세.',
+        rude:'무례한 말을 들었으니 그 불쾌함이 어떠하겠는가. 허나 진흙탕에 같이 뛰어들면 옷을 더럽히는 것은 자네일세. 상대의 무례는 상대의 됨됨이일 뿐, 자네가 받아 안을 짐이 아니니라. 한 발 물러서서 예를 지키게. 그것이 가장 큰 꾸짖음이니라.',
+        general:'마음이 크게 흔들리는구나. 허나 노여움이란 끓는 물과 같아서, 그 위에서 내린 결정은 반드시 식은 뒤에 후회를 부르느니라. 오늘은 입을 닫고 마음을 다스리게. 말은 내일 해도 늦지 않네.'
+    }
+};
+
+/* ───────── 오은영 박사님 조언 ───────── */
+const OH = {
+    quote:{
+        credit:'화가 나는 게 당연해요. 그건 당신이 열심히 했다는 증거니까요.',
+        humiliate:'창피함은 당신이 잘못해서가 아니라, 존중받지 못했기 때문에 생기는 감정이에요.',
+        ignore:'무시당했다고 느낄 때 화가 나는 건, 인정받고 싶은 건강한 욕구가 있다는 뜻이에요.',
+        dump:'거절하지 못해서 화가 나는 거라면, 먼저 내 한계를 인정해 주는 것부터 시작해요.',
+        repeat:'반복되는 상황에 지치는 건 당연해요. 다만 화로는 행동이 바뀌지 않더라고요.',
+        rude:'상대의 무례함은 상대의 문제예요. 그 감정까지 당신이 떠안지 않아도 돼요.',
+        general:'지금 느끼는 그 감정, 충분히 그럴 만해요. 잘못된 감정이 아니에요.'
+    },
+    advice:{
+        credit:'먼저요, 지금 화가 나는 거 너무 당연한 거예요. 내가 한 일을 누가 가로챘는데 안 화나는 게 이상한 거죠. 그런데 우리가 분노를 그대로 터뜨리면, 정작 “내가 했다”는 사실은 안 보이고 “화내는 사람”만 보이게 돼요. 그래서 제안을 드리자면 — 감정이 아니라 기록으로 말하세요. 메일, 메신저, 회의록에 내 기여를 사실대로 남기는 거예요. 차분한 증거가 분노보다 훨씬 힘이 셉니다.',
+        humiliate:'사람들 앞에서 면박을 당했을 때 느끼는 그 화끈거림, 정말 견디기 힘들죠. 그건 당신이 약해서가 아니라, 공개적으로 존중받지 못했기 때문에 생기는 정상적인 반응이에요. 다만 그 자리에서 똑같이 받아치면, 사람들 기억엔 “싸운 장면”만 남아요. 일단 그 순간은 표정만 가다듬고 넘기세요. 그리고 나중에 따로, 둘만 있을 때 “아까 그 말씀, 좀 당황스러웠어요”라고 담담하게 전하는 거예요. 감정은 공개석상이 아니라 1:1에서 다뤄야 안전해요.',
+        ignore:'내 의견이 계속 무시당하면, 사람은 “내가 여기 있을 가치가 있나” 싶어져요. 그래서 화가 나는 거예요. 그건 인정받고 싶은 아주 건강한 욕구거든요. 그런데요, 말로 그 자리에서 던진 의견은 흘러가버리기 쉬워요. 그러니 다음엔 짧게라도 글로 정리해서 공유해 보세요. 그리고 “이 부분 어떻게 보시는지 의견 주실 수 있을까요?” 하고 상대에게 공을 넘기는 거예요. 무시당하지 않는 가장 좋은 방법은, 상대가 반응할 수밖에 없게 만드는 거예요.',
+        dump:'퇴근 직전에 일이 떨어지면 정말 욱하죠. 그런데 가만히 보면, 화의 진짜 정체는 “거절하고 싶은데 못 하는 나” 때문일 때가 많아요. 그러니 화를 내기 전에 나한테 먼저 허락을 해주세요. “나는 거절해도 되는 사람이다.” 그리고 이렇게 말하는 거예요. “지금 A를 하고 있어서, 이건 내일 오전에 처리해도 될까요?” 거절이 아니라 “언제 가능한지”를 제시하면, 무례하지 않으면서도 내 시간을 지킬 수 있어요.',
+        repeat:'같은 실수가 반복되면 “얘가 날 무시하나” 싶어서 더 화가 나죠. 그 마음 이해해요. 그런데 화를 내면 상대는 위축될 뿐, 행동은 안 바뀌어요. 오히려 “왜 또 그래”가 아니라 “이 부분이 자꾸 막히는 것 같은데, 어떤 게 어려워요?”라고 물어보세요. 비난은 방어를 부르고, 질문은 변화를 불러요. 반복을 끊는 건 분노가 아니라 구조예요.',
+        rude:'막말을 들으면 순간적으로 피가 거꾸로 솟죠. 그건 당연한 거예요. 그런데 꼭 기억하세요 — 그 사람의 무례함은 그 사람의 그릇이지, 당신의 가치랑은 아무 상관이 없어요. 그러니 그 말을 마음속까지 들이지 마세요. 속으로 “저건 저 사람 문제다” 하고 선을 긋는 거예요. 그리고 필요하다면 “그렇게 말씀하시면 대화하기 어렵습니다”라고 감정 없이 사실만 짚어주세요. 차분한 한 마디가 가장 단단한 방어예요.',
+        general:'지금 느끼는 그 감정, 절대 잘못된 게 아니에요. 화가 난다는 건 내 안의 어떤 선이 침범당했다는 신호거든요. 그러니 먼저 그 감정을 “나 지금 많이 화났구나” 하고 인정해 주세요. 누르려고 하면 더 커져요. 그다음에, 이 화가 진짜 원하는 게 뭔지 한 줄로 적어보세요 — 사과? 존중? 휴식? 그 진짜 욕구를 알면, 화내는 것 말고 다른 방법이 보이기 시작해요.'
+    }
+};
+
+/* 분노 강도에 따라 앞에 붙는 한 마디 */
+function intensityPrefix(level){
+    if(level>=5) return {hun:'허허, 이리 노여움이 하늘을 찌르니 우선 숨부터 고르게. ', oh:'와, 지금 폭발 직전이네요. 그럴 땐 일단 그 자리를 잠깐 벗어나는 것부터예요. '};
+    if(level>=4) return {hun:'속이 부글부글 끓는 게 여기까지 느껴지는구나. ', oh:'속이 많이 부글거리죠. 그 마음 그대로 인정하고 시작해요. '};
+    return {hun:'', oh:''};
+}
+
+/* ───────── 조언 생성 ───────── */
+const adviceEl=document.getElementById('advice');
+const go=document.getElementById('go');
+const breath=document.getElementById('breath');
+
+go.addEventListener('click',()=>{
+    const text=ta.value.trim();
+    if(!text){ ta.focus(); ta.style.borderColor='#e88a6a'; setTimeout(()=>ta.style.borderColor='',1200); return; }
+
+    const cat=classify(text);
+    const level=parseInt(angerEl.value,10);
+    const pre=intensityPrefix(level);
+
+    // 욱한 정도가 높으면 잠시 호흡 안내 후 조언
+    adviceEl.innerHTML='';
+    const delay = level>=4 ? 2600 : 600;
+    go.disabled=true; breath.classList.add('on');
+
+    setTimeout(()=>{
+        breath.classList.remove('on'); go.disabled=false;
+        renderAdvice(cat,pre);
+        document.getElementById('advice').scrollIntoView({behavior:'smooth',block:'start'});
+    }, delay);
+});
+
+function renderAdvice(cat,pre){
+    const hunQ=HUN.quote[cat.key], hunA=pre.hun+HUN.advice[cat.key];
+    const ohQ=OH.quote[cat.key],  ohA=pre.oh+OH.advice[cat.key];
+
+    adviceEl.innerHTML=`
+      <div class="voice hun">
+        <div class="voice-head">
+            <div class="avatar">📜</div>
+            <div>
+                <div class="voice-name">청학동 훈장님</div>
+                <div class="voice-tag">따끔한 예절 한 마디 · ${cat.label}</div>
+            </div>
+        </div>
+        <div class="voice-body">
+            <div class="quote">“${hunQ}”</div>
+            <p>${hunA}</p>
+        </div>
+      </div>
+
+      <div class="voice oh">
+        <div class="voice-head">
+            <div class="avatar">🩺</div>
+            <div>
+                <div class="voice-name">오은영 박사님</div>
+                <div class="voice-tag">냉철하지만 따뜻한 해석 · ${cat.label}</div>
+            </div>
+        </div>
+        <div class="voice-body">
+            <div class="quote">“${ohQ}”</div>
+            <p>${ohA}</p>
+        </div>
+      </div>
+    `;
+}
+</script>
+</body>
+</html>
