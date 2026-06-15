@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>마음 두 스승 — 욱할 때 듣는 두 가지 조언</title>
+<title>마음 세 스승 — 욱할 때 듣는 조언</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
@@ -18,6 +18,8 @@
         --hun-bg:#faf6ee;
         --oh:#2e5d7a;        /* 오은영 — 차분한 청록 */
         --oh-bg:#eef4f7;
+        --mom:#b5485f;       /* 한국 엄마 — 따뜻한 자주색 */
+        --mom-bg:#fbeef1;
     }
     *, *::before, *::after{ box-sizing:border-box; margin:0; padding:0; }
 
@@ -44,6 +46,34 @@
         font-weight:700; font-size:30px; letter-spacing:-0.01em; margin-top:18px;
     }
     .sub{ margin-top:10px; font-size:13px; color:var(--muted); line-height:1.6; }
+
+    /* ── 페르소나 선택 ── */
+    .persona-pick{ display:flex; gap:8px; margin-bottom:22px; }
+    .pbtn{
+        flex:1; position:relative; text-align:left; cursor:pointer;
+        font-family:inherit; background:#fafaf9;
+        border:1px solid var(--line); border-radius:11px;
+        padding:13px 12px 12px; transition:all .15s;
+        display:flex; flex-direction:column; gap:5px;
+    }
+    .pbtn:hover{ border-color:#bbb; background:#fff; }
+    .pbtn .pnum{
+        position:absolute; top:9px; right:11px;
+        font-size:10px; font-weight:700; color:#c4c7cc; font-variant-numeric:tabular-nums;
+    }
+    .pbtn .pemoji{ font-size:23px; line-height:1; }
+    .pbtn .pname{ font-size:12.5px; font-weight:700; color:#333; }
+    .pbtn .pdesc{ font-size:10px; color:#a0a4aa; line-height:1.35; }
+    .pbtn.active{ border-color:var(--ink); background:#fff; box-shadow:0 0 0 1px var(--ink) inset; }
+    .pbtn.active[data-p="hun"]{ border-color:var(--hun); box-shadow:0 0 0 1px var(--hun) inset; background:var(--hun-bg); }
+    .pbtn.active[data-p="oh"] { border-color:var(--oh);  box-shadow:0 0 0 1px var(--oh)  inset; background:var(--oh-bg); }
+    .pbtn.active[data-p="mom"]{ border-color:var(--mom); box-shadow:0 0 0 1px var(--mom) inset; background:var(--mom-bg); }
+    .pbtn.active .pnum{ color:inherit; }
+    @media (max-width:480px){
+        .persona-pick{ flex-direction:column; }
+        .pbtn{ flex-direction:row; align-items:center; gap:11px; }
+        .pbtn .pdesc{ display:none; }
+    }
 
     /* ── 입력 카드 ── */
     .card{
@@ -186,6 +216,11 @@
     .oh .voice-name{ color:var(--oh); }
     .oh .quote{ background:var(--oh-bg); color:var(--oh); border-left:3px solid var(--oh); }
 
+    .mom .voice-head{ background:var(--mom-bg); }
+    .mom .avatar{ background:#f3d6dd; }
+    .mom .voice-name{ color:var(--mom); }
+    .mom .quote{ background:var(--mom-bg); color:var(--mom); border-left:3px solid var(--mom); }
+
     .footnote{
         margin-top:26px; font-size:11px; color:#b4b8bd; line-height:1.6; text-align:center;
     }
@@ -198,15 +233,31 @@
         <a class="back" href="../index.html">← 목록으로</a>
     </div>
 
-    <h1>마음 두 스승</h1>
+    <h1>마음 세 스승</h1>
     <p class="sub">
         직장에서 욱하는 순간, 잠깐 멈춰보세요.<br>
-        <b>청학동 훈장님</b>의 따끔한 예절 한 마디와
-        <b>오은영 박사님</b>의 냉철하고 따뜻한 해석을 들려드립니다.
+        <b>청학동 훈장님</b>·<b>오은영 박사님</b>·<b>한국 엄마</b> 중
+        듣고 싶은 한 분을 고르면 그분의 목소리로 조언해 드립니다.
     </p>
 
     <!-- 입력 -->
     <div class="card">
+        <label class="label">누구의 조언을 들을까요?</label>
+        <div class="persona-pick" id="personaPick">
+            <button class="pbtn active" type="button" data-p="hun">
+                <span class="pnum">1</span><span class="pemoji">📜</span>
+                <span class="pname">청학동 훈장님</span><span class="pdesc">따끔한 예절 한 마디</span>
+            </button>
+            <button class="pbtn" type="button" data-p="oh">
+                <span class="pnum">2</span><span class="pemoji">🩺</span>
+                <span class="pname">오은영 박사님</span><span class="pdesc">냉철하고 따뜻한 해석</span>
+            </button>
+            <button class="pbtn" type="button" data-p="mom">
+                <span class="pnum">3</span><span class="pemoji">🍚</span>
+                <span class="pname">한국 엄마</span><span class="pdesc">사랑 담은 잔소리</span>
+            </button>
+        </div>
+
         <label class="label" for="situation">무슨 일이 있었나요?</label>
         <textarea id="situation" placeholder="예) 팀장이 내가 다 끝낸 보고서를 회의에서 자기가 한 것처럼 말했다. 사람들 앞에서 너무 화가 났다."></textarea>
 
@@ -232,7 +283,7 @@
 
         <button class="key-toggle" id="keyToggle" type="button" style="display:none;">🔑 API 키 변경</button>
 
-        <button class="go" id="go">두 스승의 조언 듣기</button>
+        <button class="go" id="go">청학동 훈장님의 조언 듣기</button>
 
         <div class="breath" id="breath">
             <div class="orb"></div>
@@ -244,7 +295,7 @@
     <div class="advice" id="advice"></div>
 
     <p class="footnote">
-        ※ 본 조언은 Gemini AI가 두 인물의 화법을 본떠 매번 새로 생성하는 메시지로, 실제 인물의 발언이 아닙니다.<br>
+        ※ 본 조언은 Gemini AI가 선택한 인물의 화법을 본떠 매번 새로 생성하는 메시지로, 실제 인물의 발언이 아닙니다.<br>
         마음이 많이 힘들 땐 전문가의 상담을 권합니다.
     </p>
 </div>
@@ -379,12 +430,63 @@ const OH = {
     }
 };
 
+/* ───────── 한국 엄마 잔소리 ───────── */
+const MOM = {
+    quote:{
+        credit:'그러게 엄마가 생색도 좀 내라 그랬지!',
+        humiliate:'남들 앞에서? 우리 새끼한테 누가 그래!',
+        ignore:'네 말이 어때서, 똑 부러지게 다시 말해!',
+        dump:'퇴근 시간 다 됐는데? 안 되는 건 안 된다고 해!',
+        repeat:'화내지 말고 한 번만 더 알려줘, 너도 그랬어.',
+        rude:'그런 사람 말은 한 귀로 흘려, 내 새끼.',
+        general:'무슨 일 있었어? 밥은 먹고 다니는 거야?'
+    },
+    advice:{
+        credit:'아이고, 네가 다 해놓고 왜 말을 안 했어! 엄마가 그렇게 묵묵히만 있으면 누가 알아주냐고 했어 안 했어. 다음엔 네가 한 거 윗사람한테 또박또박 말해, 응? 우리 애가 얼마나 야무진데. 그래도 너무 속 끓이지 말고 저녁에 따뜻한 거 꼭 챙겨 먹어, 속부터 달래야지.',
+        humiliate:'아니 어디서 우리 애를 사람들 앞에서! 엄마가 다 속상해 죽겠다 진짜. 근데 거기서 같이 싸우면 너만 이상한 사람 되는 거야. 참는 게 이기는 거라고 엄마가 늘 그랬지? 집에 와서 엄마한테 다 풀어, 대신 밥은 거르지 말고.',
+        ignore:'네 의견이 왜 무시를 당해, 우리 애가 얼마나 똑똑한데! 근데 한 번 말하고 마니까 그런 거야. 기죽지 말고 될 때까지 다시 말해, 엄마가 늘 그랬잖아. 그리고 끼니 꼬박꼬박 챙겨, 기운이 있어야 할 말도 하는 거야.',
+        dump:'아니 다 큰 어른한테 일을 그렇게 막 떠넘겨? 너는 또 왜 다 받아 오고! 못 하는 건 못 한다고 딱 말을 해야지, 사람이 호구 되면 안 돼. \"이건 내일 오전에 하겠습니다\" 하고 딱 정리하고 들어와. 늦으면 밥때 다 놓치잖아.',
+        repeat:'아이고 답답하겠다 우리 애. 근데 너도 처음엔 다 그랬어, 엄마가 두 눈으로 다 봤어. 화부터 내지 말고 한 번만 더 차근차근 알려줘. 네가 그렇게 챙겨주면 그 애도 언젠가 다 알아. 그러느라 너 끼니 거르지 말고, 알았지?',
+        rude:'뭐 그런 사람이 다 있어, 우리 애한테! 근데 그런 사람이랑 똑같이 싸우면 너만 손해야. 그 말 마음에 담아두지 마, 그건 그 사람이 못 배운 거지 네 잘못 절대 아니야. 집 와서 따뜻한 국에 밥 말아 먹고 푹 자, 자고 나면 또 괜찮아져.',
+        general:'목소리만 들어도 엄마는 다 안다. 무슨 일인지 꾹 참고 혼자 끙끙 앓지 말고 엄마한테라도 다 말해, 응? 세상에 너보다 중한 일 하나도 없어. 일단 뭐라도 따뜻한 거 챙겨 먹고, 푹 자고 나면 또 견딜 만해진다.'
+    }
+};
+
+/* ───────── 페르소나 메타 ───────── */
+const PERSONAS = {
+    hun:{ num:'1', name:'청학동 훈장님', tag:'따끔한 예절 한 마디', emoji:'📜', cls:'hun', tpl:HUN,
+        desc:'따끔하지만 정 있는 옛 선비 예절 조언. 옛 선비 말투("이 사람아", "허허", "~하느니라", "~하게")를 쓰고, 예(禮)·인내·군자의 도리를 강조한다. quote는 짧은 격언 한 줄, advice는 2~4문장.' },
+    oh:{ num:'2', name:'오은영 박사님', tag:'냉철하지만 따뜻한 해석', emoji:'🩺', cls:'oh', tpl:OH,
+        desc:'냉철하지만 따뜻한 심리 해석. 먼저 감정을 인정("그럴 수 있어요", "당연해요") → 화의 진짜 원인을 짚고 → 구체적이고 실천 가능한 행동 제안 1가지를 준다. quote는 따뜻한 한 줄, advice는 3~5문장.' },
+    mom:{ num:'3', name:'한국 엄마', tag:'사랑 담은 잔소리', emoji:'🍚', cls:'mom', tpl:MOM,
+        desc:'걱정을 잔소리로 표현하는 전형적인 한국 엄마. "아이고 내 새끼", "그러게 엄마가 ~랬지", "밥은 먹었어?"처럼 야단치는 듯하지만 사랑이 듬뿍 담긴 말투. 끼니·건강을 꼭 챙기라는 당부를 곁들인다. quote는 잔소리 한 줄, advice는 3~4문장.' }
+};
+
 /* 분노 강도에 따라 앞에 붙는 한 마디 */
 function intensityPrefix(level){
-    if(level>=5) return {hun:'허허, 이리 노여움이 하늘을 찌르니 우선 숨부터 고르게. ', oh:'와, 지금 폭발 직전이네요. 그럴 땐 일단 그 자리를 잠깐 벗어나는 것부터예요. '};
-    if(level>=4) return {hun:'속이 부글부글 끓는 게 여기까지 느껴지는구나. ', oh:'속이 많이 부글거리죠. 그 마음 그대로 인정하고 시작해요. '};
-    return {hun:'', oh:''};
+    if(level>=5) return {hun:'허허, 이리 노여움이 하늘을 찌르니 우선 숨부터 고르게. ', oh:'와, 지금 폭발 직전이네요. 그럴 땐 일단 그 자리를 잠깐 벗어나는 것부터예요. ', mom:'아이고 목소리 봐라, 지금 너무 화났네. 일단 물 한 잔 마시고 숨 좀 돌려, 응? '};
+    if(level>=4) return {hun:'속이 부글부글 끓는 게 여기까지 느껴지는구나. ', oh:'속이 많이 부글거리죠. 그 마음 그대로 인정하고 시작해요. ', mom:'속이 많이 상했구나 우리 애. '};
+    return {hun:'', oh:'', mom:''};
 }
+
+/* ───────── 페르소나 선택 ───────── */
+let selectedPersona='hun';
+const goBtn=document.getElementById('go');
+function selectPersona(p){
+    selectedPersona=p;
+    document.querySelectorAll('.pbtn').forEach(b=>b.classList.toggle('active', b.dataset.p===p));
+    goBtn.textContent=`${PERSONAS[p].name}의 조언 듣기`;
+}
+document.getElementById('personaPick').addEventListener('click',e=>{
+    const b=e.target.closest('.pbtn'); if(b) selectPersona(b.dataset.p);
+});
+// 키보드 1·2·3 으로도 선택
+document.addEventListener('keydown',e=>{
+    if(['1','2','3'].includes(e.key) && document.activeElement.tagName!=='TEXTAREA' && document.activeElement.tagName!=='INPUT'){
+        selectPersona(({'1':'hun','2':'oh','3':'mom'})[e.key]);
+    }
+});
+selectPersona('hun');
 
 /* ───────── 조언 생성 ───────── */
 const adviceEl=document.getElementById('advice');
@@ -406,42 +508,42 @@ go.addEventListener('click', async ()=>{
     const cat=classify(text);                 // 폴백 + 라벨용
     const level=parseInt(angerEl.value,10);
     const pre=intensityPrefix(level);
+    const persona=selectedPersona;
 
     adviceEl.innerHTML='';
     go.disabled=true; breath.classList.add('on');
 
     let result, note='';
     try{
-        result = await generateWithGemini(text, level);   // ← 매번 다른 AI 답변
+        result = await generateWithGemini(text, level, persona);   // ← 선택한 인물의 AI 답변
     }catch(err){
         console.warn('Gemini 호출 실패, 기본 조언으로 대체:', err);
-        result = {
-            label: cat.label,
-            hun:{ quote:HUN.quote[cat.key], advice:pre.hun+HUN.advice[cat.key] },
-            oh: { quote:OH.quote[cat.key],  advice:pre.oh +OH.advice[cat.key] },
-        };
+        const tpl=PERSONAS[persona].tpl;
+        result = { label:cat.label, quote:tpl.quote[cat.key], advice:pre[persona]+tpl.advice[cat.key] };
         note='⚠️ AI 연결에 실패하여 기본 조언을 보여드립니다. (네트워크·키·쿼터 확인)';
     }
 
     breath.classList.remove('on'); go.disabled=false;
-    renderAdvice(result, note);
+    renderAdvice(persona, result, note);
     document.getElementById('advice').scrollIntoView({behavior:'smooth',block:'start'});
 });
 
-/* Gemini 호출 — 두 인물의 조언을 JSON으로 생성 */
-async function generateWithGemini(situation, level){
+/* Gemini 호출 — 선택한 한 인물의 조언을 JSON으로 생성 */
+async function generateWithGemini(situation, level, persona){
     const levelText = angerLevels[level-1].t;
-    const sys = `너는 직장에서 욱한 사람에게 두 인물의 목소리로 조언하는 역할이다. 반드시 한국어로, 지정한 JSON 형식으로만 답하라.
+    const P = PERSONAS[persona];
+    const sys = `너는 직장에서 욱한 사람에게 '${P.name}'의 목소리로 조언하는 역할이다. 반드시 한국어로, 지정한 JSON 형식으로만 답하라.
 
 [상황] ${situation}
 [욱한 정도] ${level}/5 (${levelText})
 
-두 인물의 조언을 만들어라. 매번 표현을 새롭게 하고, 상황의 구체적 내용을 반영하라.
+[화자] ${P.name}
+[화법] ${P.desc}
 
-1) 청학동 훈장님 — 따끔하지만 정 있는 예절 조언. 옛 선비 말투("이 사람아", "허허", "~하느니라", "~하게"), 예(禮)·인내·군자의 도리를 강조. 짧은 격언 한 줄 + 2~4문장 조언.
-2) 오은영 박사님 — 냉철하지만 따뜻한 심리 해석. 먼저 감정을 인정("그럴 수 있어요", "당연해요") → 화의 진짜 원인 짚기 → 구체적이고 실천 가능한 행동 제안 1가지. 따뜻한 한 줄 + 3~5문장 조언.
-
-situationLabel은 '~한 상황' 형태의 짧은 한 줄 요약.`;
+위 화자의 말투를 그대로 살려, 상황의 구체적 내용을 반영한 조언을 만들어라. 매번 표현을 새롭게 하라.
+- quote: 화자다운 한 줄 (격언/위로/잔소리 중 화자에 맞게)
+- advice: 화자 말투의 조언 본문
+- situationLabel: '~한 상황' 형태의 짧은 한 줄 요약`;
 
     const body = {
         contents:[{ role:'user', parts:[{text:sys}] }],
@@ -453,10 +555,10 @@ situationLabel은 '~한 상황' 형태의 짧은 한 줄 요약.`;
                 type:'object',
                 properties:{
                     situationLabel:{type:'string'},
-                    hun:{ type:'object', properties:{ quote:{type:'string'}, advice:{type:'string'} }, required:['quote','advice'] },
-                    oh: { type:'object', properties:{ quote:{type:'string'}, advice:{type:'string'} }, required:['quote','advice'] }
+                    quote:{type:'string'},
+                    advice:{type:'string'}
                 },
-                required:['situationLabel','hun','oh']
+                required:['situationLabel','quote','advice']
             }
         }
     };
@@ -474,38 +576,25 @@ situationLabel은 '~한 상황' 형태의 짧은 한 줄 요약.`;
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if(!raw) throw new Error('빈 응답');
     const parsed = JSON.parse(raw);
-    return { label:parsed.situationLabel||'마음이 흔들린 상황', hun:parsed.hun, oh:parsed.oh };
+    return { label:parsed.situationLabel||'마음이 흔들린 상황', quote:parsed.quote, advice:parsed.advice };
 }
 
-function renderAdvice(r, note){
+function renderAdvice(persona, r, note){
+    const P=PERSONAS[persona];
     const noteHtml = note ? `<p class="footnote" style="margin:0 0 14px;color:#c0392b;">${note}</p>` : '';
     adviceEl.innerHTML=`
       ${noteHtml}
-      <div class="voice hun">
+      <div class="voice ${P.cls}">
         <div class="voice-head">
-            <div class="avatar">📜</div>
+            <div class="avatar">${P.emoji}</div>
             <div>
-                <div class="voice-name">청학동 훈장님</div>
-                <div class="voice-tag">따끔한 예절 한 마디 · ${r.label}</div>
+                <div class="voice-name">${P.name}</div>
+                <div class="voice-tag">${P.tag} · ${r.label}</div>
             </div>
         </div>
         <div class="voice-body">
-            <div class="quote">“${r.hun.quote}”</div>
-            <p>${(r.hun.advice||'').replace(/\n/g,'<br>')}</p>
-        </div>
-      </div>
-
-      <div class="voice oh">
-        <div class="voice-head">
-            <div class="avatar">🩺</div>
-            <div>
-                <div class="voice-name">오은영 박사님</div>
-                <div class="voice-tag">냉철하지만 따뜻한 해석 · ${r.label}</div>
-            </div>
-        </div>
-        <div class="voice-body">
-            <div class="quote">“${r.oh.quote}”</div>
-            <p>${(r.oh.advice||'').replace(/\n/g,'<br>')}</p>
+            <div class="quote">“${r.quote}”</div>
+            <p>${(r.advice||'').replace(/\n/g,'<br>')}</p>
         </div>
       </div>
     `;
