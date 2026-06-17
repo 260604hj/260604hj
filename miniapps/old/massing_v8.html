@@ -2,16 +2,15 @@
 <html lang="ko">
 <head>
     <meta charset="utf-8">
-    <title>FIT 매싱 스튜디오 (독립형)</title>
+    <title>VWORLD 건물 투명화 & 신축 건물 작성</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap');
         :root{
-            --ink:#1a1a1a; --muted:#9a9a92; --line:#dcdcd6;
-            --soft:#f4f5f7; --danger:#e5484d; --accent:#e68d39;
+            --ink:#15171c; --muted:#8a8f98; --line:#e7e9ec;
+            --soft:#f4f5f7; --danger:#e5484d;
         }
         *{ box-sizing:border-box; }
         html, body { width:100%; height:100%; margin:0; overflow:hidden;
-            font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+            font-family:'Pretendard','Noto Sans KR',-apple-system,'Segoe UI',sans-serif;
             color:var(--ink); -webkit-font-smoothing:antialiased; }
         #vmap { width:100%; height:100%; position:relative; background:#0b0d10; }
 
@@ -151,103 +150,21 @@
         .rs-v{ font-size:12.5px; font-weight:600; color:var(--ink); text-align:right;
             word-break:keep-all; }
         .rs-row.hl .rs-v{ font-size:14px; font-weight:800; }
-
-        /* === massing studio 톤 매칭(orange accent) + VWORLD 미니아이콘 숨김 === */
-        #naviTopPannel3d{ display:none !important; }
-        .brand .logo{ background:var(--accent); }
-        .label .dot, #coveragePanel .cov-title .dot{ background:var(--accent); }
-        .btn-draw.active, .btn-edit.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
-        .tab.active{ box-shadow:0 -2px 0 var(--accent) inset; }
-        input[type="range"]{ accent-color:var(--accent); }
-        .check input{ accent-color:var(--accent); }
-        input:focus, textarea:focus, select:focus{ border-color:var(--accent) !important; }
-
-        /* 카메라 뷰 임시저장 (우상단) */
-        #camBookmarks{ position:absolute; top:18px; right:18px; z-index:9999; width:204px;
-            background:rgba(255,255,255,0.92); backdrop-filter:blur(14px) saturate(1.15);
-            -webkit-backdrop-filter:blur(14px) saturate(1.15);
-            border:1px solid var(--line); border-radius:14px; box-shadow:0 12px 36px rgba(16,18,22,0.18); padding:12px; }
-        #camBookmarks .cb-title{ font-size:10.5px; font-weight:700; letter-spacing:0.11em; text-transform:uppercase;
-            color:var(--muted); margin-bottom:9px; display:flex; align-items:center; gap:8px; }
-        #camBookmarks .cb-title .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
-        #cbSlots{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:9px; min-height:24px; }
-        .cb-slot{ position:relative; flex:0 0 auto; width:86px; border:1px solid var(--line); border-radius:8px;
-            overflow:hidden; background:#fff; cursor:pointer; padding:0; transition:border-color .15s; }
-        .cb-slot:hover{ border-color:var(--accent); }
-        .cb-thumb{ width:100%; height:50px; object-fit:cover; display:block; background:#e9e9e6; }
-        .cb-lbl{ display:block; font-size:10.5px; font-weight:600; color:var(--ink); padding:3px 6px; text-align:left; }
-        .cb-x{ position:absolute; top:3px; right:4px; width:16px; height:16px; line-height:15px; text-align:center;
-            font-size:12px; color:#fff; background:rgba(26,26,26,0.6); border-radius:50%; }
-        .cb-x:hover{ background:var(--danger); }
-        .cb-empty{ font-size:11px; color:var(--muted); }
-        #cbSaveBtn{ width:100%; background:var(--ink); color:#fff; font-size:12px; font-weight:600; border:none; border-radius:9px; padding:8px; cursor:pointer; }
-        #cbSaveBtn:hover{ background:var(--accent); }
-        #cbSaveBtn:disabled{ background:#c9c9c4; cursor:not-allowed; }
-
-        /* 주소 프리셋 */
-        .preset-row{ display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
-        .preset-btn{ flex:0 0 auto; font-size:11px; font-weight:600; padding:5px 9px; border:1px solid var(--line);
-            border-radius:7px; background:#fff; color:var(--ink); cursor:pointer; }
-        .preset-btn:hover{ border-color:var(--accent); color:var(--accent); }
-
-        /* 카메라 뷰 / 뷰체크 하단 탭 */
-        .cb-tabs{ display:flex; gap:6px; margin-top:10px; border-top:1px solid var(--line); padding-top:9px; }
-        .cb-tab{ flex:1; font-size:11px; font-weight:600; padding:6px 4px; border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--muted); cursor:pointer; }
-        .cb-tab.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
-        .cb-dirs{ display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-bottom:8px; }
-        .vc-dir{ font-size:11px; font-weight:600; padding:7px 0; border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--ink); cursor:pointer; }
-        .vc-dir.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
-        #vcGoBtn{ width:100%; background:var(--ink); color:#fff; font-size:12px; font-weight:600; border:none; border-radius:9px; padding:8px; cursor:pointer; }
-        #vcGoBtn:hover{ background:var(--accent); }
-
-        /* 탭 B 서브탭 */
-        .subtabs{ display:flex; gap:4px; margin-top:8px; }
-        .subtab{ flex:1; padding:7px 2px; font-size:10.5px; font-weight:700; border:1px solid var(--line); border-radius:8px; background:var(--soft); color:var(--muted); cursor:pointer; }
-        .subtab:hover{ color:var(--ink); }
-        .subtab.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
-
-        /* AI 영역 지정 캡쳐 오버레이 */
-        #regionOverlay{ position:fixed; inset:0; z-index:100001; display:none; cursor:crosshair; background:rgba(20,22,26,0.10); }
-        #regionHint{ position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:100003; display:none;
-            background:rgba(26,26,26,0.86); color:#fff; font-size:12px; font-weight:600; padding:6px 12px; border-radius:6px; }
-        #regionBox{ position:fixed; display:none; z-index:100002; border:2px solid var(--accent);
-            background:rgba(230,141,57,0.12); box-shadow:0 0 0 9999px rgba(20,22,26,0.18); pointer-events:none; }
-
-        /* massing studio 재검토 버튼 (하단 중앙) */
-        #reviewBtn{ position:fixed; bottom:14px; left:14px; z-index:9999;
-            padding:10px 16px; background:#1a1a1a; color:var(--accent); border:1px solid var(--accent); border-radius:4px;
-            font:600 13px/1 'IBM Plex Sans KR',sans-serif; cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,.18); }
-        #reviewBtn:hover{ background:var(--accent); color:#fff; }
-
-        /* AI 변환 전후 비교 팝업 */
-        #cmpModal{ position:fixed; inset:0; z-index:100000; display:none; align-items:center; justify-content:center; }
-        #cmpModal .cmp-backdrop{ position:absolute; inset:0; background:rgba(10,10,12,0.74); }
-        #cmpModal .cmp-box{ position:relative; z-index:1; width:50vw; max-width:50vw; display:flex; flex-direction:column; gap:10px; }
-        #cmpModal .cmp-close{ position:absolute; top:-14px; right:-14px; width:30px; height:30px; border-radius:50%;
-            border:none; background:#1a1a1a; color:#fff; font-size:18px; line-height:30px; padding:0; cursor:pointer; z-index:2; }
-        #cmpModal .cmp-wrap{ position:relative; line-height:0; border-radius:10px; overflow:hidden;
-            box-shadow:0 24px 70px rgba(0,0,0,0.55); background:#000; max-height:82vh; }
-        #cmpModal .cmp-img{ display:block; }
-        #cmpModal #cmpAfter{ width:100%; height:auto; }
-        #cmpModal #cmpBefore{ position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
-        #cmpModal .cmp-divider{ position:absolute; top:0; bottom:0; left:50%; width:2px; background:var(--accent); transform:translateX(-1px); pointer-events:none; }
-        #cmpModal .cmp-divider::after{ content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-            width:26px; height:26px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px rgba(255,255,255,0.65); }
-        #cmpModal .cmp-tag{ position:absolute; top:8px; font-size:11px; font-weight:700; color:#fff;
-            background:rgba(26,26,26,0.7); padding:3px 8px; border-radius:4px; }
-        #cmpModal .cmp-tag-l{ left:8px; } #cmpModal .cmp-tag-r{ right:8px; }
-        #cmpModal #cmpRange{ width:100%; accent-color:var(--accent); }
     </style>
     <script src="https://map.vworld.kr/js/webglMapInit.js.do?version=3.0&apiKey=B5CEDD7D-84D6-314E-875C-9B5BF7E1233A"></script>
 </head>
 <body>
 
 <div id="panel">
+    <div class="brand">
+        <span class="logo">FIT</span>
+        <span class="ttl">FACADE STUDIO · 입면 모듈 스튜디오</span>
+    </div>
 
     <div class="tabs">
-        <button class="tab active" data-tab="A" onclick="switchTab('A')">위치·대지</button>
-        <button class="tab" data-tab="M" onclick="switchTab('M')">매싱</button>
-        <button class="tab" data-tab="B" onclick="switchTab('B')">신축 매스·입면</button>
+        <button class="tab active" data-tab="A" onclick="switchTab('A')">위치·투명화</button>
+        <button class="tab" data-tab="B" onclick="switchTab('B')">신축·입면</button>
+        <button class="tab" data-tab="C" onclick="switchTab('C')">포디움·지붕</button>
         <button class="tab" data-tab="D" onclick="switchTab('D')">AI 실사</button>
     </div>
 
@@ -259,24 +176,55 @@
         <div class="row">
             <input id="address" type="text" placeholder="주소 또는 장소 입력">
             <button class="btn-primary btn-search" style="flex:0 0 auto; padding:9px 16px;"
-                    onclick="searchAddress()">여기로 불러오기</button>
+                    onclick="searchAddress()">검색</button>
         </div>
-        <div class="hint" id="searchHint">도로명 주소를 입력하면 대지경계선이 지도에 표시됩니다. 그 다음 ‘신축 매스·입면’ 탭에서 건물을 올리세요.</div>
-        <label class="check" style="margin-top:8px;">
-            <input type="checkbox" id="boundaryOn" checked onchange="toggleSiteBoundary()">
-            대지경계(빨간 테두리·라벨) 표시
-        </label>
-        <div class="hint" style="margin-top:8px;">자주 쓰는 주소</div>
-        <div class="preset-row">
-            <button class="preset-btn" onclick="presetAddr('성수이로 121')">성수이로 121</button>
-            <button class="preset-btn" onclick="presetAddr('백제고분로 69')">백제고분로 69</button>
-            <button class="preset-btn" onclick="presetAddr('영동대로 508')">영동대로 508</button>
-            <button class="preset-btn" onclick="presetAddr('테헤란로 203')">테헤란로 203</button>
-            <button class="preset-btn" onclick="presetAddr('세종대로 73')">세종대로 73</button>
-        </div>
+        <div class="hint">도로명 주소를 입력하면 대지경계선이 지도에 표시되고, 아래에 건축제한이 뜹니다.</div>
     </div>
 
-    <!-- (건축제한·최대건축가능영역 카드 제거됨 — 주소→대지경계까지만 유지) -->
+    <!-- 건축제한 (도로명 주소 기준) -->
+    <div class="card" id="restrictCard">
+        <div class="label"><span class="dot"></span>건축제한</div>
+        <div class="rs-row"><span class="rs-k">소재지</span><span class="rs-v" id="rsAddr">–</span></div>
+        <div class="rs-row"><span class="rs-k">용도지역</span><span class="rs-v" id="rsZone">–</span></div>
+        <div class="rs-row"><span class="rs-k">대지면적</span><span class="rs-v" id="rsArea">–</span></div>
+        <div class="rs-row hl"><span class="rs-k">건폐율<span class="rs-sub">법정 상한</span></span>
+            <span class="rs-v" id="rsBCR">–</span></div>
+        <div class="rs-row hl"><span class="rs-k">용적률<span class="rs-sub">법정 상한</span></span>
+            <span class="rs-v" id="rsFAR">–</span></div>
+        <div class="hint" id="restrictStatus" style="margin-top:8px;">도로명 주소를 입력하고 검색하세요.</div>
+        <div class="hint" style="margin-top:2px;">※ 국토계획법 시행령 기준 상한 — 실제 한도는 지자체 조례에 따라 더 엄격할 수 있습니다.</div>
+    </div>
+
+    <!-- 최대 건축가능영역 (건축선후퇴) -->
+    <div class="card" id="buildableCard">
+        <div class="label"><span class="dot"></span>최대 건축가능영역</div>
+        <div class="row">
+            <span class="field">도로측 후퇴</span>
+            <input id="sbRoad" type="number" min="0" step="0.1" value="0" style="width:64px;"
+                   oninput="computeBuildable()"><span class="cov-unit">m</span>
+            <span class="field" style="margin-left:auto;">인접대지</span>
+            <input id="sbAdj" type="number" min="0" step="0.1" value="0.5" style="width:64px;"
+                   oninput="computeBuildable()"><span class="cov-unit">m</span>
+        </div>
+        <div class="row" style="margin-top:8px;">
+            <span class="field">추가 후퇴</span>
+            <input id="sbExtra" type="number" min="0" step="0.1" value="0" style="width:64px;"
+                   oninput="computeBuildable()"><span class="cov-unit">m</span>
+            <span class="hint" style="margin:0 0 0 8px;">대지안의 공지·지구단위 등 일괄</span>
+        </div>
+        <label class="check" style="margin-top:10px;">
+            <input type="checkbox" id="autoRoad" checked onchange="computeBuildable()">
+            도로 접면 자동판정
+        </label>
+        <div class="hint" style="margin:2px 0 0 24px;">해제하면 모든 변에 ‘인접대지’ 후퇴를 적용합니다(전면도로 없는 대지 등).</div>
+        <label class="check" style="margin-top:8px;">
+            <input type="checkbox" id="buildableOn" checked onchange="computeBuildable()">
+            평면에 최대 건축가능영역 표시(초록)
+        </label>
+        <div class="rs-row hl" style="margin-top:10px;">
+            <span class="rs-k">건축가능면적</span><span class="rs-v" id="rsBuildable">–</span></div>
+        <div class="hint" id="buildableStatus" style="margin-top:6px;">주소 검색 후 대지경계 기준으로 자동 산정됩니다. (도로 접면 자동판정)</div>
+    </div>
 
     <!-- ② 건물 선택·투명화 -->
     <div class="card">
@@ -287,197 +235,193 @@
         </div>
         <div class="hint">모드 — <span id="modeLabel">건물 선택(투명)</span></div>
     </div>
-
-    <!-- (건물 배치는 매싱 탭으로 이동) -->
-
-    <!-- (건폐율 체크는 매싱 탭으로 이동) -->
-
-    <!-- 건물 삭제 -->
-    <div class="card">
-        <button class="btn-del" onclick="clearImported()">건물 삭제</button>
-    </div>
     </div><!-- /tabA -->
 
-    <!-- ===== 탭 M: 매싱 (로컬 매스/코어 생성) ===== -->
-    <div class="tabpane" id="tabM" style="display:none;">
-    <!-- 매스 -->
-    <div class="card">
-        <div class="label"><span class="dot"></span>매스 (건물 규모)</div>
-        <div class="row">
-            <span class="field">건폐율</span>
-            <input id="mBcr" type="number" value="60" min="1" max="100" step="1" style="width:60px;"><span class="cov-unit">%</span>
-            <button class="btn-primary" style="margin-left:auto; flex:0 0 auto;" onclick="presetCoverageBox()">대지 중앙 박스 프리셋</button>
-        </div>
-        <div class="hint">대지면적 × 건폐율 크기의 박스를 대지 중앙에 생성합니다.</div>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">가로 W</span>
-            <input id="mW" type="number" value="24" min="2" step="0.5" style="width:64px;" oninput="onMassingInput()"><span class="cov-unit">m</span>
-            <span class="field" style="margin-left:auto;">세로 D</span>
-            <input id="mD" type="number" value="16" min="2" step="0.5" style="width:64px;" oninput="onMassingInput()"><span class="cov-unit">m</span>
-        </div>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">층고</span>
-            <input id="mFH" type="number" value="4" min="2" step="0.1" style="width:64px;" oninput="onMassingInput()"><span class="cov-unit">m</span>
-            <span class="field" style="margin-left:auto;">층수</span>
-            <input id="mFloors" type="number" value="10" min="1" step="1" style="width:64px;" oninput="onMassingInput()"><span class="cov-unit">층</span>
-        </div>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">모듈 가로폭</span>
-            <input id="mModW" type="number" value="1.2" min="0.4" step="0.1" style="width:64px;" oninput="onMassingInput()"><span class="cov-unit">m</span>
-            <span class="hint" style="margin:0 0 0 8px;">내·외측 라인 분할 간격</span>
-        </div>
-        <div class="row" style="margin-top:10px;">
-            <button class="btn-primary" onclick="applyMassing(true)">매스 생성 / 갱신</button>
-        </div>
-        <div class="rs-row hl" style="margin-top:8px;"><span class="rs-k">연면적<span class="rs-sub">W×D×층수</span></span><span class="rs-v" id="mGfa">–</span></div>
-    </div>
-
-    <!-- 건물 배치 (이동) — 매스 생성/갱신 하단 -->
-    <div class="card">
-        <div class="label"><span class="dot"></span>건물 배치 (이동)</div>
-        <div class="hint">생성한 건물을 대지 위에서 이동합니다.</div>
-        <label class="check" style="margin-top:8px;">
-            <input type="checkbox" id="moveModeOn" onchange="onMoveMode()">
-            이동 모드 (경량 표시 · 텍스처 끔)
-        </label>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">가로(X)</span>
-            <input id="impOffX" type="range" min="-200" max="200" value="0" step="1" oninput="onImportOffX()">
-            <span id="impOffXVal" class="field" style="min-width:50px; text-align:right;">0 m</span>
-        </div>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">세로(Y)</span>
-            <input id="impOffY" type="range" min="-200" max="200" value="0" step="1" oninput="onImportOffY()">
-            <span id="impOffYVal" class="field" style="min-width:50px; text-align:right;">0 m</span>
-        </div>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">회전</span>
-            <input id="mRot" type="range" min="-180" max="180" value="0" step="1" oninput="onMassRotate()">
-            <span id="mRotVal" class="field" style="min-width:48px; text-align:right;">0°</span>
-        </div>
-        <div class="row" style="margin-top:10px;">
-            <button class="btn-ghost" onclick="resetImportPlace()">배치 초기화</button>
-        </div>
-    </div>
-
-    <!-- 코어 -->
-    <div class="card">
-        <div class="label"><span class="dot"></span>코어</div>
-        <div class="row">
-            <button class="btn-primary" onclick="presetCore20()">매스 20% 코어 프리셋</button>
-        </div>
-        <div class="hint">매스 평면의 20% 면적으로 코어를 만듭니다. 위치도 조절 가능.</div>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">가로 W</span>
-            <input id="cW" type="number" value="8" min="0" step="0.5" style="width:64px;" oninput="onMassingInput()"><span class="cov-unit">m</span>
-            <span class="field" style="margin-left:auto;">세로 D</span>
-            <input id="cD" type="number" value="6" min="0" step="0.5" style="width:64px;" oninput="onMassingInput()"><span class="cov-unit">m</span>
-        </div>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">X 위치</span>
-            <input id="cX" type="number" value="0" step="0.5" style="width:64px;" oninput="onMassingInput()"><span class="cov-unit">m</span>
-            <span class="field" style="margin-left:auto;">Y 위치</span>
-            <input id="cZ" type="number" value="0" step="0.5" style="width:64px;" oninput="onMassingInput()"><span class="cov-unit">m</span>
-        </div>
-    </div>
-
-    <!-- 건폐율 체크 (매싱 탭 최하단) -->
-    <div class="card">
-        <div class="label"><span class="dot"></span>건폐율 체크</div>
-        <div class="cov-row">
-            <span class="cov-label">대지면적</span>
-            <span><input id="siteArea" type="number" min="0" step="0.1" placeholder="직접 입력"
-                   oninput="updateCoverage()"><span class="cov-unit">m²</span></span>
-        </div>
-        <div class="cov-row">
-            <span class="cov-label">수평투영면적<span class="cov-sub">(매스 기준)</span></span>
-            <span class="cov-val"><span id="projArea">–</span><span class="cov-unit">m²</span></span>
-        </div>
-        <div class="cov-row total">
-            <span class="cov-label">건폐율</span>
-            <span class="cov-val"><span id="coverageRatio">–</span><span class="cov-unit">%</span></span>
-        </div>
-    </div>
-    </div><!-- /tabM -->
-
-    <!-- ===== 탭 B: massing studio에서 수신한 FIT 모델 (4 서브탭) ===== -->
+    <!-- ===== 탭 B: 신축 건물 그리기 + 입면 모듈 패널링 ===== -->
     <div class="tabpane" id="tabB" style="display:none;">
-    <div class="subtabs">
-        <button id="bt-recv" class="subtab on" onclick="bTab('recv')">수신 모델</button>
-        <button id="bt-mass" class="subtab" onclick="bTab('mass')">매스</button>
-        <button id="bt-slab" class="subtab" onclick="bTab('slab')">슬래브</button>
-        <button id="bt-cart" class="subtab" onclick="bTab('cart')">카트리지</button>
-    </div>
+    <!-- 신축 건물 그리기 -->
+    <div class="card">
+        <div class="label"><span class="dot"></span>신축 건물 그리기</div>
 
-    <!-- 1. 수신 모델 (상태·규모·FIT모듈) -->
-    <div class="card subpane" id="bp-recv">
-        <div class="label"><span class="dot"></span>수신된 FIT 모델</div>
-        <div class="hint">왼쪽 massing studio에서 ‘→ render studio으로 보내기’를 누르면 3D 모델이 대지 중심에 재현됩니다. 다시 보내면 갱신됩니다.</div>
-        <div class="rs-row hl" style="margin-top:10px;"><span class="rs-k">상태</span><span class="rs-v" id="impStatus">대기 중 — 아직 수신 없음</span></div>
-        <div class="rs-row"><span class="rs-k">규모</span><span class="rs-v" id="impMass">–</span></div>
-        <div class="rs-row"><span class="rs-k">FIT 모듈</span><span class="rs-v" id="impMods">–</span></div>
-        <div class="hint" style="margin-top:8px;">이동·회전 배치는 ‘위치·대지’ 탭에서 조절합니다.</div>
-    </div>
-
-    <!-- 2. 매스 / 코어 -->
-    <div class="card subpane" id="bp-mass" style="display:none;">
-        <div class="label"><span class="dot"></span>매스 / 코어</div>
-        <label class="check">
-            <input type="checkbox" id="impMassOn" checked onchange="rerenderImported()">
-            규모(매스) 박스 표시
-        </label>
-        <label class="check" style="margin-top:8px;">
-            <input type="checkbox" id="impCoreOn" checked onchange="rerenderImported()">
-            코어 박스 표시
-        </label>
-        <div class="row" style="margin-top:10px;">
-            <span class="field">매스 밝기</span>
-            <input id="massBrightRange" type="range" min="0" max="255" value="235" step="1" oninput="onMassBright()">
-            <span id="massBrightVal" class="field" style="min-width:36px; text-align:right;">235</span>
-        </div>
-        <div class="hint">규모 박스를 0–255 모노톤으로 밝기 조절합니다. 코어는 중간 그레이 고정.</div>
-    </div>
-
-    <!-- 3. 각 층 슬래브 -->
-    <div class="card subpane" id="bp-slab" style="display:none;">
-        <div class="label"><span class="dot"></span>각 층 슬래브</div>
-        <label class="check">
-            <input type="checkbox" id="slabOn" onchange="onSlabToggle()">
-            슬래브(각 층 바닥·천장) 표시
-        </label>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">두께</span>
-            <input id="slabThick" type="range" min="100" max="1000" value="200" step="10" oninput="onSlabThick()">
-            <span id="slabThickVal" class="field" style="min-width:58px; text-align:right;">200 mm</span>
-        </div>
-        <div class="row" style="margin-top:8px;">
-            <span class="field">색(밝기)</span>
-            <input id="slabBrightRange" type="range" min="0" max="255" value="205" step="1" oninput="onSlabBright()">
-            <span id="slabBrightVal" class="field" style="min-width:36px; text-align:right;">205</span>
-        </div>
-        <div class="hint">매스 바닥 형태로 각 층 레벨(0층~최상층)에 불투명 슬래브를 깝니다.</div>
-    </div>
-
-    <!-- 4. 카트리지 -->
-    <div class="card subpane" id="bp-cart" style="display:none;">
-        <div class="label"><span class="dot"></span>카트리지</div>
+        <!-- 모드 선택 -->
         <div class="row">
+            <button id="bmPresetBtn" class="btn-draw" onclick="setBuildMode('preset')">프리셋</button>
+            <button id="bmManualBtn" class="btn-draw active" onclick="setBuildMode('manual')">직접 그리기</button>
+        </div>
+
+        <!-- 모드 1: 프리셋 (최대 건축가능영역 내 건폐율 직사각형) -->
+        <div id="buildPreset" style="display:none;">
+            <div class="row" style="margin-top:10px;">
+                <span class="field">목표 건폐율</span>
+                <input id="presetBCR" type="number" min="1" max="100" step="1" value="60" style="width:64px;"><span class="cov-unit">%</span>
+                <span class="hint" style="margin:0 0 0 8px;">용도지역 법정 상한 자동입력</span>
+            </div>
+            <div class="row" style="margin-top:8px;">
+                <button class="btn-primary" onclick="makePresetRectangle()">최대영역 내 직사각형 생성</button>
+            </div>
+            <div class="hint" id="presetHint" style="margin-top:6px;">탭 A에서 주소 검색 후, 최대 건축가능영역 안에 건폐율을 만족하는 직사각형을 자동 생성합니다.</div>
+        </div>
+
+        <!-- 모드 2: 직접 그리기 -->
+        <div id="buildManual">
+            <div class="row" style="margin-top:10px;">
+                <button id="drawBtn" class="btn-draw" onclick="toggleDraw()">점 찍기</button>
+                <button id="editBtn" class="btn-edit" onclick="toggleEdit()">점 위치 조정</button>
+            </div>
+            <div class="hint">'점 찍기' 후 지면 클릭 → 정점 추가 · '점 위치 조정' 후 정점 드래그 → 이동</div>
+            <div class="row" style="margin-top:8px;">
+                <button class="btn-ghost btn-undo" onclick="undoPoint()">마지막 점 취소</button>
+            </div>
+        </div>
+
+        <!-- 공통: 층고 · 층수 · 수평투영 -->
+        <div class="row" style="margin-top:10px;">
+            <span class="field">층고(m)</span>
+            <input id="storyH" type="number" value="4" min="0.5" step="0.1" style="width:72px;"
+                   oninput="onBuildingDims()">
+            <span class="field">층수</span>
+            <input id="floors" type="number" value="10" min="1" step="1" style="width:72px;"
+                   oninput="onBuildingDims()">
+        </div>
+        <div class="row">
+            <input id="floorsRange" type="range" min="1" max="60" value="10"
+                   oninput="document.getElementById('floors').value=this.value; onBuildingDims();">
+        </div>
+        <div class="hint" id="heightHint">건물 높이 = 층고 × 층수</div>
+        <label class="check" style="margin-top:10px;">
+            <input type="checkbox" id="footprintOn" checked onchange="rebuildDraft()">
+            수평투영 폴리선·치수·점 표시
+        </label>
+    </div>
+
+    <!-- 입면 모듈 패널링 -->
+    <div class="card">
+        <div class="label"><span class="dot"></span>입면 모듈 패널링</div>
+        <div class="row">
+            <span class="field">모듈 가로(m)</span>
+            <input id="modW" type="number" value="1.2" min="0.1" step="0.1" style="width:72px;"
+                   oninput="onModuleInput()">
+            <span class="hint" style="margin:0;">세로 = 층고 고정</span>
+        </div>
+        <div class="row" style="margin-top:10px;">
+            <span class="field">레이어 간격</span>
+            <input id="layerGapRange" type="range" min="0.1" max="1.5" value="0.5" step="0.05"
+                   oninput="onLayerGapChange()">
+            <span id="layerGapVal" class="field" style="min-width:46px; text-align:right;">0.50 m</span>
+        </div>
+        <div class="hint">외측 frame-1 → 중간 cart → 내측 frame-2 순으로 바깥으로 돌출.</div>
+
+        <div class="ai-caption" style="margin-top:8px;">FRAME</div>
+        <div class="row" style="gap:6px;">
+            <div style="flex:1; text-align:center;">
+                <img id="thumbFrameOuter" class="layer-thumb" alt="">
+                <div class="hint" style="margin-top:2px;">외측 frame-1</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+                <img id="thumbFrameInner" class="layer-thumb" alt="">
+                <div class="hint" style="margin-top:2px;">내측 frame-2</div>
+            </div>
+        </div>
+        <div class="row" style="gap:6px; margin-top:6px;">
+            <div style="flex:1; text-align:center;">
+                <img id="thumbCornerL" class="layer-thumb" alt="">
+                <div class="hint" style="margin-top:2px;">좌끝 frame-4</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+                <img id="thumbCornerR" class="layer-thumb" alt="">
+                <div class="hint" style="margin-top:2px;">우끝 frame-3</div>
+            </div>
+        </div>
+        <div class="ai-caption" style="margin-top:8px;">CARTRIDGE (모듈마다 랜덤)</div>
+        <div class="row" style="gap:6px;">
+            <div style="flex:1; text-align:center;">
+                <img id="thumbCart1" class="layer-thumb" alt="">
+                <div class="hint" style="margin-top:2px;">cart-1</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+                <img id="thumbCart2" class="layer-thumb" alt="">
+                <div class="hint" style="margin-top:2px;">cart-2</div>
+            </div>
+        </div>
+        <div class="row" style="margin-top:8px;">
             <span class="field" style="font-size:11px;">cart-1</span>
-            <input id="cartRatioRange2" type="range" min="0" max="100" value="50" step="1" oninput="onCartRatio()">
+            <input id="cartRatioRange" type="range" min="0" max="100" value="50" step="1"
+                   oninput="onCartRatioChange()">
             <span class="field" style="font-size:11px;">cart-2</span>
         </div>
-        <div class="hint" id="cartRatioVal2">cart-1 50% : cart-2 50% · 스킨 모듈 랜덤 배치 비율</div>
-        <div class="ai-caption" style="margin-top:10px;">색상</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;"><span style="display:inline-block;width:13px;height:13px;border-radius:2px;background:#b0aca3;"></span>스킨 (skin)</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;"><span style="display:inline-block;width:13px;height:13px;border-radius:2px;background:#e68d39;"></span>공조 (hvac)</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;"><span style="display:inline-block;width:13px;height:13px;border-radius:2px;background:#4a86c5;"></span>도어 (door)</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;"><span style="display:inline-block;width:13px;height:13px;border-radius:2px;background:#edebe6;border:1px solid #cfcbc3;"></span>없음 (none · 빈 프레임)</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;"><span style="display:inline-block;width:13px;height:13px;border-radius:2px;background:#7a766e;"></span>코너 프레임</div>
-        <div class="hint" style="margin-top:8px;">각 모듈 = 내측 frame-2 / 중간 카트리지(스킨=cart-1·2, 공조=cart-air) / 외측 frame-1 의 3중 오프셋. 코너 모듈은 frame-3·4.</div>
+        <div class="hint" id="cartRatioVal">cart-1 50% : cart-2 50%</div>
+
+        <div class="ai-caption" style="margin-top:8px;">INTERIOR LIGHTING</div>
+        <div class="row" style="margin-top:2px;">
+            <span class="field" style="font-size:11px;">어둡게</span>
+            <input id="interiorLightRange" type="range" min="0" max="255" value="235" step="1"
+                   oninput="onInteriorLightChange()">
+            <span id="interiorLightVal" class="field" style="min-width:32px; text-align:right;">235</span>
+        </div>
+        <div class="hint">내부 박스(코어) 명도 0–255 모노톤 · 패널 표시 시 적용.</div>
+
+        <label class="check" style="margin-top:10px;">
+            <input type="checkbox" id="panelOn" checked onchange="rebuildDraft()">
+            벽면에 입면 모듈 패널 표시
+        </label>
+        <div class="row" style="margin-top:10px;">
+            <button class="btn-del" onclick="clearBuilding()">건물 삭제</button>
+        </div>
     </div>
     </div><!-- /tabB -->
 
-    <!-- (탭 C 포디움·지붕 제거됨) -->
+    <!-- ===== 탭 C: 지면에서 띄우기(포디움) + 지붕 디자인 ===== -->
+    <div class="tabpane" id="tabC" style="display:none;">
+    <!-- 지면에서 띄우기 (포디움) -->
+    <div class="card">
+        <div class="label"><span class="dot"></span>지면에서 띄우기</div>
+        <div class="row">
+            <span class="field">띄우기</span>
+            <input id="elevRange" type="range" min="0" max="20" value="0" step="0.5"
+                   oninput="onElevateChange()">
+            <span id="elevVal" class="field" style="min-width:44px; text-align:right;">0.0 m</span>
+        </div>
+        <div class="hint">건물을 지면에서 띄웁니다 (0–20 m). 빈 공간을 포디움으로 채울 수 있습니다.</div>
+        <div class="row" style="margin-top:10px;">
+            <button id="groundDrawBtn" class="btn-draw" onclick="toggleGroundDraw()">포디움 그리기</button>
+            <button id="groundEditBtn" class="btn-edit" onclick="toggleGroundEdit()">점 위치 조정</button>
+        </div>
+        <div class="hint">'그리기' 클릭으로 정점 추가 · '점 위치 조정' 으로 정점 드래그 · 입면 패널링 미적용</div>
+        <div class="row" style="margin-top:6px;">
+            <button class="btn-ghost btn-undo" onclick="undoGroundPoint()">마지막 점 취소</button>
+            <button class="btn-ghost" onclick="confirmGroundPoly()">이 폴리곤 확정</button>
+        </div>
+        <div class="row" style="margin-top:4px;">
+            <button class="btn-del" onclick="clearAllGroundPolygons()">포디움 전체 삭제</button>
+        </div>
+        <div class="hint" id="groundHint" style="margin-top:4px;"></div>
+    </div>
+
+    <!-- ⑤ 지붕 디자인 -->
+    <div class="card">
+        <div class="label"><span class="dot"></span>지붕 디자인</div>
+        <div class="row">
+            <span class="field">높이</span>
+            <input id="roofRange" type="range" min="0" max="20" value="3" step="0.5"
+                   oninput="onRoofHeightChange()">
+            <span id="roofVal" class="field" style="min-width:44px; text-align:right;">3.0 m</span>
+        </div>
+        <div class="hint">신축 건물 최상단에서 위로 지붕을 세웁니다 (0–20 m). 입면 패널링 미적용</div>
+        <div class="row" style="margin-top:10px;">
+            <button id="roofDrawBtn" class="btn-draw" onclick="toggleRoofDraw()">지붕 폴리곤 그리기</button>
+            <button id="roofEditBtn" class="btn-edit" onclick="toggleRoofEdit()">점 위치 조정</button>
+        </div>
+        <div class="hint">'그리기' 클릭으로 정점 추가 · '점 위치 조정' 으로 정점 드래그 · 신축 건물 필요</div>
+        <div class="row" style="margin-top:6px;">
+            <button class="btn-ghost btn-undo" onclick="undoRoofPoint()">마지막 점 취소</button>
+            <button class="btn-ghost" onclick="confirmRoofPoly()">이 폴리곤 확정</button>
+        </div>
+        <div class="row" style="margin-top:4px;">
+            <button class="btn-del" onclick="clearAllRoofPolygons()">지붕 폴리곤 전체 삭제</button>
+        </div>
+        <div class="hint" id="roofHint" style="margin-top:4px;"></div>
+    </div>
+    </div><!-- /tabC -->
 
     <!-- ===== 탭 D: AI 실사 렌더링 ===== -->
     <div class="tabpane" id="tabD" style="display:none;">
@@ -503,7 +447,7 @@
     <div class="card">
         <div class="label"><span class="dot"></span>실사 변환</div>
         <div class="row">
-            <button class="btn-primary" onclick="captureScreen()">영역 지정 캡쳐</button>
+            <button class="btn-primary" onclick="captureScreen()">현재 화면 캡쳐</button>
         </div>
         <div class="row" style="margin-top:6px;">
             <span class="field" style="flex:0 0 auto;">또는</span>
@@ -544,12 +488,12 @@
         <div id="aiStatus">화면을 캡쳐하거나 이미지를 업로드한 뒤 변환하세요.</div>
 
         <div id="aiSrcWrap" style="display:none;">
-            <div class="ai-caption">원본 (캡쳐) · 클릭하면 크게 비교</div>
-            <img id="aiSrcImg" class="ai-img" alt="" onclick="openCompare()" style="cursor:zoom-in;">
+            <div class="ai-caption">원본 (캡쳐)</div>
+            <img id="aiSrcImg" class="ai-img" alt="">
         </div>
         <div id="aiResWrap" style="display:none;">
-            <div class="ai-caption">변환 결과 · 클릭하면 크게 비교</div>
-            <img id="aiResImg" class="ai-img" alt="" onclick="openCompare()" style="cursor:zoom-in;">
+            <div class="ai-caption">변환 결과</div>
+            <img id="aiResImg" class="ai-img" alt="">
             <div class="row" style="margin-top:8px;">
                 <button class="btn-ghost" onclick="downloadAiResult()">결과 다운로드</button>
             </div>
@@ -561,58 +505,22 @@
 </div>
 
 <!-- 건폐율 체크 (우측 하단) -->
-<!-- (건폐율 체크 패널은 위치·대지 탭 안으로 이동됨) -->
-
-<!-- 카메라 뷰 임시저장 (우상단 — VWORLD 미니아이콘 대체) -->
-<div id="camBookmarks">
-    <div class="cb-title"><span class="dot"></span><span id="cbTitleText">카메라 뷰</span></div>
-    <div id="camPane">
-        <div id="cbSlots"></div>
-        <button id="cbSaveBtn" onclick="saveCamView()">+ 현재 뷰 저장 (0/5)</button>
+<div id="coveragePanel">
+    <div class="cov-title"><span class="dot"></span>건폐율 체크</div>
+    <div class="cov-row">
+        <span class="cov-label">대지면적</span>
+        <span><input id="siteArea" type="number" min="0" step="0.1" placeholder="직접 입력"
+               oninput="updateCoverage()"><span class="cov-unit">m²</span></span>
     </div>
-    <div id="viewCheckPane" style="display:none;">
-        <div class="row" style="margin-bottom:8px;">
-            <span class="field">층</span>
-            <input id="vcFloor" type="range" min="1" max="1" value="1" step="1" oninput="onVcFloor()">
-            <span id="vcFloorVal" class="field" style="min-width:36px; text-align:right;">1층</span>
-        </div>
-        <div class="cb-dirs">
-            <button class="vc-dir" data-d="N" onclick="setVcDir('N')">북</button>
-            <button class="vc-dir on" data-d="E" onclick="setVcDir('E')">동</button>
-            <button class="vc-dir" data-d="S" onclick="setVcDir('S')">남</button>
-            <button class="vc-dir" data-d="W" onclick="setVcDir('W')">서</button>
-        </div>
-        <button id="vcGoBtn" onclick="interiorView()">실내뷰 확인</button>
-        <div class="hint" style="margin-top:6px;">massing studio 모델의 n층·방위 기준 실내 뷰로 카메라 이동</div>
+    <div class="cov-row">
+        <span class="cov-label">수평투영면적<span class="cov-sub">(건물+포디움+지붕)</span></span>
+        <span class="cov-val"><span id="projArea">–</span><span class="cov-unit">m²</span></span>
     </div>
-    <div class="cb-tabs">
-        <button id="cbtabCam" class="cb-tab on" onclick="camTab('cam')">카메라 뷰</button>
-        <button id="cbtabView" class="cb-tab" onclick="camTab('view')">뷰체크</button>
+    <div class="cov-row total">
+        <span class="cov-label">건폐율</span>
+        <span class="cov-val"><span id="coverageRatio">–</span><span class="cov-unit">%</span></span>
     </div>
 </div>
-
-<!-- AI 변환 전후 비교 팝업 -->
-<div id="cmpModal">
-    <div class="cmp-backdrop" onclick="closeCompare()"></div>
-    <div class="cmp-box">
-        <button class="cmp-close" onclick="closeCompare()">×</button>
-        <div class="cmp-wrap" id="cmpWrap">
-            <img id="cmpAfter" class="cmp-img" alt="">
-            <img id="cmpBefore" class="cmp-img" alt="">
-            <div class="cmp-divider" id="cmpDivider"></div>
-            <span class="cmp-tag cmp-tag-l">변환 전</span>
-            <span class="cmp-tag cmp-tag-r">변환 후</span>
-        </div>
-        <input id="cmpRange" type="range" min="0" max="100" value="50" oninput="onCmpSlide(this.value)">
-    </div>
-</div>
-
-<!-- AI 영역 지정 캡쳐 오버레이 -->
-<div id="regionOverlay"></div>
-<div id="regionBox"></div>
-<div id="regionHint">지도 위에서 캡쳐할 영역을 드래그하세요 · ESC 취소</div>
-
-<!-- (독립형: 재검토 버튼 없음) -->
 
 <div id="vmap"></div>
 
@@ -659,7 +567,6 @@
     // ===== 대지경계선 / 건축제한 (도로명 주소 검색) =====
     var VWORLD_KEY = "B5CEDD7D-84D6-314E-875C-9B5BF7E1233A"; // 지도·지오코더·데이터 API 공용 키
     var siteBoundaryEnts = [];   // 대지경계선 표시 엔티티(폴리라인·라벨)
-    var showSiteBoundary = true; // 대지경계(빨간 테두리·라벨) 표시 여부
     var siteBoundaryCoords = []; // 대지경계 좌표(면적 계산용)
     var roadEdgeFlags = [];      // 대지경계 각 변(i→i+1)이 도로에 접하는지 여부
     var buildableEnts = [];      // 최대 건축가능영역 표시 엔티티(면·폴리라인)
@@ -682,9 +589,9 @@
             map.onClick.addEventListener(onMapClick);
             viewer = map._wsViewer;
             if (!viewer) console.warn("Cesium Viewer(map._wsViewer)를 찾지 못했습니다.");
+            initDefaultPanelImage(); // PNG → data URL 변환 후 썸네일·패널 반영
             hideVworldFooter();
             updateStatus();
-            if (typeof lastModel !== "undefined" && lastModel) renderImportedModel(lastModel, true); // 지도 준비 전 수신분 렌더
         }, 1500);
         initAiTab(); // AI 탭: 저장된 키 로드 + 기본 프롬프트 채우기
     };
@@ -693,7 +600,7 @@
     // 탭 전환 (엑셀형) — 패널 보기만 전환, 작업 모드는 유지
     // ====================================================================
     function switchTab(t) {
-        ["A", "M", "B", "C", "D"].forEach(function(x) {
+        ["A", "B", "C", "D"].forEach(function(x) {
             var pane = document.getElementById("tab" + x);
             if (pane) pane.style.display = (x === t) ? "block" : "none";
             var btn = document.querySelector('.tab[data-tab="' + x + '"]');
@@ -778,51 +685,40 @@
         if (c) c.style.visibility = h ? "hidden" : "visible";
     }
 
-    // 영역 지정 캡쳐 — 지도(Cesium 캔버스) 위에서 드래그한 사각형만 캡쳐(화면공유 팝업 없음)
-    function captureScreen() {
-        if (!viewer) { setAiStatus("지도가 준비되지 않았습니다."); return; }
-        var ov = document.getElementById("regionOverlay"), box = document.getElementById("regionBox"), hint = document.getElementById("regionHint");
-        if (!ov || !box) return;
-        box.style.display = "none"; ov.style.display = "block"; if (hint) hint.style.display = "block";
-        setAiStatus("지도 위에서 캡쳐할 영역을 드래그하세요. (ESC 취소)");
-        var x0, y0, dragging = false;
-        function draw(e) {
-            var x = Math.min(x0, e.clientX), y = Math.min(y0, e.clientY), w = Math.abs(e.clientX - x0), h = Math.abs(e.clientY - y0);
-            box.style.left = x + "px"; box.style.top = y + "px"; box.style.width = w + "px"; box.style.height = h + "px";
+    // 현재 화면(탭) 한 프레임 캡쳐 — WebGL taint 영향 없는 getDisplayMedia 사용
+    async function captureScreen() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            setAiStatus("이 브라우저는 화면 캡쳐를 지원하지 않습니다. 아래 '이미지 업로드'를 사용하세요.");
+            return;
         }
-        function down(e) { dragging = true; x0 = e.clientX; y0 = e.clientY; box.style.display = "block"; draw(e); e.preventDefault(); }
-        function move(e) { if (dragging) draw(e); }
-        function up(e) {
-            if (!dragging) return; dragging = false;
-            var x = Math.min(x0, e.clientX), y = Math.min(y0, e.clientY), w = Math.abs(e.clientX - x0), h = Math.abs(e.clientY - y0);
-            cleanup();
-            if (w < 8 || h < 8) { setAiStatus("영역이 너무 작습니다. 다시 ‘영역 지정 캡쳐’를 누르세요."); return; }
-            captureRegion(x, y, w, h);
-        }
-        function key(e) { if (e.key === "Escape") { cleanup(); setAiStatus("캡쳐 취소됨."); } }
-        function cleanup() {
-            ov.style.display = "none"; box.style.display = "none"; if (hint) hint.style.display = "none";
-            ov.removeEventListener("mousedown", down); window.removeEventListener("mousemove", move);
-            window.removeEventListener("mouseup", up); window.removeEventListener("keydown", key);
-        }
-        ov.addEventListener("mousedown", down); window.addEventListener("mousemove", move);
-        window.addEventListener("mouseup", up); window.addEventListener("keydown", key);
-    }
-    // 선택 사각형(뷰포트 px) → 캔버스 픽셀로 변환 후 크롭
-    function captureRegion(x, y, w, h) {
+        setAiStatus("화면 공유를 허용하고 이 탭을 선택하세요…");
         try {
-            var canvas = viewer.scene.canvas, r = canvas.getBoundingClientRect();
-            var kx = canvas.width / r.width, ky = canvas.height / r.height;
-            var sx = Math.max(0, (x - r.left) * kx), sy = Math.max(0, (y - r.top) * ky);
-            var sw = Math.min(canvas.width - sx, w * kx), sh = Math.min(canvas.height - sy, h * ky);
-            if (sw < 2 || sh < 2) { setAiStatus("선택 영역이 지도 밖입니다. 지도 위에서 드래그하세요."); return; }
-            viewer.scene.render();
-            var out = document.createElement("canvas"); out.width = Math.round(sw); out.height = Math.round(sh);
-            out.getContext("2d").drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
-            aiSourceDataURL = out.toDataURL("image/jpeg", 0.92);
+            if (!aiStream || !aiStream.active) {
+                aiStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { displaySurface: "browser" }, audio: false
+                });
+                // 사용자가 공유를 중지하면 스트림 해제
+                aiStream.getVideoTracks()[0].addEventListener("ended", function () { aiStream = null; });
+            }
+            setPanelsHidden(true);
+            var video = document.createElement("video");
+            video.srcObject = aiStream; video.muted = true;
+            await video.play();
+            await new Promise(function (r) { setTimeout(r, 300); }); // 렌더/숨김 반영 대기
+            var vw2 = video.videoWidth, vh = video.videoHeight;
+            if (!vw2 || !vh) throw new Error("프레임 크기를 읽지 못했습니다.");
+            var canvas = document.createElement("canvas");
+            canvas.width = vw2; canvas.height = vh;
+            canvas.getContext("2d").drawImage(video, 0, 0, vw2, vh);
+            aiSourceDataURL = canvas.toDataURL("image/jpeg", 0.92);
+            video.pause(); video.srcObject = null;
             showAiSource();
-            setAiStatus("영역 캡쳐 완료 (" + Math.round(sw) + "×" + Math.round(sh) + "). 스타일을 고르고 '실사 변환 실행'을 누르세요.");
-        } catch (e) { setAiStatus("캡쳐 실패: " + e.message + " — '이미지 업로드'를 사용하세요."); }
+            setAiStatus("캡쳐 완료. 스타일을 고르고 '실사 변환 실행'을 누르세요.");
+        } catch (e) {
+            setAiStatus("캡쳐 실패: " + e.message);
+        } finally {
+            setPanelsHidden(false);
+        }
     }
 
     function onAiUpload(input) {
@@ -934,7 +830,23 @@
     // 지도 클릭 통합 핸들러
     // ====================================================================
     function onMapClick(windowPosition, ecefPosition, cartographic, modelObject) {
-        // 신축 매스는 파라메트릭 생성이라 지도 클릭으로 점을 찍지 않음. 클릭 = 기존 건물 투명/복원만.
+        if (mode === "draw") {
+            var c = extractLonLat(cartographic);
+            if (c) { drawCoords.push(c); rebuildDraft(); updateStatus(); }
+            else console.warn("좌표 해석 실패:", cartographic);
+            return;
+        }
+        if (mode === "drawGround") {
+            var c = extractLonLat(cartographic);
+            if (c) { groundPolyCoords.push(c); rebuildGroundDraft(); updateStatus(); }
+            return;
+        }
+        if (mode === "drawRoof") {
+            var c = extractLonLat(cartographic);
+            if (c) { roofPolyCoords.push(c); rebuildRoofDraft(); updateStatus(); }
+            return;
+        }
+        if (mode === "edit" || mode === "editGround" || mode === "editRoof") return; // 드래그 핸들러가 처리
         if (modelObject) toggleTransparent(modelObject);
     }
 
@@ -1044,9 +956,8 @@
     }
 
     function getStory() {
-        var he = document.getElementById("storyH"), fe = document.getElementById("floors");
-        var h = he ? Number(he.value) : 4;
-        var n = fe ? Math.round(Number(fe.value)) : 1;
+        var h = Number(document.getElementById("storyH").value);
+        var n = Math.round(Number(document.getElementById("floors").value));
         if (!h || h <= 0) h = 4; if (!n || n < 1) n = 1;
         return { h: h, floors: n };
     }
@@ -1063,62 +974,6 @@
         } else { rebuildDraft(); }
         updateRoofHeights(); // 건물 높이 변경 → 지붕 시작 z 갱신
         updateStatus();
-        updateMassReadout();
-    }
-
-    // ====================================================================
-    // 신축 매스 (massing studio 모델 이식) — 대지 위 파라메트릭 직육면체 footprint 생성.
-    // drawCoords(사각형 4꼭짓점)만 만들고, 기존 rebuildDraft()/rebuildPaneling()이
-    // 솔리드 + FIT 입면 모듈(frame/cart PNG)을 그대로 그린다.
-    // ====================================================================
-    var massRotDeg = 0;
-    function setSearchHint(msg) { var el = document.getElementById("searchHint"); if (el) el.textContent = msg; }
-    function getMassWD() {
-        var w = Number(document.getElementById("massW").value); if (!w || w < 2) w = 24;
-        var d = Number(document.getElementById("massD").value); if (!d || d < 2) d = 16;
-        return { w: w, d: d };
-    }
-    function updateMassReadout() {
-        var wd = getMassWD(), st = getStory(), gfa = wd.w * wd.d * st.floors;
-        var el = document.getElementById("massGFA"); if (el) el.textContent = Math.round(gfa).toLocaleString() + " m²";
-    }
-    // 매스 중심: 대지경계 중심 우선 → 없으면 현재 화면(카메라) 중심
-    function massCenterLonLat() {
-        if (siteBoundaryCoords && siteBoundaryCoords.length >= 3) {
-            var cx = 0, cy = 0; siteBoundaryCoords.forEach(function(c) { cx += c.lon; cy += c.lat; });
-            return { lon: cx / siteBoundaryCoords.length, lat: cy / siteBoundaryCoords.length };
-        }
-        try {
-            var cv = viewer.scene.canvas;
-            var ll = pickGlobeLonLat(new Cesium.Cartesian2(cv.clientWidth / 2, cv.clientHeight / 2));
-            if (ll) return ll;
-        } catch (e) {}
-        return null;
-    }
-    function applyMass() {
-        if (!viewer) { alert("지도가 아직 준비되지 않았습니다. 잠시 후 다시 시도하세요."); return; }
-        var cen = massCenterLonLat();
-        if (!cen) { alert("매스 중심을 찾지 못했습니다. 먼저 주소를 검색하거나 지면이 보이게 화면을 맞추세요."); return; }
-        var wd = getMassWD(), hw = wd.w / 2, hd = wd.d / 2;
-        var th = massRotDeg * Math.PI / 180, ct = Math.cos(th), si = Math.sin(th);
-        var mPerLat = 111320, mPerLon = 111320 * Math.cos(cen.lat * Math.PI / 180);
-        var local = [{ x: -hw, y: -hd }, { x: hw, y: -hd }, { x: hw, y: hd }, { x: -hw, y: hd }];
-        drawCoords = local.map(function(p) {
-            var rx = p.x * ct - p.y * si, ry = p.x * si + p.y * ct;
-            return { lon: cen.lon + rx / mPerLon, lat: cen.lat + ry / mPerLat };
-        });
-        mode = "select";
-        rebuildDraft();          // 솔리드 + FIT 입면 모듈 패널링
-        updateMassReadout();
-        updateStatus();
-        var mh = document.getElementById("massHint");
-        if (mh) mh.textContent = "매스 생성됨: " + wd.w + "×" + wd.d + " m · " + getStory().floors + "층 · 회전 " + massRotDeg + "°. 값 변경 시 자동 갱신.";
-    }
-    function onMassDims() { if (drawCoords.length >= 3) applyMass(); else updateMassReadout(); }
-    function onMassRot() {
-        massRotDeg = Number(document.getElementById("massRot").value) || 0;
-        var v = document.getElementById("massRotVal"); if (v) v.textContent = massRotDeg + "°";
-        if (drawCoords.length >= 3) applyMass();
     }
 
     function sampleGroundHeight(lon, lat) {
@@ -1229,7 +1084,7 @@
 
     // 대지면적 입력 / 폴리곤 변경 시 전체 수평투영면적·건폐율 갱신
     function updateCoverage() {
-        var proj = (importedProjArea > 0) ? importedProjArea : computeTotalProjArea();
+        var proj = computeTotalProjArea();
         var projEl = document.getElementById("projArea");
         if (projEl) projEl.textContent = proj > 0 ? proj.toFixed(1) : "–";
         var siteEl = document.getElementById("siteArea");
@@ -1710,7 +1565,7 @@
 
     // ---- 입면 모듈 패널링 ----
     function onModuleInput() { rebuildPaneling(); updateStatus(); }
-    function getModuleW() { var e = document.getElementById("modW"); var w = e ? Number(e.value) : 1.2; if (!w || w <= 0) w = 1.2; return w; }
+    function getModuleW() { var w = Number(document.getElementById("modW").value); if (!w || w <= 0) w = 1.2; return w; }
     function clearPaneling() { if (viewer) { panelEntities.forEach(function(e) { try { viewer.entities.remove(e); } catch(x){} }); } panelEntities = []; }
 
     // ====================================================================
@@ -2625,7 +2480,6 @@
         if (!viewer) return;
         siteBoundaryEnts.forEach(function(e) { try { viewer.entities.remove(e); } catch (x) {} });
         siteBoundaryEnts = [];
-        if (!showSiteBoundary) return;   // 끄면 빨간 테두리·라벨 숨김(좌표는 보존)
         var coords = siteBoundaryCoords;
         if (!coords || coords.length < 2) return;
         var ring = coords.slice();
@@ -2663,7 +2517,7 @@
             await new Promise(function(r) { setTimeout(r, 400); });
             if (!siteBoundaryCoords.length) return;
             var h = averageGroundHeight(siteBoundaryCoords);
-            if (Math.abs(h - sitePlaneH) > 0.2) { sitePlaneH = h; renderSiteBoundary(); }
+            if (Math.abs(h - sitePlaneH) > 0.2) { sitePlaneH = h; renderSiteBoundary(); computeBuildable(); }
         }
     }
 
@@ -2685,35 +2539,60 @@
         if (pb && info) pb.value = info.bcr;
     }
 
-    // 대지경계(연속지적도) 조회 후 표시 — 주소→대지경계까지만 유지(용도지역·후퇴 분석 제거).
+    // 대지경계(연속지적도) + 용도지역(국토계획) 조회 후 표시
     async function loadParcelAndRestrictions(lon, lat) {
         clearSiteBoundary();
-        var parcel = await fetchFeatureResilient("LP_PA_CBND_BUBUN", lon, lat, 3);
+        resetRestrictFields();
+
+        // 1) 건축제한 정보 먼저 — 대지경계·용도지역을 병렬 조회해 즉시 표기(무거운 도로판정에 막히지 않음)
+        var results = await Promise.all([
+            fetchFeatureResilient("LP_PA_CBND_BUBUN", lon, lat, 3),
+            fetchFeatureResilient("LT_C_UQ111", lon, lat, 3)
+        ]);
+        var parcel = results[0], zone = results[1];
+        var gotAny = false;
+
         if (parcel && parcel.coords && parcel.coords.length >= 3) {
-            parcel.coords = cleanRing(parcel.coords); // 지적도 노이즈 정점 정리
+            parcel.coords = cleanRing(parcel.coords); // 지적도 노이즈 정점 정리(오프셋 안정화)
+            gotAny = true;
             var jibun = parcel.props.addr || parcel.props.jibun || "";
             sitePlaneH = averageGroundHeight(parcel.coords); // 건물 없을 시 대지 평균수평면
             drawSiteBoundary(parcel.coords, jibun || "대지경계");
-            updateOffsetRanges();   // X/Y 슬라이더 최댓값을 이 대지 치수로 설정
             var area = areaOfCoords(parcel.coords);
+            setRestrictField("rsAddr", jibun || "–");
+            setRestrictField("rsArea", area > 0 ? area.toFixed(1) + " m²" : "–");
+            // 건폐율 체크 패널의 대지면적 자동 입력
             var siteEl = document.getElementById("siteArea");
             if (siteEl && area > 0) { siteEl.value = area.toFixed(1); updateCoverage(); }
-            setSearchHint("대지경계 표시됨" + (area > 0 ? " · 대지면적 " + area.toFixed(1) + " m²" : "") + ". ‘신축 매스·입면’ 탭에서 매스를 생성하세요.");
-        } else {
-            setSearchHint("대지경계를 가져오지 못했습니다(지도만 이동). 회사망/방화벽이 VWORLD 데이터 요청을 막을 수 있습니다.");
+        }
+        if (zone) { gotAny = true; applyZoning(findZoneName(zone.props)); }
+
+        if (gotAny) setRestrictStatus("VWORLD 기준 정보입니다. 경계·용도지역은 참고용입니다.");
+        else setRestrictStatus("대지·용도지역 정보를 가져오지 못했습니다. (VWORLD 데이터 API 서비스 신청 및 배포 도메인 등록이 필요합니다)");
+
+        // 2) 도로 접면 자동판정 → 최대 건축가능영역 (정보 표기 이후 별도 진행)
+        if (parcel && parcel.coords && parcel.coords.length >= 3) {
+            var bs = document.getElementById("buildableStatus");
+            if (bs) bs.textContent = "도로 접면 판정 중…";
+            computeBuildable(); // 우선 인접대지 후퇴 기준으로 즉시 표시
+            roadEdgeFlags = await detectRoadEdges(parcel.coords);
+            var roadCnt = roadEdgeFlags.filter(Boolean).length;
+            if (bs) bs.textContent = roadCnt > 0
+                ? ("도로 접면 " + roadCnt + "개 변 자동판정 · 후퇴거리 조정 가능")
+                : "도로 접면 자동판정 안됨 — 후퇴거리로 직접 조정하세요.";
+            computeBuildable();
         }
     }
 
     async function searchAddress() {
         var address = document.getElementById("address").value.trim();
         if (!address) return;
-        setSearchHint("주소를 검색하는 중…");
+        setRestrictStatus("주소를 검색하는 중…");
         var pt = await geocodeVWorld(address);
         if (!pt) pt = await geocodeNominatim(address); // 장소명 등 보조 검색
-        if (!pt) { alert("검색 결과가 없습니다."); setSearchHint("검색 결과가 없습니다."); return; }
+        if (!pt) { alert("검색 결과가 없습니다."); setRestrictStatus("검색 결과가 없습니다."); return; }
         map.moveTo(new vw.CameraPosition(new vw.CoordZ(pt.lon, pt.lat, 500), new vw.Direction(0, -55, 0)));
         await loadParcelAndRestrictions(pt.lon, pt.lat);
-        if (lastModel) renderImportedModel(lastModel, true, moveMode);   // 검색 위치에 수신 모델 함께 배치(‘여기로 불러오기’)
     }
 
     // ====================================================================
@@ -2758,462 +2637,10 @@
                 var st = getStory(), elevStr = elevateMeter > 0 ? ", 띄우기 " + elevateMeter.toFixed(1) + "m" : "";
                 s.textContent = "건물: " + st.floors + "층 × " + st.h + "m = " + (st.h * st.floors).toFixed(1) + "m" + elevStr + " · 모듈 " + getModuleW() + "m · 투명 " + transparentList.length + "개.";
             } else {
-                s.textContent = "투명 건물 " + transparentList.length + "개. 왼쪽 massing studio 앱에서 모델을 보내면 지도 위에 나타납니다.";
+                s.textContent = "투명 건물 " + transparentList.length + "개. 건물 클릭=투명/복원. '점 찍기'로 신축 건물을 그리세요.";
             }
         }
     }
-
-    // ====================================================================
-    // massing studio → render studio 수신/렌더 (split-screen 브리지)
-    //  - massing studio이 postMessage로 보낸 명시적 모듈 지오메트리를 대지 중심에 박스로 재현.
-    //  - 좌표: massing studio 로컬(미터, x=가로, z=세로, y=높이) → 대지 중심 기준 lon/lat. z→남쪽.
-    // ====================================================================
-    var importEnts = [];
-    var lastModel = null;
-    var importedProjArea = 0;     // massing studio 모델 수평투영면적(㎡) — 건폐율 계산용
-    var importRotDeg = 0;
-    var importOffX = 0, importOffY = 0;   // 배치 이동(동서 m, 남북 m)
-    var lastPlace = null;                 // 마지막 배치 중심 {lon, lat, baseH} — 뷰체크용
-    var massBright = 235;                 // 매스 밝기(0~255 그레이)
-    var cartRatio2 = 0.5;                 // 스킨 모듈에서 cart-2가 뽑힐 확률(0~1)
-    var TYPE_COLOR = { skin:[176,172,163], hvac:[230,141,57], door:[74,134,197], none:[237,235,230], corner:[122,118,110] };
-    function typeColorBytes(t) { var c = TYPE_COLOR[t] || [150,150,150]; return Cesium.Color.fromBytes(c[0], c[1], c[2], t === "none" ? 165 : 240); }
-    // 카트리지 텍스처(dataURL): 스킨=cart-1/2, 공조=cart-air. taint 회피 위해 fetch→dataURL.
-    var FALLBACK_TEX = (typeof makeFallbackDataURL === "function") ? makeFallbackDataURL() : "";
-    var TEX = { c1: FALLBACK_TEX, c2: FALLBACK_TEX, air: FALLBACK_TEX, f1: FALLBACK_TEX, f2: FALLBACK_TEX, f3: FALLBACK_TEX, f4: FALLBACK_TEX };
-    function loadTex(file, key) {
-        fetch("source/" + file)
-            .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); })
-            .then(function(b) { var rd = new FileReader(); rd.onload = function(e) { TEX[key] = e.target.result; if (lastModel) renderImportedModel(lastModel); }; rd.readAsDataURL(b); })
-            .catch(function(err) { console.warn("텍스처 로드 실패:", file, err); });
-    }
-    function texHash(i) { var x = Math.sin(i * 127.1 + 17.3) * 43758.5453; return x - Math.floor(x); }
-    // 스킨 → cart-1/2(모듈마다 결정적 랜덤), 공조 → cart-air, 그 외 → 텍스처 없음(색상으로)
-    function moduleTexture(u, idx) {
-        if (u.type === "skin") return (texHash(idx) < 0.5) ? TEX.c1 : TEX.c2;
-        if (u.type === "hvac") return TEX.air;
-        return null;
-    }
-    function onMassBright() {
-        massBright = Number(document.getElementById("massBrightRange").value) || 0;
-        var v = document.getElementById("massBrightVal"); if (v) v.textContent = massBright;
-        if (lastModel) renderImportedModel(lastModel);
-    }
-    function clearImportEnts() {
-        if (viewer) importEnts.forEach(function(e) { try { viewer.entities.remove(e); } catch (x) {} });
-        importEnts = [];
-    }
-    function clearImported() {   // 수신 모델 삭제 버튼
-        clearImportEnts();
-        lastModel = null; importedProjArea = 0;
-        var st = document.getElementById("impStatus"); if (st) st.textContent = "대기 중 — 아직 수신 없음";
-        updateCoverage();
-    }
-    function massFootprintArea(m) {
-        if (m.mass.shape === "poly" && m.mass.pts && m.mass.pts.length >= 3) {
-            var p = m.mass.pts, a = 0;
-            for (var i = 0; i < p.length; i++) { var j = (i + 1) % p.length; a += p[i].x * p[j].z - p[j].x * p[i].z; }
-            return Math.abs(a) / 2;
-        }
-        return (m.mass.W || 0) * (m.mass.D || 0);
-    }
-    function importBaseLonLat() {
-        if (siteBoundaryCoords && siteBoundaryCoords.length >= 3) {
-            var cx = 0, cy = 0; siteBoundaryCoords.forEach(function(c) { cx += c.lon; cy += c.lat; });
-            return { lon: cx / siteBoundaryCoords.length, lat: cy / siteBoundaryCoords.length };
-        }
-        try {
-            var cv = viewer.scene.canvas;
-            var ll = pickGlobeLonLat(new Cesium.Cartesian2(cv.clientWidth / 2, cv.clientHeight / 2));
-            if (ll) return ll;
-        } catch (e) {}
-        return null;
-    }
-    function renderImportedModel(m, fly, simple) {
-        clearImportEnts();
-        if (!viewer || !m) return;
-        var cen = importBaseLonLat();
-        if (!cen) { var st0 = document.getElementById("impStatus"); if (st0) st0.textContent = "지도/대지 준비 필요 — 먼저 ‘위치·대지’에서 주소를 검색하세요"; return; }
-        if (importOffX || importOffY) {   // 배치 이동 — massing studio 모델의 로컬 x/z 축에 일치(회전 따라감)
-            var th = importRotDeg * Math.PI / 180, c2 = Math.cos(th), s2 = Math.sin(th);
-            var dx = importOffX, dz = -importOffY;          // +X=모델 가로(+x), +Y=모델 세로(0°에서 북)
-            var rx = dx * c2 - dz * s2, rz = dx * s2 + dz * c2;   // toLL 과 동일한 회전 규약
-            var mLon0 = 111320 * Math.cos(cen.lat * Math.PI / 180);
-            cen = { lon: cen.lon + rx / mLon0, lat: cen.lat - rz / 111320 };
-        }
-        var baseH = sampleGroundHeight(cen.lon, cen.lat);
-        lastPlace = { lon: cen.lon, lat: cen.lat, baseH: baseH };   // 뷰체크 카메라 기준
-        var mPerLat = 111320, mPerLon = 111320 * Math.cos(cen.lat * Math.PI / 180);
-        var rot = importRotDeg * Math.PI / 180, cr = Math.cos(rot), sr = Math.sin(rot);
-        function toLL(x, z) { var rx = x * cr - z * sr, rz = x * sr + z * cr; return [cen.lon + rx / mPerLon, cen.lat - rz / mPerLat]; }
-        function ringFlat(pts) { var f = []; pts.forEach(function(p) { var ll = toLL(p[0], p[1]); f.push(ll[0], ll[1]); }); return f; }
-        var massEl = document.getElementById("impMassOn");
-        var massOn = !massEl || massEl.checked;
-        var coreEl = document.getElementById("impCoreOn");
-        var coreOn = !coreEl || coreEl.checked;
-        var floorsTot = m.floors * m.floorH;
-
-        if (massOn) {   // 규모(매스) 박스
-            var massPts;
-            if (m.mass.shape === "poly" && m.mass.pts && m.mass.pts.length >= 3) { massPts = m.mass.pts.map(function(q) { return [q.x, q.z]; }); }
-            // 매스: 완전 불투명. 패널이 면 밖에 오도록 살짝(0.1m) 안으로.
-            else { var W = m.mass.W / 2 - 0.1, D = m.mass.D / 2 - 0.1; massPts = [[-W, -D], [W, -D], [W, D], [-W, D]]; }
-            importEnts.push(viewer.entities.add({ polygon: {
-                hierarchy: Cesium.Cartesian3.fromDegreesArray(ringFlat(massPts)),
-                height: baseH, extrudedHeight: baseH + floorsTot,
-                material: Cesium.Color.fromBytes(massBright, massBright, massBright, 255), outline: true, outlineColor: Cesium.Color.fromBytes(110, 110, 110, 220)
-            }}));
-        }
-        if (!simple && coreOn && m.core && m.core.W > 0 && m.core.D > 0) {   // 코어 박스(규모와 독립). 드래그 중엔 생략.
-            var cw = m.core.W / 2, cd = m.core.D / 2, ccx = m.core.cx || 0, ccz = m.core.cz || 0;
-            var corePts = [[ccx - cw, ccz - cd], [ccx + cw, ccz - cd], [ccx + cw, ccz + cd], [ccx - cw, ccz + cd]];
-            importEnts.push(viewer.entities.add({ polygon: {
-                hierarchy: Cesium.Cartesian3.fromDegreesArray(ringFlat(corePts)),
-                height: baseH, extrudedHeight: baseH + floorsTot,
-                material: Cesium.Color.fromBytes(140, 140, 144, 255), outline: true, outlineColor: Cesium.Color.fromBytes(80, 80, 84, 255)
-            }}));
-        }
-        // 공유 텍스처 재질(같은 dataURL → Cesium 텍스처 캐시 재사용)
-        // tr!==false → 투명 허용(프레임의 빈 부분). 카트리지는 tr=false 로 최대 불투명.
-        function imgMat(url, tr) { return new Cesium.ImageMaterialProperty({ image: url, color: Cesium.Color.WHITE, repeat: new Cesium.Cartesian2(1, 1), transparent: tr !== false }); }
-        var matF1 = imgMat(TEX.f1), matF2 = imgMat(TEX.f2), matF3 = imgMat(TEX.f3), matF4 = imgMat(TEX.f4);
-        var matC1 = imgMat(TEX.c1), matC2 = imgMat(TEX.c2), matAir = imgMat(TEX.air);  // 원본 alpha 그대로(transparent:true) → cart-1/2 차이 유지
-        var matDoor = Cesium.Color.fromBytes(74, 134, 197);
-        function addWallLL(a, b, bot, top, mat) {
-            importEnts.push(viewer.entities.add({ wall: {
-                positions: Cesium.Cartesian3.fromDegreesArrayHeights([a[0], a[1], top, b[0], b[1], top]),
-                minimumHeights: [bot, bot], maximumHeights: [top, top], material: mat
-            }}));
-        }
-        if (!simple) (m.modules || []).forEach(function(u, idx) {   // 드래그 중(simple)엔 모듈 생략 → 매스+코어만
-            var bot = baseH + u.y0, top = baseH + u.y0 + u.h;
-            if (u.mode === "center") {
-                // 코너 모듈: 바깥쪽 두 면에 frame-3 / frame-4
-                var hs = u.w / 2, sgnx = (u.x >= 0) ? 1 : -1, sgnz = (u.z >= 0) ? 1 : -1;
-                var x3 = u.x + sgnx * hs;
-                addWallLL(toLL(x3, u.z - hs), toLL(x3, u.z + hs), bot, top, matF3);
-                var z4 = u.z + sgnz * hs;
-                addWallLL(toLL(u.x - hs, z4), toLL(u.x + hs, z4), bot, top, matF4);
-                return;
-            }
-            // 면 모듈: 내측부터 frame-2 / 카트리지 / frame-1 — 법선 방향 3중 오프셋(0 → d/2 → d)
-            function layer(off, mat) {
-                var a = toLL(u.x - u.ux * u.w / 2 + u.nx * off, u.z - u.uz * u.w / 2 + u.nz * off);
-                var b = toLL(u.x + u.ux * u.w / 2 + u.nx * off, u.z + u.uz * u.w / 2 + u.nz * off);
-                addWallLL(a, b, bot, top, mat);
-            }
-            layer(0.05, matF2);                                 // 내측 frame-2
-            var cm = (u.type === "skin") ? (texHash(idx) < cartRatio2 ? matC2 : matC1)
-                   : (u.type === "hvac") ? matAir
-                   : (u.type === "door") ? matDoor : null;      // none = 중간 비움(빈 프레임)
-            if (cm) layer(u.d / 2, cm);                         // 중간 카트리지
-            layer(u.d, matF1);                                  // 외측 frame-1
-        });
-        if (!simple && slabOn) {   // 슬래브: 각 층 레벨(바닥·천장)에 매스 footprint 형태의 얇은 판
-            var slabT = slabThickMm / 1000, fl = m.floors || 1, fh = m.floorH || 4;
-            var slabPts;
-            if (m.mass.shape === "poly" && m.mass.pts && m.mass.pts.length >= 3) slabPts = m.mass.pts.map(function(q) { return [q.x, q.z]; });
-            else { var SW = (m.mass.W || 20) / 2, SD = (m.mass.D || 14) / 2; slabPts = [[-SW, -SD], [SW, -SD], [SW, SD], [-SW, SD]]; }
-            var slabFlat = Cesium.Cartesian3.fromDegreesArray(ringFlat(slabPts));
-            for (var k = 0; k <= fl; k++) {
-                var lvl = baseH + k * fh;
-                importEnts.push(viewer.entities.add({ polygon: {
-                    hierarchy: slabFlat,
-                    height: lvl - slabT / 2, extrudedHeight: lvl + slabT / 2,
-                    material: Cesium.Color.fromBytes(slabBright, slabBright, slabBright, 255), outline: true, outlineColor: Cesium.Color.fromBytes(90, 90, 95, 255)
-                }}));
-            }
-        }
-        if (!simple) {   // 드래그 중엔 상태·건폐율 재계산 생략(평면이동·회전으론 면적 불변)
-            updateImportStatus(m);
-            importedProjArea = massFootprintArea(m);   // 수평투영면적 → 우하단 건폐율 패널
-            updateCoverage();
-        }
-        // 카메라 이동은 '새 모델 최초 수신' 때만 — 회전·밝기·토글 재렌더 시엔 시점 유지.
-        if (fly) {
-            try {
-                var c0 = toLL(0, 0);
-                viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(c0[0], c0[1] - 0.0013, baseH + floorsTot + 130),
-                    orientation: { heading: 0, pitch: Cesium.Math.toRadians(-32), roll: 0 }, duration: 0.8 });
-            } catch (e) {}
-        }
-    }
-    function updateImportStatus(m) {
-        var sizeStr = (m.mass.shape === "poly") ? "부정형 footprint" : (m.mass.W + " × " + m.mass.D + " m");
-        var st = document.getElementById("impStatus"); if (st) st.textContent = "수신됨";
-        var ms = document.getElementById("impMass"); if (ms) ms.textContent = sizeStr + " · " + m.floors + "층 × " + m.floorH + "m";
-        var md = document.getElementById("impMods"); if (md) md.textContent = (m.modules ? m.modules.length : 0) + "개 · frame " + m.frame.W + "×" + m.frame.D + "×" + m.frame.H + "mm";
-        var vf = document.getElementById("vcFloor");   // 뷰체크 층 슬라이더 범위 = 모델 층수
-        if (vf) { vf.max = Math.max(1, m.floors || 1); if (Number(vf.value) > vf.max) vf.value = vf.max; var vl = document.getElementById("vcFloorVal"); if (vl) vl.textContent = vf.value + "층"; }
-    }
-    function rerenderImported() { if (lastModel) renderImportedModel(lastModel, false, moveMode); }
-    function presetAddr(a) { var el = document.getElementById("address"); if (el) el.value = a; searchAddress(); }
-    function reviewMassing() { if (window.parent && window.parent !== window) window.parent.postMessage({ type: "split", v: 85 }, "*"); }
-
-    // ===== 로컬 매싱 (massing studio 대체) — 매스/코어 박스 직접 생성 =====
-    var massW = 24, massD = 16, massFloors = 10, massFloorH = 4, coreW = 8, coreD = 6, coreCx = 0, coreCz = 0, massModW = 1.2;
-    // old massing 방식 카트리지: 박스 4면에 내측 frame-2 / 중간 cart-1·2(랜덤) / 외측 frame-1 + 코너 frame-3·4
-    function genBoxModules(W, D, floors, floorH, modW) {
-        var fWm = modW || 1.2, fDm = 1.2, fHm = 4;     // 가로폭 가변, 깊이/높이 고정
-        var hw = W / 2, hd = D / 2;
-        var faces = [
-            { p0x: -hw, p0z: hd,  ux: 1, uz: 0, nx: 0,  nz: 1,  L: W },
-            { p0x: hw,  p0z: -hd, ux: 0, uz: 1, nx: 1,  nz: 0,  L: D },
-            { p0x: -hw, p0z: -hd, ux: 1, uz: 0, nx: 0,  nz: -1, L: W },
-            { p0x: -hw, p0z: -hd, ux: 0, uz: 1, nx: -1, nz: 0,  L: D }
-        ];
-        var rowsPF = Math.max(1, Math.floor(floorH / fHm)), mods = [];
-        faces.forEach(function(fa) {
-            var cols = Math.max(1, Math.round(fa.L / fWm)), bw = fa.L / cols;
-            for (var b = 0; b < cols; b++) {
-                var along = (b + 0.5) * bw, px = fa.p0x + fa.ux * along, pz = fa.p0z + fa.uz * along;
-                for (var f = 1; f <= floors; f++) for (var r = 0; r < rowsPF; r++)
-                    mods.push({ mode: "flush", x: px, z: pz, ux: fa.ux, uz: fa.uz, nx: fa.nx, nz: fa.nz,
-                        w: bw, d: fDm, y0: (f - 1) * floorH + r * fHm, h: fHm, type: "skin" });
-            }
-        });
-        // 코너: 외측(frame-1, 오프셋 fDm) 라인에 맞추기 위해 중심을 바깥으로 (fDm − cs/2) 이동
-        var cs = Math.max(fDm, 0.5), coff = fDm - cs / 2, sgns = [[-1, 1], [1, 1], [1, -1], [-1, -1]];
-        sgns.forEach(function(s) {
-            var cx = s[0] * (hw + coff), cz = s[1] * (hd + coff);
-            for (var f = 1; f <= floors; f++) for (var r = 0; r < rowsPF; r++)
-                mods.push({ mode: "center", x: cx, z: cz, ux: 1, uz: 0, nx: 0, nz: 1,
-                    w: cs, d: cs, y0: (f - 1) * floorH + r * fHm, h: fHm, type: "corner" });
-        });
-        return mods;
-    }
-    function buildLocalModel() {
-        return { type: "fitModel", ts: (Date.now ? Date.now() : 0), floors: massFloors, floorH: massFloorH,
-            mass: { shape: "box", W: massW, D: massD },
-            core: { W: coreW, D: coreD, cx: coreCx, cz: coreCz },
-            frame: { W: 1200, D: 1200, H: 4000 }, fit: { from: 1, to: massFloors },
-            modules: genBoxModules(massW, massD, massFloors, massFloorH, massModW) };
-    }
-    function readMassing() {
-        function g(id, d) { var e = document.getElementById(id); var v = e ? Number(e.value) : d; return isNaN(v) ? d : v; }
-        massW = g("mW", 24); massD = g("mD", 16); massFloorH = g("mFH", 4); massFloors = Math.max(1, Math.round(g("mFloors", 10)));
-        coreW = g("cW", 0); coreD = g("cD", 0); coreCx = g("cX", 0); coreCz = g("cZ", 0); massModW = Math.max(0.4, g("mModW", 1.2));
-        var gfa = document.getElementById("mGfa"); if (gfa) gfa.textContent = Math.round(massW * massD * massFloors).toLocaleString() + " m²";
-    }
-    function applyMassing(fly) { readMassing(); lastModel = buildLocalModel(); renderImportedModel(lastModel, !!fly, moveMode); }
-    function onMassingInput() { applyMassing(false); }
-    function onMassRotate() {
-        importRotDeg = Number(document.getElementById("mRot").value) || 0;
-        var v = document.getElementById("mRotVal"); if (v) v.textContent = importRotDeg + "°";
-        if (lastModel) renderImportedModel(lastModel, false, moveMode);
-    }
-    function presetCoverageBox() {
-        var bcr = (Number((document.getElementById("mBcr") || {}).value) || 60) / 100, area, aspect = 1;
-        if (siteBoundaryCoords && siteBoundaryCoords.length >= 3) {
-            area = areaOfCoords(siteBoundaryCoords) * bcr;
-            var lo = Infinity, la = Infinity, LO = -Infinity, LA = -Infinity, ls = 0;
-            siteBoundaryCoords.forEach(function(c) { if (c.lon < lo) lo = c.lon; if (c.lon > LO) LO = c.lon; if (c.lat < la) la = c.lat; if (c.lat > LA) LA = c.lat; ls += c.lat; });
-            var lat0 = ls / siteBoundaryCoords.length, mLon = 111320 * Math.cos(lat0 * Math.PI / 180);
-            var bw = (LO - lo) * mLon, bd = (LA - la) * 111320; aspect = (bd > 0.1) ? bw / bd : 1;
-        } else { area = 400 * bcr; }
-        var w = Math.sqrt(area * aspect), d = area / (w || 1);
-        document.getElementById("mW").value = Math.round(w * 10) / 10;
-        document.getElementById("mD").value = Math.round(d * 10) / 10;
-        applyMassing(true);
-    }
-    function presetCore20() {
-        readMassing();
-        document.getElementById("cW").value = Math.round(massW * Math.sqrt(0.2) * 10) / 10;
-        document.getElementById("cD").value = Math.round(massD * Math.sqrt(0.2) * 10) / 10;
-        document.getElementById("cX").value = 0; document.getElementById("cZ").value = 0;
-        applyMassing(false);
-    }
-    // 이동 모드 ON = 경량(매스만) 렌더 / OFF = 전체 텍스처 렌더. 토글로 확실히 경량화.
-    var moveMode = false;
-    function onMoveMode() {
-        moveMode = document.getElementById("moveModeOn").checked;
-        if (lastModel) renderImportedModel(lastModel, false, moveMode);
-    }
-    // 슬래브(각 층 바닥·천장 판)
-    var slabOn = false, slabThickMm = 200, slabBright = 205;
-    function onSlabToggle() {
-        slabOn = document.getElementById("slabOn").checked;
-        if (lastModel) renderImportedModel(lastModel, false, moveMode);
-    }
-    function onSlabThick() {
-        slabThickMm = Number(document.getElementById("slabThick").value) || 200;
-        var v = document.getElementById("slabThickVal"); if (v) v.textContent = slabThickMm + " mm";
-        if (lastModel) renderImportedModel(lastModel, false, moveMode);
-    }
-    function onSlabBright() {
-        slabBright = Number(document.getElementById("slabBrightRange").value) || 0;
-        var v = document.getElementById("slabBrightVal"); if (v) v.textContent = slabBright;
-        if (lastModel) renderImportedModel(lastModel, false, moveMode);
-    }
-    // 탭 B 서브탭 전환
-    function bTab(name) {
-        ["recv", "mass", "slab", "cart"].forEach(function(n) {
-            var p = document.getElementById("bp-" + n); if (p) p.style.display = (n === name) ? "block" : "none";
-            var b = document.getElementById("bt-" + n); if (b) b.classList.toggle("on", n === name);
-        });
-    }
-    function applyPlace() { if (lastModel) renderImportedModel(lastModel, false, moveMode); }
-    function onImportRot() {
-        importRotDeg = Number(document.getElementById("impRot").value) || 0;
-        var v = document.getElementById("impRotVal"); if (v) v.textContent = importRotDeg + "°";
-        applyPlace();
-    }
-    function onImportOffX() {
-        importOffX = Number(document.getElementById("impOffX").value) || 0;
-        var v = document.getElementById("impOffXVal"); if (v) v.textContent = importOffX + " m";
-        applyPlace();
-    }
-    function onImportOffY() {
-        importOffY = Number(document.getElementById("impOffY").value) || 0;
-        var v = document.getElementById("impOffYVal"); if (v) v.textContent = importOffY + " m";
-        applyPlace();
-    }
-    function resetImportPlace() {
-        importOffX = 0; importOffY = 0; importRotDeg = 0;
-        ["impOffX", "impOffY", "impRot"].forEach(function(id) { var e = document.getElementById(id); if (e) e.value = 0; });
-        var a = document.getElementById("impOffXVal"); if (a) a.textContent = "0 m";
-        var b = document.getElementById("impOffYVal"); if (b) b.textContent = "0 m";
-        var c = document.getElementById("impRotVal"); if (c) c.textContent = "0°";
-        applyPlace();
-    }
-    // ===== 뷰체크 (실내뷰) — massing studio JSON 좌표 기준 n층·방위 카메라 =====
-    var vcDir = "E";
-    function camTab(t) {
-        var cam = (t === "cam");
-        document.getElementById("camPane").style.display = cam ? "block" : "none";
-        document.getElementById("viewCheckPane").style.display = cam ? "none" : "block";
-        document.getElementById("cbtabCam").classList.toggle("on", cam);
-        document.getElementById("cbtabView").classList.toggle("on", !cam);
-        var tt = document.getElementById("cbTitleText"); if (tt) tt.textContent = cam ? "카메라 뷰" : "뷰체크 (실내뷰)";
-    }
-    function onVcFloor() { var v = document.getElementById("vcFloor"), l = document.getElementById("vcFloorVal"); if (l) l.textContent = (v ? v.value : 1) + "층"; }
-    function setVcDir(d) {
-        vcDir = d;
-        document.querySelectorAll("#viewCheckPane .vc-dir").forEach(function(b) { b.classList.toggle("on", b.getAttribute("data-d") === d); });
-    }
-    function interiorView() {
-        if (!viewer) return;
-        if (!lastModel || !lastPlace) { alert("먼저 massing studio 모델을 받아 배치하세요."); return; }
-        var floors = lastModel.floors || 1, floorH = lastModel.floorH || 4;
-        var n = Math.max(1, Math.min(floors, Number((document.getElementById("vcFloor") || {}).value) || 1));
-        var eye = lastPlace.baseH + (n - 0.5) * floorH;                       // (a) n층 z좌표(층 중앙 눈높이)
-        var dmap = { E: [1, 0], W: [-1, 0], S: [0, 1], N: [0, -1] };          // massing studio 로컬 x/z 평면 방위
-        var d = dmap[vcDir] || dmap.E;
-        var dim = (vcDir === "E" || vcDir === "W") ? (lastModel.mass.W || 20) : (lastModel.mass.D || 14);
-        var back = Math.max(2, dim * 0.42);                                  // 선택 방위 반대쪽으로 물러나 해당 면을 정면에
-        var th = importRotDeg * Math.PI / 180, cr = Math.cos(th), sr = Math.sin(th);
-        var lx = -d[0] * back, lz = -d[1] * back;
-        var rx = lx * cr - lz * sr, rz = lx * sr + lz * cr;
-        var mPerLon = 111320 * Math.cos(lastPlace.lat * Math.PI / 180);
-        var lon = lastPlace.lon + rx / mPerLon, lat = lastPlace.lat - rz / 111320;
-        var hrx = d[0] * cr - d[1] * sr, hrz = d[0] * sr + d[1] * cr;        // (b) 방위 heading
-        var heading = Math.atan2(hrx, -hrz);
-        viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(lon, lat, eye),
-            orientation: { heading: heading, pitch: Cesium.Math.toRadians(-3), roll: 0 }, duration: 0.9 });
-    }
-    // 대지 바운더리 치수로 X/Y 슬라이더 최댓값 설정 (대지별)
-    function updateOffsetRanges() {
-        var ex = document.getElementById("impOffX"), ey = document.getElementById("impOffY");
-        if (!ex || !ey) return;
-        var maxX = 200, maxY = 200;
-        if (siteBoundaryCoords && siteBoundaryCoords.length >= 3) {
-            var lonMin = Infinity, lonMax = -Infinity, latMin = Infinity, latMax = -Infinity, latSum = 0;
-            siteBoundaryCoords.forEach(function(c) {
-                if (c.lon < lonMin) lonMin = c.lon; if (c.lon > lonMax) lonMax = c.lon;
-                if (c.lat < latMin) latMin = c.lat; if (c.lat > latMax) latMax = c.lat; latSum += c.lat;
-            });
-            var lat0 = latSum / siteBoundaryCoords.length, mPerLon = 111320 * Math.cos(lat0 * Math.PI / 180);
-            maxX = Math.max(10, Math.round((lonMax - lonMin) * mPerLon / 2));
-            maxY = Math.max(10, Math.round((latMax - latMin) * 111320 / 2));
-        }
-        ex.min = -maxX; ex.max = maxX; ey.min = -maxY; ey.max = maxY;
-        if (importOffX > maxX || importOffX < -maxX) { importOffX = Math.max(-maxX, Math.min(maxX, importOffX)); ex.value = importOffX; var a = document.getElementById("impOffXVal"); if (a) a.textContent = importOffX + " m"; }
-        if (importOffY > maxY || importOffY < -maxY) { importOffY = Math.max(-maxY, Math.min(maxY, importOffY)); ey.value = importOffY; var b = document.getElementById("impOffYVal"); if (b) b.textContent = importOffY + " m"; }
-    }
-    function onCartRatio() {
-        cartRatio2 = (Number(document.getElementById("cartRatioRange2").value) || 0) / 100;
-        var v = document.getElementById("cartRatioVal2"); if (v) v.textContent = "cart-1 " + Math.round((1 - cartRatio2) * 100) + "% : cart-2 " + Math.round(cartRatio2 * 100) + "%";
-        if (lastModel) renderImportedModel(lastModel);
-    }
-    function toggleSiteBoundary() {
-        var el = document.getElementById("boundaryOn");
-        showSiteBoundary = !el || el.checked;
-        renderSiteBoundary();
-    }
-    window.addEventListener("message", function(ev) {
-        var d = ev.data; if (!d || d.type !== "fitModel") return;
-        var isNew = !lastModel || lastModel.ts !== d.ts;
-        lastModel = d;
-        updateImportStatus(d);   // 상태·규모·FIT모듈 갱신(보내기 = 모델 전달 + 화면전환)
-        // 대지가 이미 잡혀있으면 즉시 배치, 아니면 ‘여기로 불러오기’(검색) 때 배치
-        if (siteBoundaryCoords && siteBoundaryCoords.length >= 3) renderImportedModel(d, isNew, moveMode);
-    });
-    loadTex("cart-1.png", "c1"); loadTex("cart-2.png", "c2"); loadTex("cart-air.png", "air");
-    loadTex("frame-1.png", "f1"); loadTex("frame-2.png", "f2"); loadTex("frame-3.png", "f3"); loadTex("frame-4.png", "f4");
-
-    // ===== 카메라 뷰 임시저장 (최대 5개) =====
-    var camViews = [];
-    function captureThumb() {   // VWORLD 캔버스 toDataURL 가능(비-taint) → 개략 썸네일
-        try {
-            viewer.scene.render();
-            var full = viewer.scene.canvas, w = 128, h = Math.max(1, Math.round(w * full.height / full.width));
-            var cv = document.createElement("canvas"); cv.width = w; cv.height = h;
-            cv.getContext("2d").drawImage(full, 0, 0, w, h);
-            return cv.toDataURL("image/jpeg", 0.6);
-        } catch (e) { return null; }
-    }
-    function saveCamView() {
-        if (!viewer || camViews.length >= 5) return;
-        var c = viewer.camera;
-        camViews.push({ pos: c.position.clone(), heading: c.heading, pitch: c.pitch, roll: c.roll, thumb: captureThumb() });
-        renderCamSlots();
-    }
-    function flyToCamView(i) {
-        var v = camViews[i]; if (!v || !viewer) return;
-        viewer.camera.flyTo({ destination: v.pos, orientation: { heading: v.heading, pitch: v.pitch, roll: v.roll }, duration: 0.8 });
-    }
-    function deleteCamView(i) { camViews.splice(i, 1); renderCamSlots(); }
-    function renderCamSlots() {
-        var box = document.getElementById("cbSlots"); if (!box) return;
-        box.innerHTML = "";
-        if (!camViews.length) { var e = document.createElement("span"); e.className = "cb-empty"; e.textContent = "저장된 뷰 없음"; box.appendChild(e); }
-        camViews.forEach(function(v, i) {
-            var slot = document.createElement("div"); slot.className = "cb-slot"; slot.title = "클릭 → 이 뷰로 이동";
-            slot.onclick = function() { flyToCamView(i); };
-            var img = document.createElement("img"); img.className = "cb-thumb"; img.alt = ""; if (v.thumb) img.src = v.thumb;
-            var lbl = document.createElement("span"); lbl.className = "cb-lbl"; lbl.textContent = "뷰 " + (i + 1);
-            var x = document.createElement("span"); x.className = "cb-x"; x.textContent = "×";
-            x.onclick = function(ev) { ev.stopPropagation(); deleteCamView(i); };
-            slot.appendChild(img); slot.appendChild(lbl); slot.appendChild(x); box.appendChild(slot);
-        });
-        var btn = document.getElementById("cbSaveBtn");
-        if (btn) { btn.disabled = camViews.length >= 5; btn.textContent = "+ 현재 뷰 저장 (" + camViews.length + "/5)"; }
-    }
-    renderCamSlots();
-
-    // ===== AI 변환 전후 비교 팝업 (원본/결과 이미지 클릭) =====
-    function openCompare() {
-        var before = aiSourceDataURL, after = aiResultDataURL;
-        if (!before && !after) return;
-        if (window.parent && window.parent !== window) {   // 분할 화면: 호스트에서 '화면 절반' 크기로 띄움
-            window.parent.postMessage({ type: "compare", before: before || after, after: after || before, hasBoth: !!(before && after) }, "*");
-            return;
-        }
-        var hasBoth = !!(before && after);
-        document.getElementById("cmpBefore").src = before || after;
-        document.getElementById("cmpAfter").src = after || before;
-        document.getElementById("cmpRange").style.display = hasBoth ? "block" : "none";
-        document.getElementById("cmpDivider").style.display = hasBoth ? "block" : "none";
-        document.querySelectorAll("#cmpWrap .cmp-tag").forEach(function(t) { t.style.display = hasBoth ? "block" : "none"; });
-        document.getElementById("cmpRange").value = 50; onCmpSlide(50);
-        document.getElementById("cmpModal").style.display = "flex";
-    }
-    function closeCompare() { document.getElementById("cmpModal").style.display = "none"; }
-    function onCmpSlide(v) {
-        document.getElementById("cmpBefore").style.clipPath = "inset(0 " + (100 - v) + "% 0 0)";
-        document.getElementById("cmpDivider").style.left = v + "%";
-    }
-    window.addEventListener("keydown", function(e) { if (e.key === "Escape") closeCompare(); });
 </script>
 </body>
 </html>
