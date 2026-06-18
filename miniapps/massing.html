@@ -2887,13 +2887,9 @@
         }
         if (!simple) (m.modules || []).forEach(function(u, idx) {   // 드래그 중(simple)엔 모듈 생략 → 매스+코어만
             var bot = baseH + u.y0, top = baseH + u.y0 + u.h;
-            if (u.mode === "center") {
-                // 코너 모듈: 바깥쪽 두 면에 frame-3 / frame-4
-                var hs = u.w / 2, sgnx = (u.x >= 0) ? 1 : -1, sgnz = (u.z >= 0) ? 1 : -1;
-                var x3 = u.x + sgnx * hs;
-                addWallLL(toLL(x3, u.z - hs), toLL(x3, u.z + hs), bot, top, matF3);
-                var z4 = u.z + sgnz * hs;
-                addWallLL(toLL(u.x - hs, z4), toLL(u.x + hs, z4), bot, top, matF4);
+            if (u.mode === "fill") {   // 코너 빈틈 필러 (old방 addCorner 방식)
+                var fm = (u.mat === "f3") ? matF3 : (u.mat === "f4") ? matF4 : matC1;
+                addWallLL(toLL(u.x1, u.z1), toLL(u.x2, u.z2), bot, top, fm);
                 return;
             }
             // 면 모듈: 내측부터 frame-2 / 카트리지 / frame-1 — 법선 방향 3중 오프셋(0 → d/2 → d)
@@ -2972,14 +2968,24 @@
                         w: bw, d: fDm, y0: (f - 1) * floorH + r * fHm, h: fHm, type: "skin" });
             }
         });
-        // 코너: 외측(frame-1, 오프셋 fDm) 라인에 맞추기 위해 중심을 바깥으로 (fDm − cs/2) 이동
-        var cs = Math.max(fDm, 0.5), coff = fDm - cs / 2, sgns = [[-1, 1], [1, 1], [1, -1], [-1, -1]];
-        sgns.forEach(function(s) {
-            var cx = s[0] * (hw + coff), cz = s[1] * (hd + coff);
+        // 코너 채움(old방 방식): 면 외측벽 끝 ↔ 모서리(마이터) 사이 빈틈을 필러로.
+        //   중간(cart) 레이어 = cart-1, 외측(frame-1) 레이어 = frame-3/4. CCW 박스 → 변 시작(i)=frame-4, 끝(j)=frame-3.
+        var dd = fDm, dh = fDm / 2;
+        var V = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];   // CCW 꼭짓점
+        var NV = [[0, -1], [1, 0], [0, 1], [-1, 0]];            // 변 i의 외향 법선
+        function addFill(x1, z1, x2, z2, key) {
             for (var f = 1; f <= floors; f++) for (var r = 0; r < rowsPF; r++)
-                mods.push({ mode: "center", x: cx, z: cz, ux: 1, uz: 0, nx: 0, nz: 1,
-                    w: cs, d: cs, y0: (f - 1) * floorH + r * fHm, h: fHm, type: "corner" });
-        });
+                mods.push({ mode: "fill", x1: x1, z1: z1, x2: x2, z2: z2, y0: (f - 1) * floorH + r * fHm, h: fHm, mat: key });
+        }
+        for (var i = 0; i < 4; i++) {
+            var j = (i + 1) % 4, ip = (i + 3) % 4, Vi = V[i], Vj = V[j], ni = NV[i], npv = NV[ip], nj = NV[j];
+            // 외측 frame-1 (offset dd): i측=frame-4(모서리→면시작), j측=frame-3(면끝→모서리)
+            addFill(Vi[0] + (npv[0] + ni[0]) * dd, Vi[1] + (npv[1] + ni[1]) * dd, Vi[0] + ni[0] * dd, Vi[1] + ni[1] * dd, "f4");
+            addFill(Vj[0] + ni[0] * dd, Vj[1] + ni[1] * dd, Vj[0] + (ni[0] + nj[0]) * dd, Vj[1] + (ni[1] + nj[1]) * dd, "f3");
+            // 중간 cart (offset dh): cart-1로 채움
+            addFill(Vi[0] + (npv[0] + ni[0]) * dh, Vi[1] + (npv[1] + ni[1]) * dh, Vi[0] + ni[0] * dh, Vi[1] + ni[1] * dh, "cart1");
+            addFill(Vj[0] + ni[0] * dh, Vj[1] + ni[1] * dh, Vj[0] + (ni[0] + nj[0]) * dh, Vj[1] + (ni[1] + nj[1]) * dh, "cart1");
+        }
         return mods;
     }
     function buildLocalModel() {
