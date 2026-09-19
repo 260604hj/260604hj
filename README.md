@@ -68,7 +68,8 @@
 ├─ index.html             ← 메인 페이지 (앱 목록)
 ├─ miniapps/              ← 앱 모음
 │  ├─ memo.html
-│  ├─ admin-memo.html
+│  ├─ admin-memo.html     ← 로그인 필요
+│  ├─ drawing-memo.html   ← 로그인 필요
 │  └─ old/                ← 예전 앱 보관
 ├─ supabase/
 │  ├─ migrations/         ← 데이터베이스 구조 기록 (.sql)

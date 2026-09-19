@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>관리자 메모</title>
+<title>그림 메모</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
@@ -39,8 +39,8 @@
         letter-spacing:-0.02em;
     }
 
-    form{ margin-top:28px; }
-    input, textarea{
+    form, #board{ margin-top:28px; }
+    input{
         display:block; width:100%;
         border:1px solid var(--line); border-radius:0;
         padding:12px 16px;
@@ -48,27 +48,29 @@
         outline:none;
     }
     input + input{ border-top:0; }
-    textarea{ padding:14px 16px; resize:vertical; }
-    input:focus, textarea:focus{ border-color:var(--ink); }
+    input:focus{ border-color:var(--ink); }
     input + input:focus{ border-top:1px solid var(--ink); margin-top:-1px; }
+
+    canvas{
+        display:block; width:100%; aspect-ratio:1 / 1;
+        border:1px solid var(--line); background:#fff;
+        touch-action:none; cursor:crosshair;
+    }
+
     .row{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
-    button[type=submit], .ghost{
+    .pri, .ghost{
         border:1px solid var(--ink); background:var(--ink); color:#fff;
         padding:10px 22px; font:inherit; font-size:14px; cursor:pointer;
     }
     .ghost{ background:var(--paper); color:var(--ink); }
-    button[type=submit]:disabled, .ghost:disabled{ opacity:.4; cursor:default; }
-
-    #summary{ margin-top:24px; border:1px solid var(--line); padding:14px 16px; }
-    #summaryText{ font-size:15px; line-height:1.7; white-space:pre-wrap; word-break:keep-all; overflow-wrap:anywhere; }
+    .pri:disabled, .ghost:disabled{ opacity:.4; cursor:default; }
 
     #status{ margin-top:14px; font-size:13px; color:#b3261e; }
     #status:empty{ display:none; }
 
-    #list{ list-style:none; margin-top:28px; border-top:1px solid var(--line); }
-    #list li{ padding:16px 0; border-bottom:1px solid var(--line); }
-    .text{ font-size:15px; line-height:1.65; white-space:pre-wrap; word-break:break-word; }
-    .meta{ display:flex; justify-content:space-between; align-items:center; margin-top:8px; min-height:22px; }
+    #list{ list-style:none; margin-top:28px; display:grid; grid-template-columns:repeat(2, 1fr); gap:18px 14px; }
+    #list img{ display:block; width:100%; aspect-ratio:1 / 1; border:1px solid var(--line); }
+    .meta{ display:flex; justify-content:space-between; align-items:center; margin-top:6px; min-height:22px; }
     .time{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
     .del{
         border:0; background:none; color:var(--muted);
@@ -83,31 +85,25 @@
         <a href="../index.html">←</a>
         <span class="who" id="who" hidden>
             <span id="email"></span>
-            <span id="noRole" hidden>읽기 전용</span>
             <button type="button" id="logout">로그아웃</button>
         </span>
     </div>
 
-    <h1>관리자 메모</h1>
-
-    <div id="summary" hidden>
-        <p id="summaryText"></p>
-        <p class="time" id="summaryMeta" style="margin-top:8px"></p>
-    </div>
+    <h1>그림 메모</h1>
 
     <form id="loginForm" hidden>
         <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username" required>
         <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" required>
-        <div class="row"><button type="submit" id="loginBtn">로그인</button></div>
+        <div class="row"><button type="submit" class="pri" id="loginBtn">로그인</button></div>
     </form>
 
-    <form id="form" hidden>
-        <textarea id="input" rows="3" maxlength="2000" placeholder="메모"></textarea>
+    <section id="board" hidden>
+        <canvas id="canvas" width="720" height="720"></canvas>
         <div class="row">
-            <button type="button" class="ghost" id="summarize">요약</button>
-            <button type="submit" id="save">저장</button>
+            <button type="button" class="ghost" id="clear">지우기</button>
+            <button type="button" class="pri" id="save" disabled>저장</button>
         </div>
-    </form>
+    </section>
 
     <p id="status"></p>
     <ul id="list"></ul>
@@ -120,84 +116,97 @@
     const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
     const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
 
+    const INK = '#15171c';
+
     const $ = id => document.getElementById(id);
-    const form = $('form'), input = $('input'), saveBtn = $('save');
     const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
-    const who = $('who'), emailEl = $('email'), noRole = $('noRole'), logout = $('logout');
+    const who = $('who'), emailEl = $('email'), logout = $('logout');
+    const board = $('board'), canvas = $('canvas'), clearBtn = $('clear'), saveBtn = $('save');
     const statusEl = $('status'), list = $('list');
-    const summarizeBtn = $('summarize'), summaryBox = $('summary'), summaryText = $('summaryText'), summaryMeta = $('summaryMeta');
+    const ctx = canvas.getContext('2d');
 
     let db = null;
     let currentUser = null;
-    let isAdmin = false;
 
-    // 읽기: 누구나 가능
+    // ── 그리기 (서버와 상관없이 브라우저 안에서만) ──
+    let drawing = false, last = null;
+
+    function resetCanvas() {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        saveBtn.disabled = true;
+    }
+
+    // 화면 좌표 → 캔버스 좌표 (화면에 보이는 크기와 실제 캔버스 크기가 달라서)
+    function point(e) {
+        const r = canvas.getBoundingClientRect();
+        return { x: (e.clientX - r.left) * canvas.width / r.width, y: (e.clientY - r.top) * canvas.height / r.height };
+    }
+
+    function startStroke(e) {
+        drawing = true;
+        canvas.setPointerCapture(e.pointerId);
+        last = point(e);
+        ctx.fillStyle = INK;
+        ctx.beginPath();
+        ctx.arc(last.x, last.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fill();
+        saveBtn.disabled = false;
+    }
+
+    function moveStroke(e) {
+        if (!drawing) return;
+        const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+        for (const ev of events.length ? events : [e]) {
+            const p = point(ev);
+            ctx.beginPath();
+            ctx.moveTo(last.x, last.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+            last = p;
+        }
+    }
+
+    function endStroke() { drawing = false; }
+
+    // ── 서버와 주고받기 ──
+
+    // 읽기: 로그인한 사람만 (서버 규칙)
     async function load() {
         const { data, error } = await db
-            .from('admin_memos')
-            .select('id, content, created_at')
-            .order('created_at', { ascending: false });
+            .from('drawings')
+            .select('id, image, user_id, author_email, created_at')
+            .order('created_at', { ascending: false })
+            .limit(60);
         if (error) return fail(error);
         render(data);
     }
 
-    // 쓰기: 서버가 로그인 정보를 보고 관리자 명단에 있을 때만 허용
-    async function add(content) {
+    // 저장: 그림을 PNG 글자로 바꿔서 보냄. 작성자는 서버가 로그인 정보로 채움
+    async function save() {
         saveBtn.disabled = true;
-        const { error } = await db.from('admin_memos').insert({ content });
-        saveBtn.disabled = false;
-        if (error) return fail(error);
-        statusEl.textContent = '';
-        input.value = '';
-        load();
-    }
-
-    // 지우기: 쓰기와 같은 규칙
-    async function remove(id) {
-        if (!confirm('삭제할까요?')) return;
-        const { error } = await db.from('admin_memos').delete().eq('id', id);
-        if (error) return fail(error);
-        statusEl.textContent = '';
-        load();
-    }
-
-    // 가장 최근 요약 읽기: 누구나 가능
-    async function loadSummary() {
-        const { data, error } = await db
-            .from('memo_summaries')
-            .select('content, model, created_at')
-            .order('created_at', { ascending: false })
-            .limit(1);
-        if (error) return console.error(error);
-        showSummary(data[0]);
-    }
-
-    function showSummary(row) {
-        summaryBox.hidden = !row;
-        if (!row) return;
-        summaryText.textContent = row.content;
-        summaryMeta.textContent = `요약 ${formatTime(row.created_at)}` + (row.model ? ` · ${row.model}` : '');
-    }
-
-    // 요약 만들기: Supabase 서버 함수(summarize)에 부탁 → 함수가 관리자인지 확인하고
-    // Gemini 에게 요약을 받아 memo_summaries 에 저장한 뒤 돌려줌
-    // Gemini API 키는 서버 함수 안에만 있어서 이 페이지에는 없음
-    async function summarize() {
-        summarizeBtn.disabled = true;
-        summarizeBtn.textContent = '요약 중';
-        const { data, error } = await db.functions.invoke('summarize');
-        summarizeBtn.disabled = false;
-        summarizeBtn.textContent = '요약';
+        const image = canvas.toDataURL('image/png');
+        const { error } = await db.from('drawings').insert({ image });
         if (error) {
-            let message = error.message;
-            try {
-                const body = await error.context.json();
-                if (body.error) message = body.error;
-            } catch (_) {}
-            return fail({ message });
+            saveBtn.disabled = false;
+            return fail(error);
         }
         statusEl.textContent = '';
-        showSummary(data);
+        resetCanvas();
+        load();
+    }
+
+    // 지우기: 서버 규칙상 내 그림만 지워짐
+    async function remove(id) {
+        if (!confirm('삭제할까요?')) return;
+        const { error } = await db.from('drawings').delete().eq('id', id);
+        if (error) return fail(error);
+        statusEl.textContent = '';
+        load();
     }
 
     // 로그인: 성공하면 브라우저에 세션이 저장되고 onAuthStateChange 가 호출됨
@@ -210,49 +219,37 @@
         statusEl.textContent = '';
     }
 
-    // 로그인 상태가 바뀔 때마다: 로그인 안 했으면 로그인 칸만, 했으면 관리자 명단에 내가 있는지 확인
-    // 화면을 숨기는 건 겉모습일 뿐, 실제로 막는 건 서버 규칙(로그인한 사람만 읽기)
-    async function applyUser(user) {
+    // 로그인 안 했으면 로그인 칸만, 했으면 그림판과 목록
+    function applyUser(user) {
         currentUser = user;
-        isAdmin = false;
-        if (user) {
-            const { data, error } = await db.from('admins').select('user_id').eq('user_id', user.id);
-            if (error) fail(error);
-            else isAdmin = data.length > 0;
-        }
-
         loginForm.hidden = !!user;
         who.hidden = !user;
         emailEl.textContent = user ? user.email : '';
-        noRole.hidden = !user || isAdmin;
-        form.hidden = !isAdmin;
+        board.hidden = !user;
 
-        if (user) {
-            load();
-            loadSummary();
-        } else {
-            list.replaceChildren();
-            summaryBox.hidden = true;
-        }
+        if (user) load();
+        else list.replaceChildren();
     }
 
     function render(rows) {
         list.replaceChildren(...rows.map(row => {
             const li = document.createElement('li');
 
-            const text = document.createElement('p');
-            text.className = 'text';
-            text.textContent = row.content;
+            const img = document.createElement('img');
+            img.src = row.image;
+            img.alt = '그림';
+            img.loading = 'lazy';
 
             const meta = document.createElement('div');
             meta.className = 'meta';
 
-            const time = document.createElement('span');
-            time.className = 'time';
-            time.textContent = formatTime(row.created_at);
-            meta.append(time);
+            const info = document.createElement('span');
+            info.className = 'time';
+            const name = (row.author_email || '').split('@')[0];
+            info.textContent = (name ? name + ' · ' : '') + formatTime(row.created_at);
+            meta.append(info);
 
-            if (isAdmin) {
+            if (currentUser && row.user_id === currentUser.id) {
                 const del = document.createElement('button');
                 del.className = 'del';
                 del.type = 'button';
@@ -262,7 +259,7 @@
                 meta.append(del);
             }
 
-            li.append(text, meta);
+            li.append(img, meta);
             return li;
         }));
     }
@@ -270,7 +267,7 @@
     function formatTime(iso) {
         const d = new Date(iso);
         const p = n => String(n).padStart(2, '0');
-        return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+        return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
     }
 
     function fail(error) {
@@ -279,21 +276,19 @@
     }
 
     function start() {
-        form.addEventListener('submit', e => {
-            e.preventDefault();
-            const content = input.value.trim();
-            if (content) add(content);
-        });
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) form.requestSubmit();
-        });
+        resetCanvas();
+        canvas.addEventListener('pointerdown', startStroke);
+        canvas.addEventListener('pointermove', moveStroke);
+        canvas.addEventListener('pointerup', endStroke);
+        canvas.addEventListener('pointercancel', endStroke);
+        clearBtn.onclick = resetCanvas;
+        saveBtn.onclick = save;
 
         loginForm.addEventListener('submit', e => {
             e.preventDefault();
             signIn(loginEmail.value.trim(), loginPassword.value);
         });
         logout.onclick = () => db.auth.signOut();
-        summarizeBtn.onclick = summarize;
 
         // 페이지를 열 때(INITIAL_SESSION), 로그인·로그아웃 할 때 호출됨
         // setTimeout: 이 콜백 안에서 바로 다른 Supabase 요청을 기다리면 멈출 수 있어서 한 박자 뒤에 실행
@@ -303,13 +298,9 @@
             }
         });
 
-        db.channel('admin_memos')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_memos' }, () => currentUser && load())
-            .subscribe();
-
-        // 누가 새 요약을 만들면 열려 있는 모든 화면의 맨 위 요약이 바뀜
-        db.channel('memo_summaries')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'memo_summaries' }, () => currentUser && loadSummary())
+        // 누가 그림을 저장하거나 지우면 열려 있는 모든 화면에 반영
+        db.channel('drawings')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'drawings' }, () => currentUser && load())
             .subscribe();
     }
 
