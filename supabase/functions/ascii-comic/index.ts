@@ -30,12 +30,16 @@ const SYSTEM_PROMPT = `한두 문장의 줄거리를 받아 ${PANELS}컷 만화�
   같은 인물은 매 컷 같은 모양으로 그려서 누가 누군지 알아볼 수 있게.
 - caption: 그 컷의 대사나 설명. 한국어 한 문장.
 - caption_en: caption 을 자연스러운 영어 한 문장으로 옮긴 자막 (인스타그램용).
-- title: 한국어 짧은 제목.`;
+- title: 한국어 짧은 제목.
+- title_en: title 을 자연스러운 영어로 옮긴 제목.
+- cover: 표지 그림. 제목을 한눈에 보여주는 아스키 아트. lines 와 같은 규칙(최대 ${MAX_ROWS}줄, 줄마다 최대 ${MAX_COLS}자, 영문 키보드 문자만).`;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     title: { type: "STRING" },
+    title_en: { type: "STRING" },
+    cover: { type: "ARRAY", items: { type: "STRING" } },
     panels: {
       type: "ARRAY",
       minItems: PANELS,
@@ -51,7 +55,7 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["title", "panels"],
+  required: ["title", "title_en", "cover", "panels"],
 };
 
 function reply(body: Record<string, unknown>, status = 200) {
@@ -162,7 +166,13 @@ Deno.serve(async (req) => {
       return reply({ error: `${panels.length}컷밖에 받지 못했습니다. 다시 시도하세요.` }, 502);
     }
 
-    return reply({ title: String(comic.title ?? "").trim().slice(0, 40), panels, model });
+    return reply({
+      title: String(comic.title ?? "").trim().slice(0, 40),
+      title_en: String(comic.title_en ?? "").trim().slice(0, 80),
+      cover: cleanArt(comic.cover ?? ""),
+      panels,
+      model,
+    });
   } catch (e) {
     console.error(e);
     return reply({ error: e instanceof Error ? e.message : String(e) }, 500);
