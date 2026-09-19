@@ -29,6 +29,7 @@ const SYSTEM_PROMPT = `한두 문장의 줄거리를 받아 ${PANELS}컷 만화�
   역슬래시(\\)는 그림에 필요한 만큼 한 번씩만 쓰세요.
   같은 인물은 매 컷 같은 모양으로 그려서 누가 누군지 알아볼 수 있게.
 - caption: 그 컷의 대사나 설명. 한국어 한 문장.
+- caption_en: caption 을 자연스러운 영어 한 문장으로 옮긴 자막 (인스타그램용).
 - title: 한국어 짧은 제목.`;
 
 const RESPONSE_SCHEMA = {
@@ -44,8 +45,9 @@ const RESPONSE_SCHEMA = {
         properties: {
           lines: { type: "ARRAY", items: { type: "STRING" } },
           caption: { type: "STRING" },
+          caption_en: { type: "STRING" },
         },
-        required: ["lines", "caption"],
+        required: ["lines", "caption", "caption_en"],
       },
     },
   },
@@ -151,9 +153,10 @@ Deno.serve(async (req) => {
     }
     const panels = (Array.isArray(comic.panels) ? comic.panels : [])
       .slice(0, PANELS)
-      .map((p: { lines?: string[]; art?: string; caption?: string }) => ({
+      .map((p: { lines?: string[]; art?: string; caption?: string; caption_en?: string }) => ({
         art: cleanArt(p.lines ?? p.art ?? ""),
         caption: String(p.caption ?? "").trim().slice(0, 120),
+        caption_en: String(p.caption_en ?? "").trim().slice(0, 200),
       }));
     if (panels.length < PANELS) {
       return reply({ error: `${panels.length}컷밖에 받지 못했습니다. 다시 시도하세요.` }, 502);

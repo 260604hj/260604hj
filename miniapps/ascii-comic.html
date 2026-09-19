@@ -6,7 +6,7 @@
 <title>아스키 만화</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
     :root{
         --ink:#15171c;
@@ -66,18 +66,13 @@
 
     #viewer{ margin-top:32px; }
     #comicTitle{ font-size:18px; font-weight:500; letter-spacing:-0.01em; }
-    /* 가로 36자가 화면 폭에 들어가도록 글자 크기를 맞춤 (고정폭 글자 1자 ≈ 0.6em) */
-    .frame{
-        margin-top:12px; border:1px solid var(--ink); padding:16px;
-        overflow:hidden; touch-action:pan-y; user-select:none;
-        font-family:var(--mono);
-        font-size:min(15px, calc((min(100vw, 568px) - 48px - 34px) / 22));
+    /* 슬라이드 = 내려받는 이미지 그대로 (1080 x 1080 정사각형) */
+    #slide{
+        display:block; width:100%; aspect-ratio:1 / 1; margin-top:12px;
+        border:1px solid var(--line); touch-action:pan-y; user-select:none;
     }
-    /* 그림 전체를 한 덩어리로 가로세로 가운데에 (줄마다 따로 정렬하면 그림이 틀어짐) */
-    .stage{ height:calc(14 * 1.15em); display:flex; align-items:center; justify-content:center; }
-    #art{ font:inherit; line-height:1.15; white-space:pre; }
-    #caption{ margin-top:14px; font-size:15px; line-height:1.65; min-height:3.3em; word-break:keep-all; overflow-wrap:anywhere; }
-    .controls{ display:flex; align-items:center; gap:10px; margin-top:12px; }
+    .controls{ display:flex; align-items:center; gap:8px; margin-top:12px; }
+    .controls .ghost{ padding:10px 14px; }
     .nav{
         border:1px solid var(--line); background:var(--paper); color:var(--ink);
         width:40px; height:40px; font-size:20px; line-height:1; cursor:pointer;
@@ -132,13 +127,13 @@
 
     <section id="viewer" hidden>
         <h2 id="comicTitle"></h2>
-        <div class="frame" id="frame"><div class="stage"><pre id="art"></pre></div></div>
-        <p id="caption"></p>
+        <canvas id="slide" width="1080" height="1080" role="img"></canvas>
         <div class="controls">
             <button type="button" class="nav" id="prev" aria-label="이전">‹</button>
             <span id="counter"></span>
             <button type="button" class="nav" id="next" aria-label="다음">›</button>
             <span class="spacer"></span>
+            <button type="button" class="ghost" id="download" disabled>내려받기</button>
             <button type="button" class="ghost" id="play">재생</button>
         </div>
         <p id="model"></p>
@@ -163,13 +158,16 @@
     const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
     const who = $('who'), emailEl = $('email'), logout = $('logout');
     const form = $('form'), plotInput = $('plot'), makeBtn = $('make'), statusEl = $('status');
-    const viewer = $('viewer'), comicTitle = $('comicTitle'), frame = $('frame'), art = $('art'), caption = $('caption');
+    const viewer = $('viewer'), comicTitle = $('comicTitle'), slide = $('slide'), downloadBtn = $('download');
+    const sctx = slide.getContext('2d');
     const prevBtn = $('prev'), nextBtn = $('next'), counter = $('counter'), playBtn = $('play'), modelEl = $('model');
     const historyEl = $('history'), comicList = $('comicList');
 
     let db = null;
     let currentUser = null;
-    let comic = null;       // { title, panels: [{ art, caption }], model }
+    let comic = null;       // { title, panels: [{ art, caption, caption_en }], model }
+    let layout = null;      // 이 만화의 그림 칸 크기와 글자 크기 (8컷 모두 같게)
+    let images = null;      // 내려받기용 PNG 8장 (미리 만들어 둠)
     let openId = null;      // 지금 보고 있는 저장된 만화
     let index = 0;
     let timer = null;
@@ -285,12 +283,181 @@
         return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
     }
 
-    function openComic() {
+    async function openComic() {
         stop();
+        images = null;
+        downloadBtn.disabled = true;
         comicTitle.textContent = comic.title;
         modelEl.textContent = comic.model || '';
         viewer.hidden = false;
+        await loadFonts(comic.panels);
+        layout = makeLayout(comic.panels);
         show(0);
+        prepareImages();
+    }
+
+    // ── 정사각형 이미지 그리기 (화면의 슬라이드 = 내려받는 이미지) ──
+    const SIZE = 1080, MARGIN = 72, INK = '#15171c', MUTED = '#8a8f98';
+    const ART_FONT = '"Roboto Mono", monospace', KO_FONT = '"Noto Sans KR", sans-serif', EN_FONT = 'Inter, sans-serif';
+    const KO_SIZE = 46, EN_SIZE = 34, KO_LH = 1.45, EN_LH = 1.4, CAPTION_GAP = 14;
+
+    // 캔버스는 웹 글꼴이 준비되기 전에 그리면 기본 글꼴로 그려져서, 필요한 글자를 먼저 불러옴
+    async function loadFonts(panels) {
+        await Promise.all([
+            document.fonts.load(`400 ${KO_SIZE}px "Noto Sans KR"`, panels.map(p => p.caption).join('') || '가'),
+            document.fonts.load(`400 ${EN_SIZE}px Inter`, panels.map(p => p.caption_en || '').join('') + '0123456789/'),
+            document.fonts.load('400 40px "Roboto Mono"', panels.map(p => p.art).join('') || '0'),
+        ]).catch(() => {});
+    }
+
+    // 띄어쓰기 단위로 줄바꿈, 한 덩어리가 너무 길면 글자 단위로
+    function wrapText(ctx, text, maxWidth) {
+        const lines = [];
+        let line = '';
+        for (const word of text.split(/\s+/).filter(Boolean)) {
+            const test = line ? line + ' ' + word : word;
+            if (!line || ctx.measureText(test).width <= maxWidth) line = test;
+            else { lines.push(line); line = word; }
+        }
+        if (line) lines.push(line);
+        return lines.flatMap(l => {
+            if (ctx.measureText(l).width <= maxWidth) return [l];
+            const parts = [];
+            let part = '';
+            for (const ch of l) {
+                if (part && ctx.measureText(part + ch).width > maxWidth) { parts.push(part); part = ''; }
+                part += ch;
+            }
+            return part ? [...parts, part] : parts;
+        });
+    }
+
+    function captionLines(ctx, panel) {
+        const width = SIZE - MARGIN * 2;
+        ctx.font = `400 ${KO_SIZE}px ${KO_FONT}`;
+        const ko = wrapText(ctx, panel.caption || '', width);
+        ctx.font = `400 ${EN_SIZE}px ${EN_FONT}`;
+        const en = panel.caption_en ? wrapText(ctx, panel.caption_en, width) : [];
+        const height = ko.length * KO_SIZE * KO_LH + (en.length ? CAPTION_GAP + en.length * EN_SIZE * EN_LH : 0);
+        return { ko, en, height };
+    }
+
+    // 8컷 모두 같은 크기로: 대사가 가장 긴 컷에 맞춰 그림 칸을 정하고, 36자 x 14줄이 들어가는 글자 크기로
+    function makeLayout(panels) {
+        const captionH = Math.max(...panels.map(p => captionLines(sctx, p).height));
+        const captionTop = SIZE - MARGIN - captionH;
+        const box = { x: MARGIN, y: MARGIN + 40, w: SIZE - MARGIN * 2, h: captionTop - 48 - (MARGIN + 40) };
+        sctx.font = `400 100px ${ART_FONT}`;
+        const charW = sctx.measureText('0').width / 100;
+        const fontSize = Math.min(box.w / (36 * charW), box.h / (14 * 1.15));
+        return { box, captionTop, fontSize, charW };
+    }
+
+    function drawSlide(ctx, panel, i, total) {
+        const { box, captionTop, fontSize, charW } = layout;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, SIZE, SIZE);
+
+        // 쪽수
+        ctx.fillStyle = MUTED;
+        ctx.font = `400 28px ${EN_FONT}`;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${i + 1}/${total}`, SIZE - MARGIN, MARGIN - 20);
+
+        // 그림: 한 덩어리로 그림 칸 가운데에
+        const lines = dedent(panel.art).split('\n');
+        const lineH = fontSize * 1.15;
+        const cols = Math.max(0, ...lines.map(l => l.length));
+        const x0 = box.x + (box.w - cols * charW * fontSize) / 2;
+        const y0 = box.y + (box.h - lines.length * lineH) / 2;
+        ctx.fillStyle = INK;
+        ctx.textAlign = 'left';
+        ctx.font = `400 ${fontSize}px ${ART_FONT}`;
+        lines.forEach((l, r) => ctx.fillText(l, x0, y0 + r * lineH));
+
+        // 대사: 한국어, 그 아래 영어 자막. 대사 칸 안에서 세로 가운데
+        const { ko, en, height } = captionLines(ctx, panel);
+        ctx.textAlign = 'center';
+        let y = captionTop + (SIZE - MARGIN - captionTop - height) / 2;
+        ctx.fillStyle = INK;
+        ctx.font = `400 ${KO_SIZE}px ${KO_FONT}`;
+        for (const l of ko) { ctx.fillText(l, SIZE / 2, y); y += KO_SIZE * KO_LH; }
+        if (en.length) {
+            y += CAPTION_GAP;
+            ctx.fillStyle = MUTED;
+            ctx.font = `400 ${EN_SIZE}px ${EN_FONT}`;
+            for (const l of en) { ctx.fillText(l, SIZE / 2, y); y += EN_SIZE * EN_LH; }
+        }
+    }
+
+    // ── 내려받기 ──
+    function fileBase() {
+        return (comic.title || '').replace(/[\\/:*?"<>|]/g, '').trim() || 'ascii-comic';
+    }
+
+    // 폰에서 공유 창을 바로 띄울 수 있게 PNG 8장을 미리 만들어 둠
+    async function prepareImages() {
+        const target = comic;
+        const off = document.createElement('canvas');
+        off.width = off.height = SIZE;
+        const octx = off.getContext('2d');
+        const files = [];
+        for (let i = 0; i < target.panels.length; i++) {
+            drawSlide(octx, target.panels[i], i, target.panels.length);
+            const blob = await new Promise(resolve => off.toBlob(resolve, 'image/png'));
+            if (comic !== target) return;
+            files.push(new File([blob], `${fileBase()}_${String(i + 1).padStart(2, '0')}.png`, { type: 'image/png' }));
+        }
+        images = files;
+        downloadBtn.disabled = false;
+    }
+
+    // 폰: 공유 창 (사진첩 저장, 인스타로 바로 보내기). PC: zip 파일 하나로
+    async function download() {
+        if (!images) return;
+        const phone = matchMedia('(pointer: coarse)').matches;
+        if (phone && navigator.canShare && navigator.canShare({ files: images })) {
+            try {
+                await navigator.share({ files: images, title: comic.title });
+            } catch (e) {
+                if (e.name !== 'AbortError') fail(e);
+            }
+            return;
+        }
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = '준비 중';
+        try {
+            await loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js');
+            const zip = new JSZip();
+            for (const file of images) zip.file(file.name, file);
+            saveBlob(await zip.generateAsync({ type: 'blob' }), `${fileBase()}.zip`);
+        } catch (e) {
+            fail(e);
+        }
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = '내려받기';
+    }
+
+    const loadedScripts = {};
+    function loadScript(src) {
+        return loadedScripts[src] ??= new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = src;
+            s.onload = resolve;
+            s.onerror = () => reject(new Error('zip 라이브러리를 불러오지 못했습니다.'));
+            document.head.append(s);
+        });
+    }
+
+    function saveBlob(blob, name) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }
 
     // 모든 줄 앞에 공통으로 붙은 빈칸을 걷어냄 → 그림이 정확히 가운데에 옴
@@ -305,8 +472,8 @@
     function show(i) {
         index = Math.max(0, Math.min(comic.panels.length - 1, i));
         const panel = comic.panels[index];
-        art.textContent = dedent(panel.art);
-        caption.textContent = panel.caption;
+        drawSlide(sctx, panel, index, comic.panels.length);
+        slide.setAttribute('aria-label', [panel.caption, panel.caption_en].filter(Boolean).join(' / '));
         counter.textContent = `${index + 1} / ${comic.panels.length}`;
         prevBtn.disabled = index === 0;
         nextBtn.disabled = index === comic.panels.length - 1;
@@ -379,6 +546,7 @@
         prevBtn.onclick = () => go(-1);
         nextBtn.onclick = () => go(1);
         playBtn.onclick = () => (timer ? stop() : play());
+        downloadBtn.onclick = download;
 
         // 키보드 ← →
         document.addEventListener('keydown', e => {
@@ -389,8 +557,8 @@
 
         // 옆으로 밀어서 넘기기
         let startX = null;
-        frame.addEventListener('pointerdown', e => { startX = e.clientX; });
-        frame.addEventListener('pointerup', e => {
+        slide.addEventListener('pointerdown', e => { startX = e.clientX; });
+        slide.addEventListener('pointerup', e => {
             if (startX === null || !comic) return;
             const dx = e.clientX - startX;
             startX = null;
