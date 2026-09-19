@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>그림 메모</title>
+<title>Drawing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
@@ -87,25 +87,25 @@
         font-size:18px; line-height:1; padding:2px 6px; cursor:pointer;
     }
     .del:hover{ color:var(--ink); }
+    .acts{ display:flex; align-items:center; gap:4px; }
+    .pub{
+        border:1px solid var(--line); background:none; color:var(--muted);
+        font:inherit; font-size:12px; padding:3px 8px; cursor:pointer;
+    }
+    .pub.on{ border-color:var(--ink); color:var(--ink); }
 </style>
 </head>
 <body>
 <main class="wrap">
     <div class="top">
-        <a href="../index.html">←</a>
+        <a href="../admin.html" id="back">←</a>
         <span class="who" id="who" hidden>
             <span id="email"></span>
             <button type="button" id="logout">로그아웃</button>
         </span>
     </div>
 
-    <h1>그림 메모</h1>
-
-    <form id="loginForm" hidden>
-        <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username" required>
-        <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" required>
-        <div class="row"><button type="submit" class="pri" id="loginBtn">로그인</button></div>
-    </form>
+    <h1>Drawing</h1>
 
     <section id="board" hidden>
         <div class="tools">
@@ -135,7 +135,9 @@
     const INK = '#15171c';
 
     const $ = id => document.getElementById(id);
-    const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
+    // Admin: 로그인한 사람 (admin.html 에서 로그인). Visitor(?mode=visitor): 로그인 없이 공개된 그림만 보기
+    const MODE = new URLSearchParams(location.search).get('mode') === 'visitor' ? 'visitor' : 'admin';
+    const back = $('back');
     const who = $('who'), emailEl = $('email'), logout = $('logout');
     const board = $('board'), canvas = $('canvas'), clearBtn = $('clear'), saveBtn = $('save');
     const penBtn = $('pen'), eraserBtn = $('eraser'), widthInput = $('width'), widthDot = $('widthDot');
@@ -286,15 +288,23 @@
 
     // ── 서버와 주고받기 ──
 
-    // 읽기: 로그인한 사람만 (서버 규칙)
+    // 읽기: Admin 은 모든 그림, Visitor 는 공개된 그림만 (작성자 칸은 Visitor 에게 안 보임, 서버 규칙도 같게 막음)
     async function load() {
-        const { data, error } = await db
-            .from('drawings')
-            .select('id, image, user_id, author_email, created_at')
-            .order('created_at', { ascending: false })
-            .limit(60);
+        let query = db.from('drawings');
+        query = MODE === 'visitor'
+            ? query.select('id, image, created_at').eq('is_public', true)
+            : query.select('id, image, user_id, author_email, is_public, created_at');
+        const { data, error } = await query.order('created_at', { ascending: false }).limit(60);
         if (error) return fail(error);
         render(data);
+    }
+
+    // 공개/비공개 바꾸기: 서버 규칙상 내 그림만
+    async function setPublic(id, value) {
+        const { error } = await db.from('drawings').update({ is_public: value }).eq('id', id);
+        if (error) return fail(error);
+        statusEl.textContent = '';
+        load();
     }
 
     // 저장: 그림을 PNG 글자로 바꿔서 보냄. 작성자는 서버가 로그인 정보로 채움
@@ -320,27 +330,15 @@
         load();
     }
 
-    // 로그인: 성공하면 브라우저에 세션이 저장되고 onAuthStateChange 가 호출됨
-    async function signIn(email, password) {
-        loginBtn.disabled = true;
-        const { error } = await db.auth.signInWithPassword({ email, password });
-        loginBtn.disabled = false;
-        loginPassword.value = '';
-        if (error) return fail(error);
-        statusEl.textContent = '';
-    }
-
-    // 로그인 안 했으면 로그인 칸만, 했으면 그림판과 목록
+    // Admin 모드: 로그인 안 했으면 Admin 입구로, 했으면 그림판과 목록
     function applyUser(user) {
+        if (!user) return location.replace('../admin.html');
         currentUser = user;
-        loginForm.hidden = !!user;
-        who.hidden = !user;
-        emailEl.textContent = user ? user.email : '';
-        board.hidden = !user;
+        who.hidden = false;
+        emailEl.textContent = user.email;
+        board.hidden = false;
         showWidth();
-
-        if (user) load();
-        else list.replaceChildren();
+        load();
     }
 
     function render(rows) {
@@ -361,14 +359,26 @@
             info.textContent = (name ? name + ' · ' : '') + formatTime(row.created_at);
             meta.append(info);
 
-            if (currentUser && row.user_id === currentUser.id) {
+            if (MODE === 'admin' && currentUser && row.user_id === currentUser.id) {
+                const acts = document.createElement('span');
+                acts.className = 'acts';
+
+                const pub = document.createElement('button');
+                pub.type = 'button';
+                pub.className = 'pub' + (row.is_public ? ' on' : '');
+                pub.textContent = row.is_public ? '공개' : '비공개';
+                pub.setAttribute('aria-pressed', row.is_public);
+                pub.onclick = () => setPublic(row.id, !row.is_public);
+
                 const del = document.createElement('button');
                 del.className = 'del';
                 del.type = 'button';
                 del.textContent = '×';
                 del.setAttribute('aria-label', '삭제');
                 del.onclick = () => remove(row.id);
-                meta.append(del);
+
+                acts.append(pub, del);
+                meta.append(acts);
             }
 
             li.append(img, meta);
@@ -388,6 +398,16 @@
     }
 
     function start() {
+        // Visitor: 로그인 없이 공개된 그림만 보기 (그림판 없음)
+        if (MODE === 'visitor') {
+            back.href = '../visitor.html';
+            db.channel('drawings')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'drawings' }, load)
+                .subscribe();
+            load();
+            return;
+        }
+
         redraw();
         canvas.addEventListener('pointerdown', onDown);
         canvas.addEventListener('pointermove', onMove);
@@ -400,10 +420,6 @@
         clearBtn.onclick = clearAll;
         saveBtn.onclick = save;
 
-        loginForm.addEventListener('submit', e => {
-            e.preventDefault();
-            signIn(loginEmail.value.trim(), loginPassword.value);
-        });
         logout.onclick = () => db.auth.signOut();
 
         // 페이지를 열 때(INITIAL_SESSION), 로그인·로그아웃 할 때 호출됨

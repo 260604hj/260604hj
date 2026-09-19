@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+    :root{
+        --ink:#15171c;
+        --muted:#8a8f98;
+        --line:#e4e6e9;
+        --paper:#ffffff;
+    }
+    *, *::before, *::after{ box-sizing:border-box; margin:0; padding:0; }
+    [hidden]{ display:none !important; }
+
+    body{
+        font-family:'Inter','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        color:var(--ink);
+        background:var(--paper);
+        -webkit-font-smoothing:antialiased;
+        min-height:100vh;
+        display:flex; align-items:center; justify-content:center;
+        padding:48px 24px;
+    }
+
+    .wrap{ width:100%; max-width:460px; }
+
+    .top{ display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--muted); }
+    .top a, .top button{ color:var(--muted); text-decoration:none; background:none; border:0; font:inherit; cursor:pointer; }
+    .top a:hover, .top button:hover{ color:var(--ink); }
+    .who{ display:flex; gap:10px; align-items:center; }
+
+    h1{
+        margin-top:14px;
+        font-weight:300;
+        font-size:34px;
+        letter-spacing:-0.02em;
+    }
+
+    form{ margin-top:34px; }
+    input{
+        display:block; width:100%;
+        border:1px solid var(--line); border-radius:0;
+        padding:12px 16px;
+        font:inherit; font-size:16px; line-height:1.6; color:inherit;
+        outline:none;
+    }
+    input + input{ border-top:0; }
+    input:focus{ border-color:var(--ink); }
+    input + input:focus{ border-top:1px solid var(--ink); margin-top:-1px; }
+    .row{ display:flex; justify-content:flex-end; margin-top:10px; }
+    button[type=submit]{
+        border:1px solid var(--ink); background:var(--ink); color:#fff;
+        padding:10px 22px; font:inherit; font-size:14px; cursor:pointer;
+    }
+    button[type=submit]:disabled{ opacity:.4; cursor:default; }
+
+    #status{ margin-top:14px; font-size:13px; color:#b3261e; }
+    #status:empty{ display:none; }
+
+    .list{ margin-top:34px; border:1px solid var(--line); }
+    .item{
+        display:flex; align-items:center; justify-content:space-between;
+        padding:20px 22px;
+        text-decoration:none; color:inherit;
+        border-bottom:1px solid var(--line);
+        transition:padding-left .3s ease, background .3s ease;
+    }
+    .item:last-child{ border-bottom:none; }
+    .item:hover{ background:#fbfbfa; padding-left:30px; }
+    .item .left{ display:flex; align-items:center; gap:16px; }
+    .item .no{ font-size:11px; letter-spacing:0.14em; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .item .name{ font-size:16px; font-weight:500; }
+    .item .arrow{ width:16px; height:16px; transition:transform .3s ease; }
+    .item:hover .arrow{ transform:translate(2px,-2px); }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="top">
+        <a href="index.html">←</a>
+        <span class="who" id="who" hidden>
+            <span id="email"></span>
+            <button type="button" id="logout">로그아웃</button>
+        </span>
+    </div>
+
+    <h1>Admin</h1>
+
+    <form id="loginForm" hidden>
+        <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username" required>
+        <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" required>
+        <div class="row"><button type="submit" id="loginBtn">로그인</button></div>
+    </form>
+
+    <p id="status"></p>
+    <nav class="list" id="list" hidden></nav>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+<script>
+    // Supabase 대시보드 > Connect 에서 복사
+    // KEY 는 Publishable key (sb_publishable_...). Secret key 는 절대 넣지 말 것.
+    const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
+
+    // 여기서 한 번 로그인하면 브라우저에 세션이 저장돼서, 아래 세 곳에서 다시 로그인하지 않음
+    const sections = [
+        { name: "Text", href: "miniapps/admin-memo.html" },
+        { name: "Drawing", href: "miniapps/drawing-memo.html" },
+        { name: "Cartoon", href: "miniapps/ascii-comic.html" },
+    ];
+
+    const $ = id => document.getElementById(id);
+    const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
+    const who = $('who'), emailEl = $('email'), logout = $('logout'), statusEl = $('status'), list = $('list');
+
+    list.innerHTML = sections.map((s, i) => `
+        <a class="item" href="${s.href}">
+            <span class="left">
+                <span class="no">${String(i + 1).padStart(2, '0')}</span>
+                <span class="name">${s.name}</span>
+            </span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="#15171c"
+                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="7" y1="17" x2="17" y2="7"></line>
+                <polyline points="8 7 17 7 17 16"></polyline>
+            </svg>
+        </a>
+    `).join('');
+
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function applyUser(user) {
+        loginForm.hidden = !!user;
+        who.hidden = !user;
+        emailEl.textContent = user ? user.email : '';
+        list.hidden = !user;
+        if (!user) loginEmail.focus();
+    }
+
+    loginForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        loginBtn.disabled = true;
+        const { error } = await db.auth.signInWithPassword({ email: loginEmail.value.trim(), password: loginPassword.value });
+        loginBtn.disabled = false;
+        loginPassword.value = '';
+        statusEl.textContent = error ? error.message : '';
+    });
+    logout.onclick = () => db.auth.signOut();
+
+    // 페이지를 열 때(INITIAL_SESSION), 로그인·로그아웃 할 때 호출됨
+    db.auth.onAuthStateChange((event, session) => {
+        if (['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT'].includes(event)) {
+            setTimeout(() => applyUser(session ? session.user : null), 0);
+        }
+    });
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>아스키 만화</title>
+<title>Cartoon</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
@@ -101,25 +101,24 @@
         font-size:18px; line-height:1; padding:2px 6px; cursor:pointer;
     }
     .del:hover{ color:var(--ink); }
+    .pub{
+        flex:none; border:1px solid var(--line); background:none; color:var(--muted);
+        font:inherit; font-size:12px; padding:3px 9px; cursor:pointer;
+    }
+    .pub.on{ border-color:var(--ink); color:var(--ink); }
 </style>
 </head>
 <body>
 <main class="wrap">
     <div class="top">
-        <a href="../index.html">←</a>
+        <a href="../admin.html" id="back">←</a>
         <span class="who" id="who" hidden>
             <span id="email"></span>
             <button type="button" id="logout">로그아웃</button>
         </span>
     </div>
 
-    <h1>아스키 만화</h1>
-
-    <form id="loginForm" hidden>
-        <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username" required>
-        <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" required>
-        <div class="row"><button type="submit" class="pri" id="loginBtn">로그인</button></div>
-    </form>
+    <h1>Cartoon</h1>
 
     <form id="form" hidden>
         <textarea id="plot" rows="2" maxlength="300" placeholder="줄거리 한두 문장"></textarea>
@@ -159,7 +158,9 @@
     const SLIDE_MS = 3000;
 
     const $ = id => document.getElementById(id);
-    const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
+    // Admin: 로그인한 사람 (admin.html 에서 로그인). Visitor(?mode=visitor): 로그인 없이 공개된 만화만 보기
+    const MODE = new URLSearchParams(location.search).get('mode') === 'visitor' ? 'visitor' : 'admin';
+    const back = $('back');
     const who = $('who'), emailEl = $('email'), logout = $('logout');
     const form = $('form'), plotInput = $('plot'), makeBtn = $('make'), statusEl = $('status');
     const viewer = $('viewer'), comicTitle = $('comicTitle'), comicPlot = $('comicPlot'), slide = $('slide'), downloadBtn = $('download');
@@ -214,14 +215,24 @@
     }
 
     // 목록: 제목, 줄거리, 작성자, 시각만 (그림은 누를 때 가져옴)
+    // Visitor 는 공개된 만화만, 작성자 칸 없이 (서버 규칙도 같게 막음)
     async function loadList() {
-        const { data, error } = await db
-            .from('comics')
-            .select('id, title, plot, user_id, author_email, created_at')
-            .order('created_at', { ascending: false })
-            .limit(30);
-        if (error) return fail(error);
+        let query = db.from('comics');
+        query = MODE === 'visitor'
+            ? query.select('id, title, plot, created_at').eq('is_public', true)
+            : query.select('id, title, plot, user_id, author_email, is_public, created_at');
+        const { data, error } = await query.order('created_at', { ascending: false }).limit(30);
+        if (error) return fail(error), [];
         renderList(data);
+        return data;
+    }
+
+    // 공개/비공개 바꾸기: 서버 규칙상 내 만화만
+    async function setPublic(id, value) {
+        const { error } = await db.from('comics').update({ is_public: value }).eq('id', id);
+        if (error) return fail(error);
+        statusEl.textContent = '';
+        loadList();
     }
 
     async function openSaved(id) {
@@ -271,14 +282,21 @@
             open.onclick = () => openSaved(row.id);
             li.append(open);
 
-            if (currentUser && row.user_id === currentUser.id) {
+            if (MODE === 'admin' && currentUser && row.user_id === currentUser.id) {
+                const pub = document.createElement('button');
+                pub.type = 'button';
+                pub.className = 'pub' + (row.is_public ? ' on' : '');
+                pub.textContent = row.is_public ? '공개' : '비공개';
+                pub.setAttribute('aria-pressed', row.is_public);
+                pub.onclick = () => setPublic(row.id, !row.is_public);
+
                 const del = document.createElement('button');
                 del.className = 'del';
                 del.type = 'button';
                 del.textContent = '×';
                 del.setAttribute('aria-label', '삭제');
                 del.onclick = () => removeComic(row.id);
-                li.append(del);
+                li.append(pub, del);
             }
             return li;
         }));
@@ -584,33 +602,14 @@
         show(index + step);
     }
 
-    // 로그인: 성공하면 브라우저에 세션이 저장되고 onAuthStateChange 가 호출됨
-    async function signIn(email, password) {
-        loginBtn.disabled = true;
-        const { error } = await db.auth.signInWithPassword({ email, password });
-        loginBtn.disabled = false;
-        loginPassword.value = '';
-        if (error) return fail(error);
-        statusEl.textContent = '';
-    }
-
-    // 로그인 안 했으면 로그인 칸만, 했으면 줄거리 입력칸과 지난 만화
+    // Admin 모드: 로그인 안 했으면 Admin 입구로, 했으면 줄거리 입력칸과 지난 만화
     function applyUser(user) {
+        if (!user) return location.replace('../admin.html');
         currentUser = user;
-        loginForm.hidden = !!user;
-        who.hidden = !user;
-        emailEl.textContent = user ? user.email : '';
-        form.hidden = !user;
-        if (user) {
-            loadList();
-        } else {
-            stop();
-            comic = null;
-            openId = null;
-            viewer.hidden = true;
-            historyEl.hidden = true;
-            comicList.replaceChildren();
-        }
+        who.hidden = false;
+        emailEl.textContent = user.email;
+        form.hidden = false;
+        loadList();
     }
 
     function fail(error) {
@@ -650,10 +649,17 @@
             if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
         });
 
-        loginForm.addEventListener('submit', e => {
-            e.preventDefault();
-            signIn(loginEmail.value.trim(), loginPassword.value);
-        });
+        // Visitor: 로그인 없이 공개된 만화만. 들어오면 가장 최근 것을 바로 열어줌
+        if (MODE === 'visitor') {
+            back.href = '../visitor.html';
+            historyEl.querySelector('h2').textContent = '만화 목록';
+            db.channel('comics')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'comics' }, loadList)
+                .subscribe();
+            loadList().then(rows => { if (rows && rows.length) openSaved(rows[0].id); });
+            return;
+        }
+
         logout.onclick = () => db.auth.signOut();
 
         // 페이지를 열 때(INITIAL_SESSION), 로그인·로그아웃 할 때 호출됨

@@ -65,12 +65,14 @@
 
 ```
 260604hj/
-├─ index.html             ← 메인 페이지 (앱 목록)
+├─ index.html             ← 첫 화면 (Visitor / Admin)
+├─ visitor.html           ← Visitor 입구: 로그인 없이, 공개된 것만 보기
+├─ admin.html             ← Admin 입구: 여기서 한 번 로그인
 ├─ miniapps/              ← 앱 모음
-│  ├─ memo.html
-│  ├─ admin-memo.html     ← 로그인 필요
-│  ├─ drawing-memo.html   ← 로그인 필요
-│  ├─ ascii-comic.html    ← 로그인 필요
+│  ├─ admin-memo.html     ← Text    (?mode=visitor 로 열면 Visitor 용)
+│  ├─ drawing-memo.html   ← Drawing (?mode=visitor 로 열면 Visitor 용)
+│  ├─ ascii-comic.html    ← Cartoon (?mode=visitor 로 열면 Visitor 용)
+│  ├─ memo.html           ← 댓글 (Visitor, 누구나 쓰기)
 │  └─ old/                ← 예전 앱 보관
 ├─ supabase/
 │  ├─ migrations/         ← 데이터베이스 구조 기록 (.sql)

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>new tools lab</title>
+<title>Visitor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
@@ -13,7 +13,6 @@
         --muted:#8a8f98;
         --line:#e4e6e9;
         --paper:#ffffff;
-        --white:#ffffff;
     }
     *, *::before, *::after{ box-sizing:border-box; margin:0; padding:0; }
 
@@ -29,21 +28,17 @@
 
     .wrap{ width:100%; max-width:460px; }
 
+    .back{ font-size:13px; color:var(--muted); text-decoration:none; }
+    .back:hover{ color:var(--ink); }
+
     h1{
+        margin-top:14px;
         font-weight:300;
         font-size:34px;
         letter-spacing:-0.02em;
     }
-    .sub{
-        margin-top:10px;
-        font-size:13px; color:var(--muted); letter-spacing:0.01em;
-    }
 
-    .list{
-        margin-top:34px;
-        border:1px solid var(--line);
-        background:var(--white);
-    }
+    .list{ margin-top:34px; border:1px solid var(--line); }
     .item{
         display:flex; align-items:center; justify-content:space-between;
         padding:20px 22px;
@@ -53,40 +48,34 @@
     }
     .item:last-child{ border-bottom:none; }
     .item:hover{ background:#fbfbfa; padding-left:30px; }
-
     .item .left{ display:flex; align-items:center; gap:16px; }
-    .item .no{
-        font-size:11px; letter-spacing:0.14em; color:var(--muted);
-        font-variant-numeric:tabular-nums;
-    }
+    .item .no{ font-size:11px; letter-spacing:0.14em; color:var(--muted); font-variant-numeric:tabular-nums; }
     .item .name{ font-size:16px; font-weight:500; }
-
     .item .arrow{ width:16px; height:16px; transition:transform .3s ease; }
     .item:hover .arrow{ transform:translate(2px,-2px); }
-
 </style>
 </head>
 <body>
 <div class="wrap">
-    <h1>✨new tools lab🧪</h1>
-    <p class="sub">현재 테스트 중인 도우미들</p>
-
+    <a class="back" href="index.html">←</a>
+    <h1>Visitor</h1>
     <nav class="list" id="list"></nav>
 </div>
 
 <script>
-    // 앱이 늘어나면 이 배열에만 추가하면 됩니다.
-    const apps = [
-        { name: "Visitor", href: "visitor.html" },
-        { name: "Admin", href: "admin.html" },
+    // 로그인 없이 보는 곳. Admin 에서 "공개"로 표시한 것만 보임
+    const sections = [
+        { name: "Text", href: "miniapps/admin-memo.html?mode=visitor" },
+        { name: "Drawing", href: "miniapps/drawing-memo.html?mode=visitor" },
+        { name: "Cartoon", href: "miniapps/ascii-comic.html?mode=visitor" },
+        { name: "댓글", href: "miniapps/memo.html" },
     ];
 
-    const list = document.getElementById('list');
-    list.innerHTML = apps.map((app, i) => `
-        <a class="item" href="${app.href}">
+    document.getElementById('list').innerHTML = sections.map((s, i) => `
+        <a class="item" href="${s.href}">
             <span class="left">
                 <span class="no">${String(i + 1).padStart(2, '0')}</span>
-                <span class="name">${app.name}</span>
+                <span class="name">${s.name}</span>
             </span>
             <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="#15171c"
                  stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
