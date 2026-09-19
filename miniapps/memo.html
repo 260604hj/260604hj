@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>메모</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+    :root{
+        --ink:#15171c;
+        --muted:#8a8f98;
+        --line:#e4e6e9;
+        --paper:#ffffff;
+    }
+    *, *::before, *::after{ box-sizing:border-box; margin:0; padding:0; }
+
+    body{
+        font-family:'Inter','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        color:var(--ink);
+        background:var(--paper);
+        -webkit-font-smoothing:antialiased;
+        padding:48px 24px;
+    }
+
+    .wrap{ width:100%; max-width:520px; margin:0 auto; }
+
+    .back{ font-size:13px; color:var(--muted); text-decoration:none; }
+    .back:hover{ color:var(--ink); }
+
+    h1{
+        margin-top:14px;
+        font-weight:300;
+        font-size:34px;
+        letter-spacing:-0.02em;
+    }
+
+    form{ margin-top:28px; }
+    textarea{
+        display:block; width:100%;
+        border:1px solid var(--line); border-radius:0;
+        padding:14px 16px;
+        font:inherit; font-size:16px; line-height:1.6; color:inherit;
+        resize:vertical; outline:none;
+    }
+    textarea:focus{ border-color:var(--ink); }
+    .row{ display:flex; justify-content:flex-end; margin-top:10px; }
+    button[type=submit]{
+        border:1px solid var(--ink); background:var(--ink); color:#fff;
+        padding:10px 22px; font:inherit; font-size:14px; cursor:pointer;
+    }
+    button[type=submit]:disabled{ opacity:.4; cursor:default; }
+
+    #status{ margin-top:14px; font-size:13px; color:#b3261e; }
+    #status:empty{ display:none; }
+
+    #list{ list-style:none; margin-top:28px; border-top:1px solid var(--line); }
+    #list li{ padding:16px 0; border-bottom:1px solid var(--line); }
+    .text{ font-size:15px; line-height:1.65; white-space:pre-wrap; word-break:break-word; }
+    .meta{ display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
+    .time{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .del{
+        border:0; background:none; color:var(--muted);
+        font-size:18px; line-height:1; padding:2px 6px; cursor:pointer;
+    }
+    .del:hover{ color:var(--ink); }
+</style>
+</head>
+<body>
+<main class="wrap">
+    <a class="back" href="../index.html">←</a>
+    <h1>메모</h1>
+
+    <form id="form">
+        <textarea id="input" rows="3" maxlength="2000" placeholder="메모"></textarea>
+        <div class="row"><button type="submit" id="save">저장</button></div>
+    </form>
+
+    <p id="status"></p>
+    <ul id="list"></ul>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+<script>
+    // Supabase 대시보드 > Settings > API Keys 에서 복사
+    // KEY 는 Publishable key (sb_publishable_...). Secret key 는 절대 넣지 말 것.
+    const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
+
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const saveBtn = document.getElementById('save');
+    const statusEl = document.getElementById('status');
+    const list = document.getElementById('list');
+
+    let db = null;
+
+    // 서버에서 읽기: SELECT id, content, created_at FROM memos ORDER BY created_at DESC
+    async function load() {
+        const { data, error } = await db
+            .from('memos')
+            .select('id, content, created_at')
+            .order('created_at', { ascending: false });
+        if (error) return fail(error);
+        statusEl.textContent = '';
+        render(data);
+    }
+
+    // 서버에 쓰기: INSERT INTO memos (content) VALUES (...)
+    async function add(content) {
+        saveBtn.disabled = true;
+        const { error } = await db.from('memos').insert({ content });
+        saveBtn.disabled = false;
+        if (error) return fail(error);
+        input.value = '';
+        load();
+    }
+
+    // 서버에서 지우기: DELETE FROM memos WHERE id = ...
+    async function remove(id) {
+        if (!confirm('삭제할까요?')) return;
+        const { error } = await db.from('memos').delete().eq('id', id);
+        if (error) return fail(error);
+        load();
+    }
+
+    function render(rows) {
+        list.replaceChildren(...rows.map(row => {
+            const li = document.createElement('li');
+
+            const text = document.createElement('p');
+            text.className = 'text';
+            text.textContent = row.content;
+
+            const meta = document.createElement('div');
+            meta.className = 'meta';
+
+            const time = document.createElement('span');
+            time.className = 'time';
+            time.textContent = formatTime(row.created_at);
+
+            const del = document.createElement('button');
+            del.className = 'del';
+            del.type = 'button';
+            del.textContent = '×';
+            del.setAttribute('aria-label', '삭제');
+            del.onclick = () => remove(row.id);
+
+            meta.append(time, del);
+            li.append(text, meta);
+            return li;
+        }));
+    }
+
+    function formatTime(iso) {
+        const d = new Date(iso);
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    function fail(error) {
+        console.error(error);
+        statusEl.textContent = error.message || String(error);
+    }
+
+    function start() {
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            const content = input.value.trim();
+            if (content) add(content);
+        });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) form.requestSubmit();
+        });
+
+        // 실시간: 누가 쓰거나 지우면 서버가 알려주고, 그때 다시 읽기
+        db.channel('memos')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'memos' }, load)
+            .subscribe();
+
+        load();
+    }
+
+    if (SUPABASE_URL && SUPABASE_KEY) {
+        db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        start();
+    } else {
+        saveBtn.disabled = true;
+        statusEl.textContent = 'SUPABASE_URL, SUPABASE_KEY 미설정';
+    }
+</script>
+</body>
+</html>
