@@ -299,8 +299,21 @@
     // ── 정사각형 이미지 그리기 (화면의 슬라이드 = 내려받는 이미지) ──
     const SIZE = 1080, MARGIN = 72, INK = '#15171c', MUTED = '#8a8f98';
     const ART_FONT = '"Roboto Mono", monospace', KO_FONT = '"Noto Sans KR", sans-serif', EN_FONT = 'Inter, sans-serif';
-    const KO_SIZE = 46, EN_SIZE = 34, KO_LH = 1.45, EN_LH = 1.4, CAPTION_GAP = 14;
-    const TITLE_KO = 64, TITLE_EN = 38;
+    // 글자 크기 [최대, 최소]: 가능하면 한 줄에 들어가도록 최대에서 최소까지 줄임
+    const KO_SIZE = 46, KO_MIN = 32, EN_SIZE = 34, EN_MIN = 24;
+    const TITLE_KO = 64, TITLE_KO_MIN = 44, TITLE_EN = 38, TITLE_EN_MIN = 28;
+    const KO_LH = 1.45, EN_LH = 1.4, CAPTION_GAP = 14;
+
+    // 모든 글이 한 줄에 들어가는 가장 큰 크기 (글자 폭은 글자 크기에 비례). 최소보다 작아지면 최소 크기에서 줄바꿈
+    function fitSize(ctx, texts, weight, family, max, min) {
+        const width = (SIZE - MARGIN * 2) * 0.98;
+        ctx.font = `${weight} 100px ${family}`;
+        let size = max;
+        for (const t of texts) {
+            if (t) size = Math.min(size, width / (ctx.measureText(t).width / 100));
+        }
+        return Math.max(min, Math.floor(size));
+    }
 
     // 캔버스는 웹 글꼴이 준비되기 전에 그리면 기본 글꼴로 그려져서, 필요한 글자를 먼저 불러옴
     async function loadFonts(c) {
@@ -332,21 +345,23 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
 
-        ctx.font = `500 ${TITLE_KO}px ${KO_FONT}`;
+        const koSize = fitSize(ctx, [c.title], 500, KO_FONT, TITLE_KO, TITLE_KO_MIN);
+        const enSize = fitSize(ctx, [c.title_en], 400, EN_FONT, TITLE_EN, TITLE_EN_MIN);
+        ctx.font = `500 ${koSize}px ${KO_FONT}`;
         const ko = wrapText(ctx, c.title || '', width);
-        ctx.font = `400 ${TITLE_EN}px ${EN_FONT}`;
+        ctx.font = `400 ${enSize}px ${EN_FONT}`;
         const en = c.title_en ? wrapText(ctx, c.title_en, width) : [];
-        const titleH = ko.length * TITLE_KO * 1.3 + (en.length ? 8 + en.length * TITLE_EN * 1.35 : 0);
+        const titleH = ko.length * koSize * 1.3 + (en.length ? 8 + en.length * enSize * 1.35 : 0);
 
         let y = c.cover ? MARGIN + 56 : (SIZE - titleH) / 2;
         ctx.fillStyle = INK;
-        ctx.font = `500 ${TITLE_KO}px ${KO_FONT}`;
-        for (const l of ko) { ctx.fillText(l, SIZE / 2, y); y += TITLE_KO * 1.3; }
+        ctx.font = `500 ${koSize}px ${KO_FONT}`;
+        for (const l of ko) { ctx.fillText(l, SIZE / 2, y); y += koSize * 1.3; }
         if (en.length) {
             y += 8;
             ctx.fillStyle = MUTED;
-            ctx.font = `400 ${TITLE_EN}px ${EN_FONT}`;
-            for (const l of en) { ctx.fillText(l, SIZE / 2, y); y += TITLE_EN * 1.35; }
+            ctx.font = `400 ${enSize}px ${EN_FONT}`;
+            for (const l of en) { ctx.fillText(l, SIZE / 2, y); y += enSize * 1.35; }
         }
         if (!c.cover) return;
 
@@ -385,29 +400,32 @@
         });
     }
 
-    function captionLines(ctx, panel) {
+    function captionLines(ctx, panel, koSize, enSize) {
         const width = SIZE - MARGIN * 2;
-        ctx.font = `400 ${KO_SIZE}px ${KO_FONT}`;
+        ctx.font = `400 ${koSize}px ${KO_FONT}`;
         const ko = wrapText(ctx, panel.caption || '', width);
-        ctx.font = `400 ${EN_SIZE}px ${EN_FONT}`;
+        ctx.font = `400 ${enSize}px ${EN_FONT}`;
         const en = panel.caption_en ? wrapText(ctx, panel.caption_en, width) : [];
-        const height = ko.length * KO_SIZE * KO_LH + (en.length ? CAPTION_GAP + en.length * EN_SIZE * EN_LH : 0);
+        const height = ko.length * koSize * KO_LH + (en.length ? CAPTION_GAP + en.length * enSize * EN_LH : 0);
         return { ko, en, height };
     }
 
-    // 8컷 모두 같은 크기로: 대사가 가장 긴 컷에 맞춰 그림 칸을 정하고, 36자 x 14줄이 들어가는 글자 크기로
+    // 8컷 모두 같은 크기로: 대사 글자 크기는 가장 긴 대사가 한 줄에 들어가게,
+    // 그림 칸은 대사가 가장 긴 컷에 맞추고, 그림 글자는 36자 x 14줄이 들어가는 크기로
     function makeLayout(panels) {
-        const captionH = Math.max(...panels.map(p => captionLines(sctx, p).height));
+        const koSize = fitSize(sctx, panels.map(p => p.caption), 400, KO_FONT, KO_SIZE, KO_MIN);
+        const enSize = fitSize(sctx, panels.map(p => p.caption_en), 400, EN_FONT, EN_SIZE, EN_MIN);
+        const captionH = Math.max(...panels.map(p => captionLines(sctx, p, koSize, enSize).height));
         const captionTop = SIZE - MARGIN - captionH;
         const box = { x: MARGIN, y: MARGIN + 40, w: SIZE - MARGIN * 2, h: captionTop - 48 - (MARGIN + 40) };
         sctx.font = `400 100px ${ART_FONT}`;
         const charW = sctx.measureText('0').width / 100;
         const fontSize = Math.min(box.w / (36 * charW), box.h / (14 * 1.15));
-        return { box, captionTop, fontSize, charW };
+        return { box, captionTop, fontSize, charW, koSize, enSize };
     }
 
     function drawSlide(ctx, panel, i, total) {
-        const { box, captionTop, fontSize, charW } = layout;
+        const { box, captionTop, fontSize, charW, koSize, enSize } = layout;
         ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, SIZE, SIZE);
 
@@ -430,17 +448,17 @@
         lines.forEach((l, r) => ctx.fillText(l, x0, y0 + r * lineH));
 
         // 대사: 한국어, 그 아래 영어 자막. 대사 칸 안에서 세로 가운데
-        const { ko, en, height } = captionLines(ctx, panel);
+        const { ko, en, height } = captionLines(ctx, panel, koSize, enSize);
         ctx.textAlign = 'center';
         let y = captionTop + (SIZE - MARGIN - captionTop - height) / 2;
         ctx.fillStyle = INK;
-        ctx.font = `400 ${KO_SIZE}px ${KO_FONT}`;
-        for (const l of ko) { ctx.fillText(l, SIZE / 2, y); y += KO_SIZE * KO_LH; }
+        ctx.font = `400 ${koSize}px ${KO_FONT}`;
+        for (const l of ko) { ctx.fillText(l, SIZE / 2, y); y += koSize * KO_LH; }
         if (en.length) {
             y += CAPTION_GAP;
             ctx.fillStyle = MUTED;
-            ctx.font = `400 ${EN_SIZE}px ${EN_FONT}`;
-            for (const l of en) { ctx.fillText(l, SIZE / 2, y); y += EN_SIZE * EN_LH; }
+            ctx.font = `400 ${enSize}px ${EN_FONT}`;
+            for (const l of en) { ctx.fillText(l, SIZE / 2, y); y += enSize * EN_LH; }
         }
     }
 
