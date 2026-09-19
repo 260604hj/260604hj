@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>관리자 메모</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+    :root{
+        --ink:#15171c;
+        --muted:#8a8f98;
+        --line:#e4e6e9;
+        --paper:#ffffff;
+    }
+    *, *::before, *::after{ box-sizing:border-box; margin:0; padding:0; }
+    [hidden]{ display:none !important; }
+
+    body{
+        font-family:'Inter','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        color:var(--ink);
+        background:var(--paper);
+        -webkit-font-smoothing:antialiased;
+        padding:48px 24px;
+    }
+
+    .wrap{ width:100%; max-width:520px; margin:0 auto; }
+
+    .top{ display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--muted); }
+    .top a, .top button{ color:var(--muted); text-decoration:none; background:none; border:0; font:inherit; cursor:pointer; }
+    .top a:hover, .top button:hover{ color:var(--ink); }
+    .who{ display:flex; gap:10px; align-items:center; }
+
+    h1{
+        margin-top:14px;
+        font-weight:300;
+        font-size:34px;
+        letter-spacing:-0.02em;
+    }
+
+    form{ margin-top:28px; }
+    input, textarea{
+        display:block; width:100%;
+        border:1px solid var(--line); border-radius:0;
+        padding:12px 16px;
+        font:inherit; font-size:16px; line-height:1.6; color:inherit;
+        outline:none;
+    }
+    input + input{ border-top:0; }
+    textarea{ padding:14px 16px; resize:vertical; }
+    input:focus, textarea:focus{ border-color:var(--ink); }
+    input + input:focus{ border-top:1px solid var(--ink); margin-top:-1px; }
+    .row{ display:flex; justify-content:flex-end; margin-top:10px; }
+    button[type=submit]{
+        border:1px solid var(--ink); background:var(--ink); color:#fff;
+        padding:10px 22px; font:inherit; font-size:14px; cursor:pointer;
+    }
+    button[type=submit]:disabled{ opacity:.4; cursor:default; }
+
+    #status{ margin-top:14px; font-size:13px; color:#b3261e; }
+    #status:empty{ display:none; }
+
+    #list{ list-style:none; margin-top:28px; border-top:1px solid var(--line); }
+    #list li{ padding:16px 0; border-bottom:1px solid var(--line); }
+    .text{ font-size:15px; line-height:1.65; white-space:pre-wrap; word-break:break-word; }
+    .meta{ display:flex; justify-content:space-between; align-items:center; margin-top:8px; min-height:22px; }
+    .time{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .del{
+        border:0; background:none; color:var(--muted);
+        font-size:18px; line-height:1; padding:2px 6px; cursor:pointer;
+    }
+    .del:hover{ color:var(--ink); }
+</style>
+</head>
+<body>
+<main class="wrap">
+    <div class="top">
+        <a href="../index.html">←</a>
+        <button type="button" id="showLogin">로그인</button>
+        <span class="who" id="who" hidden>
+            <span id="email"></span>
+            <span id="noRole" hidden>권한 없음</span>
+            <button type="button" id="logout">로그아웃</button>
+        </span>
+    </div>
+
+    <h1>관리자 메모</h1>
+
+    <form id="loginForm" hidden>
+        <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username" required>
+        <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" required>
+        <div class="row"><button type="submit" id="loginBtn">로그인</button></div>
+    </form>
+
+    <form id="form" hidden>
+        <textarea id="input" rows="3" maxlength="2000" placeholder="메모"></textarea>
+        <div class="row"><button type="submit" id="save">저장</button></div>
+    </form>
+
+    <p id="status"></p>
+    <ul id="list"></ul>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+<script>
+    // Supabase 대시보드 > Connect 에서 복사
+    // KEY 는 Publishable key (sb_publishable_...). Secret key 는 절대 넣지 말 것.
+    const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
+
+    const $ = id => document.getElementById(id);
+    const form = $('form'), input = $('input'), saveBtn = $('save');
+    const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
+    const showLogin = $('showLogin'), who = $('who'), emailEl = $('email'), noRole = $('noRole'), logout = $('logout');
+    const statusEl = $('status'), list = $('list');
+
+    let db = null;
+    let isAdmin = false;
+
+    // 읽기: 누구나 가능
+    async function load() {
+        const { data, error } = await db
+            .from('admin_memos')
+            .select('id, content, created_at')
+            .order('created_at', { ascending: false });
+        if (error) return fail(error);
+        render(data);
+    }
+
+    // 쓰기: 서버가 로그인 정보를 보고 관리자 명단에 있을 때만 허용
+    async function add(content) {
+        saveBtn.disabled = true;
+        const { error } = await db.from('admin_memos').insert({ content });
+        saveBtn.disabled = false;
+        if (error) return fail(error);
+        statusEl.textContent = '';
+        input.value = '';
+        load();
+    }
+
+    // 지우기: 쓰기와 같은 규칙
+    async function remove(id) {
+        if (!confirm('삭제할까요?')) return;
+        const { error } = await db.from('admin_memos').delete().eq('id', id);
+        if (error) return fail(error);
+        statusEl.textContent = '';
+        load();
+    }
+
+    // 로그인: 성공하면 브라우저에 세션이 저장되고 onAuthStateChange 가 호출됨
+    async function signIn(email, password) {
+        loginBtn.disabled = true;
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        loginBtn.disabled = false;
+        loginPassword.value = '';
+        if (error) return fail(error);
+        statusEl.textContent = '';
+    }
+
+    // 로그인 상태가 바뀔 때마다: 관리자 명단에 내가 있는지 서버에 확인
+    async function applyUser(user) {
+        isAdmin = false;
+        if (user) {
+            const { data, error } = await db.from('admins').select('user_id').eq('user_id', user.id);
+            if (error) fail(error);
+            else isAdmin = data.length > 0;
+        }
+
+        showLogin.hidden = !!user;
+        loginForm.hidden = true;
+        who.hidden = !user;
+        emailEl.textContent = user ? user.email : '';
+        noRole.hidden = !user || isAdmin;
+        form.hidden = !isAdmin;
+
+        load();
+    }
+
+    function render(rows) {
+        list.replaceChildren(...rows.map(row => {
+            const li = document.createElement('li');
+
+            const text = document.createElement('p');
+            text.className = 'text';
+            text.textContent = row.content;
+
+            const meta = document.createElement('div');
+            meta.className = 'meta';
+
+            const time = document.createElement('span');
+            time.className = 'time';
+            time.textContent = formatTime(row.created_at);
+            meta.append(time);
+
+            if (isAdmin) {
+                const del = document.createElement('button');
+                del.className = 'del';
+                del.type = 'button';
+                del.textContent = '×';
+                del.setAttribute('aria-label', '삭제');
+                del.onclick = () => remove(row.id);
+                meta.append(del);
+            }
+
+            li.append(text, meta);
+            return li;
+        }));
+    }
+
+    function formatTime(iso) {
+        const d = new Date(iso);
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    function fail(error) {
+        console.error(error);
+        statusEl.textContent = error.message || String(error);
+    }
+
+    function start() {
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            const content = input.value.trim();
+            if (content) add(content);
+        });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) form.requestSubmit();
+        });
+
+        showLogin.onclick = () => {
+            loginForm.hidden = !loginForm.hidden;
+            if (!loginForm.hidden) loginEmail.focus();
+        };
+        loginForm.addEventListener('submit', e => {
+            e.preventDefault();
+            signIn(loginEmail.value.trim(), loginPassword.value);
+        });
+        logout.onclick = () => db.auth.signOut();
+
+        // 페이지를 열 때(INITIAL_SESSION), 로그인·로그아웃 할 때 호출됨
+        // setTimeout: 이 콜백 안에서 바로 다른 Supabase 요청을 기다리면 멈출 수 있어서 한 박자 뒤에 실행
+        db.auth.onAuthStateChange((event, session) => {
+            if (['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT'].includes(event)) {
+                setTimeout(() => applyUser(session ? session.user : null), 0);
+            }
+        });
+
+        db.channel('admin_memos')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_memos' }, load)
+            .subscribe();
+    }
+
+    if (SUPABASE_URL && SUPABASE_KEY) {
+        db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        start();
+    } else {
+        statusEl.textContent = 'SUPABASE_URL, SUPABASE_KEY 미설정';
+    }
+</script>
+</body>
+</html>
