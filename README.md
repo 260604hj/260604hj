@@ -70,10 +70,11 @@
 │  ├─ memo.html
 │  ├─ admin-memo.html     ← 로그인 필요
 │  ├─ drawing-memo.html   ← 로그인 필요
+│  ├─ ascii-comic.html    ← 로그인 필요
 │  └─ old/                ← 예전 앱 보관
 ├─ supabase/
 │  ├─ migrations/         ← 데이터베이스 구조 기록 (.sql)
-│  └─ functions/          ← Supabase 서버에서 도는 코드 (예: 메모 요약)
+│  └─ functions/          ← Supabase 서버에서 도는 코드 (summarize, ascii-comic)
 ├─ IMG/                   ← 이미지 모음
 ├─ data/                  ← 엑셀(xlsx), csv 등 데이터 파일
 └─ README.md              ← 이 안내문

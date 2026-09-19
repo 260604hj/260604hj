@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>아스키 만화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+    :root{
+        --ink:#15171c;
+        --muted:#8a8f98;
+        --line:#e4e6e9;
+        --paper:#ffffff;
+        --mono:ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
+    }
+    *, *::before, *::after{ box-sizing:border-box; margin:0; padding:0; }
+    [hidden]{ display:none !important; }
+
+    body{
+        font-family:'Inter','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        color:var(--ink);
+        background:var(--paper);
+        -webkit-font-smoothing:antialiased;
+        padding:48px 24px;
+    }
+
+    .wrap{ width:100%; max-width:520px; margin:0 auto; }
+
+    .top{ display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--muted); }
+    .top a, .top button{ color:var(--muted); text-decoration:none; background:none; border:0; font:inherit; cursor:pointer; }
+    .top a:hover, .top button:hover{ color:var(--ink); }
+    .who{ display:flex; gap:10px; align-items:center; }
+
+    h1{
+        margin-top:14px;
+        font-weight:300;
+        font-size:34px;
+        letter-spacing:-0.02em;
+    }
+
+    form{ margin-top:28px; }
+    input, textarea{
+        display:block; width:100%;
+        border:1px solid var(--line); border-radius:0;
+        padding:12px 16px;
+        font:inherit; font-size:16px; line-height:1.6; color:inherit;
+        outline:none;
+    }
+    input + input{ border-top:0; }
+    textarea{ padding:14px 16px; resize:vertical; }
+    input:focus, textarea:focus{ border-color:var(--ink); }
+    input + input:focus{ border-top:1px solid var(--ink); margin-top:-1px; }
+
+    .row{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+    .pri, .ghost{
+        border:1px solid var(--ink); background:var(--ink); color:#fff;
+        padding:10px 22px; font:inherit; font-size:14px; cursor:pointer;
+    }
+    .ghost{ background:var(--paper); color:var(--ink); }
+    .pri:disabled, .ghost:disabled{ opacity:.4; cursor:default; }
+
+    #status{ margin-top:14px; font-size:13px; color:#b3261e; }
+    #status:empty{ display:none; }
+
+    #viewer{ margin-top:32px; }
+    #comicTitle{ font-size:18px; font-weight:500; letter-spacing:-0.01em; }
+    .frame{
+        margin-top:12px; border:1px solid var(--ink); padding:16px;
+        overflow:hidden; touch-action:pan-y; user-select:none;
+    }
+    /* 가로 36자가 화면 폭에 들어가도록 글자 크기를 맞춤 (고정폭 글자 1자 ≈ 0.6em) */
+    #art{
+        font-family:var(--mono);
+        font-size:min(15px, calc((min(100vw, 568px) - 48px - 34px) / 22));
+        line-height:1.15;
+        white-space:pre;
+        height:calc(14 * 1.15em);
+        display:flex; flex-direction:column; justify-content:center;
+    }
+    #caption{ margin-top:14px; font-size:15px; line-height:1.65; min-height:3.3em; word-break:keep-all; overflow-wrap:anywhere; }
+    .controls{ display:flex; align-items:center; gap:10px; margin-top:12px; }
+    .nav{
+        border:1px solid var(--line); background:var(--paper); color:var(--ink);
+        width:40px; height:40px; font-size:20px; line-height:1; cursor:pointer;
+    }
+    .nav:disabled{ opacity:.3; cursor:default; }
+    #counter{ font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; min-width:44px; text-align:center; }
+    .controls .spacer{ flex:1; }
+    #model{ margin-top:10px; font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main class="wrap">
+    <div class="top">
+        <a href="../index.html">←</a>
+        <span class="who" id="who" hidden>
+            <span id="email"></span>
+            <button type="button" id="logout">로그아웃</button>
+        </span>
+    </div>
+
+    <h1>아스키 만화</h1>
+
+    <form id="loginForm" hidden>
+        <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username" required>
+        <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" required>
+        <div class="row"><button type="submit" class="pri" id="loginBtn">로그인</button></div>
+    </form>
+
+    <form id="form" hidden>
+        <textarea id="plot" rows="2" maxlength="300" placeholder="줄거리 한두 문장"></textarea>
+        <div class="row"><button type="submit" class="pri" id="make">만들기</button></div>
+    </form>
+
+    <p id="status"></p>
+
+    <section id="viewer" hidden>
+        <h2 id="comicTitle"></h2>
+        <div class="frame" id="frame"><pre id="art"></pre></div>
+        <p id="caption"></p>
+        <div class="controls">
+            <button type="button" class="nav" id="prev" aria-label="이전">‹</button>
+            <span id="counter"></span>
+            <button type="button" class="nav" id="next" aria-label="다음">›</button>
+            <span class="spacer"></span>
+            <button type="button" class="ghost" id="play">재생</button>
+        </div>
+        <p id="model"></p>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+<script>
+    // Supabase 대시보드 > Connect 에서 복사
+    // KEY 는 Publishable key (sb_publishable_...). Secret key 는 절대 넣지 말 것.
+    const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
+
+    const SLIDE_MS = 3000;
+
+    const $ = id => document.getElementById(id);
+    const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
+    const who = $('who'), emailEl = $('email'), logout = $('logout');
+    const form = $('form'), plotInput = $('plot'), makeBtn = $('make'), statusEl = $('status');
+    const viewer = $('viewer'), comicTitle = $('comicTitle'), frame = $('frame'), art = $('art'), caption = $('caption');
+    const prevBtn = $('prev'), nextBtn = $('next'), counter = $('counter'), playBtn = $('play'), modelEl = $('model');
+
+    let db = null;
+    let comic = null;       // { title, panels: [{ art, caption }], model }
+    let index = 0;
+    let timer = null;
+
+    // ── 만들기: Supabase 서버 함수(ascii-comic)에 부탁 → 함수가 로그인 확인 후 Gemini 에게 8컷을 받아 돌려줌 ──
+    // Gemini API 키는 서버 함수 안에만 있어서 이 페이지에는 없음
+    async function make(plot) {
+        stop();
+        makeBtn.disabled = true;
+        makeBtn.textContent = '만드는 중';
+        const { data, error } = await db.functions.invoke('ascii-comic', { body: { plot } });
+        makeBtn.disabled = false;
+        makeBtn.textContent = '만들기';
+        if (error) {
+            let message = error.message;
+            try {
+                const body = await error.context.json();
+                if (body.error) message = body.error;
+            } catch (_) {}
+            return fail({ message });
+        }
+        statusEl.textContent = '';
+        comic = data;
+        comicTitle.textContent = comic.title;
+        modelEl.textContent = comic.model || '';
+        viewer.hidden = false;
+        show(0);
+        viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── 슬라이드쇼 (서버와 상관없이 브라우저 안에서만) ──
+    function show(i) {
+        index = Math.max(0, Math.min(comic.panels.length - 1, i));
+        const panel = comic.panels[index];
+        art.textContent = panel.art;
+        caption.textContent = panel.caption;
+        counter.textContent = `${index + 1} / ${comic.panels.length}`;
+        prevBtn.disabled = index === 0;
+        nextBtn.disabled = index === comic.panels.length - 1;
+    }
+
+    function play() {
+        if (index === comic.panels.length - 1) show(0);
+        playBtn.textContent = '정지';
+        timer = setInterval(() => {
+            if (index === comic.panels.length - 1) return stop();
+            show(index + 1);
+        }, SLIDE_MS);
+    }
+
+    function stop() {
+        clearInterval(timer);
+        timer = null;
+        playBtn.textContent = '재생';
+    }
+
+    function go(step) {
+        stop();
+        show(index + step);
+    }
+
+    // 로그인: 성공하면 브라우저에 세션이 저장되고 onAuthStateChange 가 호출됨
+    async function signIn(email, password) {
+        loginBtn.disabled = true;
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        loginBtn.disabled = false;
+        loginPassword.value = '';
+        if (error) return fail(error);
+        statusEl.textContent = '';
+    }
+
+    // 로그인 안 했으면 로그인 칸만, 했으면 줄거리 입력칸
+    function applyUser(user) {
+        loginForm.hidden = !!user;
+        who.hidden = !user;
+        emailEl.textContent = user ? user.email : '';
+        form.hidden = !user;
+        if (!user) {
+            stop();
+            comic = null;
+            viewer.hidden = true;
+        }
+    }
+
+    function fail(error) {
+        console.error(error);
+        statusEl.textContent = error.message || String(error);
+    }
+
+    function start() {
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            const plot = plotInput.value.trim();
+            if (plot) make(plot);
+        });
+        plotInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) form.requestSubmit();
+        });
+
+        prevBtn.onclick = () => go(-1);
+        nextBtn.onclick = () => go(1);
+        playBtn.onclick = () => (timer ? stop() : play());
+
+        // 키보드 ← →
+        document.addEventListener('keydown', e => {
+            if (!comic || viewer.hidden || e.target === plotInput) return;
+            if (e.key === 'ArrowLeft') go(-1);
+            if (e.key === 'ArrowRight') go(1);
+        });
+
+        // 옆으로 밀어서 넘기기
+        let startX = null;
+        frame.addEventListener('pointerdown', e => { startX = e.clientX; });
+        frame.addEventListener('pointerup', e => {
+            if (startX === null || !comic) return;
+            const dx = e.clientX - startX;
+            startX = null;
+            if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+        });
+
+        loginForm.addEventListener('submit', e => {
+            e.preventDefault();
+            signIn(loginEmail.value.trim(), loginPassword.value);
+        });
+        logout.onclick = () => db.auth.signOut();
+
+        // 페이지를 열 때(INITIAL_SESSION), 로그인·로그아웃 할 때 호출됨
+        // setTimeout: 이 콜백 안에서 바로 다른 Supabase 요청을 기다리면 멈출 수 있어서 한 박자 뒤에 실행
+        db.auth.onAuthStateChange((event, session) => {
+            if (['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT'].includes(event)) {
+                setTimeout(() => applyUser(session ? session.user : null), 0);
+            }
+        });
+    }
+
+    if (SUPABASE_URL && SUPABASE_KEY) {
+        db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        start();
+    } else {
+        statusEl.textContent = 'SUPABASE_URL, SUPABASE_KEY 미설정';
+    }
+</script>
+</body>
+</html>
