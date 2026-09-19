@@ -59,9 +59,8 @@
     .ghost{ background:var(--paper); color:var(--ink); }
     button[type=submit]:disabled, .ghost:disabled{ opacity:.4; cursor:default; }
 
-    #summary{ position:relative; margin-top:18px; border:1px solid var(--line); padding:14px 16px; }
-    #summaryText{ font-size:15px; line-height:1.7; white-space:pre-wrap; word-break:break-word; padding-right:24px; }
-    #summary .del{ position:absolute; top:8px; right:6px; }
+    #summary{ margin-top:24px; border:1px solid var(--line); padding:14px 16px; }
+    #summaryText{ font-size:15px; line-height:1.7; white-space:pre-wrap; word-break:keep-all; overflow-wrap:anywhere; }
 
     #status{ margin-top:14px; font-size:13px; color:#b3261e; }
     #status:empty{ display:none; }
@@ -92,6 +91,11 @@
 
     <h1>관리자 메모</h1>
 
+    <div id="summary" hidden>
+        <p id="summaryText"></p>
+        <p class="time" id="summaryMeta" style="margin-top:8px"></p>
+    </div>
+
     <form id="loginForm" hidden>
         <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username" required>
         <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" required>
@@ -107,10 +111,6 @@
     </form>
 
     <p id="status"></p>
-    <div id="summary" hidden>
-        <p id="summaryText"></p>
-        <button type="button" class="del" id="closeSummary" aria-label="닫기">×</button>
-    </div>
     <ul id="list"></ul>
 </main>
 
@@ -126,7 +126,7 @@
     const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
     const showLogin = $('showLogin'), who = $('who'), emailEl = $('email'), noRole = $('noRole'), logout = $('logout');
     const statusEl = $('status'), list = $('list');
-    const summarizeBtn = $('summarize'), summaryBox = $('summary'), summaryText = $('summaryText'), closeSummary = $('closeSummary');
+    const summarizeBtn = $('summarize'), summaryBox = $('summary'), summaryText = $('summaryText'), summaryMeta = $('summaryMeta');
 
     let db = null;
     let isAdmin = false;
@@ -161,7 +161,26 @@
         load();
     }
 
-    // 요약: Supabase 서버 함수(summarize)에 부탁 → 함수가 관리자인지 확인하고 Gemini 에게 요약을 받아 돌려줌
+    // 가장 최근 요약 읽기: 누구나 가능
+    async function loadSummary() {
+        const { data, error } = await db
+            .from('memo_summaries')
+            .select('content, model, created_at')
+            .order('created_at', { ascending: false })
+            .limit(1);
+        if (error) return console.error(error);
+        showSummary(data[0]);
+    }
+
+    function showSummary(row) {
+        summaryBox.hidden = !row;
+        if (!row) return;
+        summaryText.textContent = row.content;
+        summaryMeta.textContent = `요약 ${formatTime(row.created_at)}` + (row.model ? ` · ${row.model}` : '');
+    }
+
+    // 요약 만들기: Supabase 서버 함수(summarize)에 부탁 → 함수가 관리자인지 확인하고
+    // Gemini 에게 요약을 받아 memo_summaries 에 저장한 뒤 돌려줌
     // Gemini API 키는 서버 함수 안에만 있어서 이 페이지에는 없음
     async function summarize() {
         summarizeBtn.disabled = true;
@@ -178,8 +197,7 @@
             return fail({ message });
         }
         statusEl.textContent = '';
-        summaryText.textContent = data.summary;
-        summaryBox.hidden = false;
+        showSummary(data);
     }
 
     // 로그인: 성공하면 브라우저에 세션이 저장되고 onAuthStateChange 가 호출됨
@@ -207,7 +225,6 @@
         emailEl.textContent = user ? user.email : '';
         noRole.hidden = !user || isAdmin;
         form.hidden = !isAdmin;
-        if (!isAdmin) summaryBox.hidden = true;
 
         load();
     }
@@ -274,7 +291,6 @@
         });
         logout.onclick = () => db.auth.signOut();
         summarizeBtn.onclick = summarize;
-        closeSummary.onclick = () => { summaryBox.hidden = true; };
 
         // 페이지를 열 때(INITIAL_SESSION), 로그인·로그아웃 할 때 호출됨
         // setTimeout: 이 콜백 안에서 바로 다른 Supabase 요청을 기다리면 멈출 수 있어서 한 박자 뒤에 실행
@@ -287,6 +303,13 @@
         db.channel('admin_memos')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_memos' }, load)
             .subscribe();
+
+        // 누가 새 요약을 만들면 열려 있는 모든 화면의 맨 위 요약이 바뀜
+        db.channel('memo_summaries')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'memo_summaries' }, loadSummary)
+            .subscribe();
+
+        loadSummary();
     }
 
     if (SUPABASE_URL && SUPABASE_KEY) {
