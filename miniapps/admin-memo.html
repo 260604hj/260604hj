@@ -51,12 +51,17 @@
     textarea{ padding:14px 16px; resize:vertical; }
     input:focus, textarea:focus{ border-color:var(--ink); }
     input + input:focus{ border-top:1px solid var(--ink); margin-top:-1px; }
-    .row{ display:flex; justify-content:flex-end; margin-top:10px; }
-    button[type=submit]{
+    .row{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+    button[type=submit], .ghost{
         border:1px solid var(--ink); background:var(--ink); color:#fff;
         padding:10px 22px; font:inherit; font-size:14px; cursor:pointer;
     }
-    button[type=submit]:disabled{ opacity:.4; cursor:default; }
+    .ghost{ background:var(--paper); color:var(--ink); }
+    button[type=submit]:disabled, .ghost:disabled{ opacity:.4; cursor:default; }
+
+    #summary{ position:relative; margin-top:18px; border:1px solid var(--line); padding:14px 16px; }
+    #summaryText{ font-size:15px; line-height:1.7; white-space:pre-wrap; word-break:break-word; padding-right:24px; }
+    #summary .del{ position:absolute; top:8px; right:6px; }
 
     #status{ margin-top:14px; font-size:13px; color:#b3261e; }
     #status:empty{ display:none; }
@@ -95,10 +100,17 @@
 
     <form id="form" hidden>
         <textarea id="input" rows="3" maxlength="2000" placeholder="메모"></textarea>
-        <div class="row"><button type="submit" id="save">저장</button></div>
+        <div class="row">
+            <button type="button" class="ghost" id="summarize">요약</button>
+            <button type="submit" id="save">저장</button>
+        </div>
     </form>
 
     <p id="status"></p>
+    <div id="summary" hidden>
+        <p id="summaryText"></p>
+        <button type="button" class="del" id="closeSummary" aria-label="닫기">×</button>
+    </div>
     <ul id="list"></ul>
 </main>
 
@@ -114,6 +126,7 @@
     const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
     const showLogin = $('showLogin'), who = $('who'), emailEl = $('email'), noRole = $('noRole'), logout = $('logout');
     const statusEl = $('status'), list = $('list');
+    const summarizeBtn = $('summarize'), summaryBox = $('summary'), summaryText = $('summaryText'), closeSummary = $('closeSummary');
 
     let db = null;
     let isAdmin = false;
@@ -148,6 +161,27 @@
         load();
     }
 
+    // 요약: Supabase 서버 함수(summarize)에 부탁 → 함수가 관리자인지 확인하고 Gemini 에게 요약을 받아 돌려줌
+    // Gemini API 키는 서버 함수 안에만 있어서 이 페이지에는 없음
+    async function summarize() {
+        summarizeBtn.disabled = true;
+        summarizeBtn.textContent = '요약 중';
+        const { data, error } = await db.functions.invoke('summarize');
+        summarizeBtn.disabled = false;
+        summarizeBtn.textContent = '요약';
+        if (error) {
+            let message = error.message;
+            try {
+                const body = await error.context.json();
+                if (body.error) message = body.error;
+            } catch (_) {}
+            return fail({ message });
+        }
+        statusEl.textContent = '';
+        summaryText.textContent = data.summary;
+        summaryBox.hidden = false;
+    }
+
     // 로그인: 성공하면 브라우저에 세션이 저장되고 onAuthStateChange 가 호출됨
     async function signIn(email, password) {
         loginBtn.disabled = true;
@@ -173,6 +207,7 @@
         emailEl.textContent = user ? user.email : '';
         noRole.hidden = !user || isAdmin;
         form.hidden = !isAdmin;
+        if (!isAdmin) summaryBox.hidden = true;
 
         load();
     }
@@ -238,6 +273,8 @@
             signIn(loginEmail.value.trim(), loginPassword.value);
         });
         logout.onclick = () => db.auth.signOut();
+        summarizeBtn.onclick = summarize;
+        closeSummary.onclick = () => { summaryBox.hidden = true; };
 
         // 페이지를 열 때(INITIAL_SESSION), 로그인·로그아웃 할 때 호출됨
         // setTimeout: 이 콜백 안에서 바로 다른 Supabase 요청을 기다리면 멈출 수 있어서 한 박자 뒤에 실행
