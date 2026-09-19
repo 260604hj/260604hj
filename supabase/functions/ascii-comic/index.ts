@@ -23,8 +23,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
 const SYSTEM_PROMPT = `한두 문장의 줄거리를 받아 ${PANELS}컷 만화를 만듭니다. 줄거리는 <plot> 안에 있습니다.
 - 정확히 ${PANELS}컷. 처음, 전개, 반전, 마무리가 자연스럽게 이어지게.
-- art: 그 컷의 장면을 아스키 아트로. 가로 최대 ${MAX_COLS}자, 세로 최대 ${MAX_ROWS}줄.
+- lines: 그 컷의 장면을 그린 아스키 아트. 배열의 원소 하나가 그림의 한 줄입니다.
+  최대 ${MAX_ROWS}줄, 줄마다 최대 ${MAX_COLS}자. 한 줄 안에 줄바꿈 기호(\\n)를 넣지 마세요.
   영문 키보드의 문자(알파벳, 숫자, 기호, 공백)만 쓰세요. 한글, 이모지, 탭은 그림이 어긋나므로 금지.
+  역슬래시(\\)는 그림에 필요한 만큼 한 번씩만 쓰세요.
   같은 인물은 매 컷 같은 모양으로 그려서 누가 누군지 알아볼 수 있게.
 - caption: 그 컷의 대사나 설명. 한국어 한 문장.
 - title: 한국어 짧은 제목.`;
@@ -39,8 +41,11 @@ const RESPONSE_SCHEMA = {
       maxItems: PANELS,
       items: {
         type: "OBJECT",
-        properties: { art: { type: "STRING" }, caption: { type: "STRING" } },
-        required: ["art", "caption"],
+        properties: {
+          lines: { type: "ARRAY", items: { type: "STRING" } },
+          caption: { type: "STRING" },
+        },
+        required: ["lines", "caption"],
       },
     },
   },
@@ -79,8 +84,15 @@ async function askGemini(model: string, apiKey: string, plot: string) {
 }
 
 // 폰 화면에서 어긋나지 않게: 영문 기호가 아닌 글자는 공백으로, 폭과 줄 수는 잘라냄
-function cleanArt(art: string) {
-  const lines = String(art ?? "")
+// 모델이 줄바꿈을 "\n" 글자로, 역슬래시를 "\\" 로 두 번 써서 보내는 경우도 바로잡음
+function cleanArt(art: unknown) {
+  let text = Array.isArray(art) ? art.map(String).join("\n") : String(art ?? "");
+  text = text.replace(/\\n/g, "\n");
+  const runs = text.match(/\\+/g) ?? [];
+  if (runs.length && runs.every((run) => run.length % 2 === 0)) {
+    text = text.replace(/\\+/g, (run) => run.slice(run.length / 2));
+  }
+  const lines = text
     .replace(/\t/g, "  ")
     .replace(/[^\x20-\x7E\n]/g, " ")
     .split("\n")
@@ -139,8 +151,8 @@ Deno.serve(async (req) => {
     }
     const panels = (Array.isArray(comic.panels) ? comic.panels : [])
       .slice(0, PANELS)
-      .map((p: { art?: string; caption?: string }) => ({
-        art: cleanArt(p.art ?? ""),
+      .map((p: { lines?: string[]; art?: string; caption?: string }) => ({
+        art: cleanArt(p.lines ?? p.art ?? ""),
         caption: String(p.caption ?? "").trim().slice(0, 120),
       }));
     if (panels.length < PANELS) {

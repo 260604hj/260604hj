@@ -66,19 +66,16 @@
 
     #viewer{ margin-top:32px; }
     #comicTitle{ font-size:18px; font-weight:500; letter-spacing:-0.01em; }
+    /* 가로 36자가 화면 폭에 들어가도록 글자 크기를 맞춤 (고정폭 글자 1자 ≈ 0.6em) */
     .frame{
         margin-top:12px; border:1px solid var(--ink); padding:16px;
         overflow:hidden; touch-action:pan-y; user-select:none;
-    }
-    /* 가로 36자가 화면 폭에 들어가도록 글자 크기를 맞춤 (고정폭 글자 1자 ≈ 0.6em) */
-    #art{
         font-family:var(--mono);
         font-size:min(15px, calc((min(100vw, 568px) - 48px - 34px) / 22));
-        line-height:1.15;
-        white-space:pre;
-        height:calc(14 * 1.15em);
-        display:flex; flex-direction:column; justify-content:center;
     }
+    /* 그림 전체를 한 덩어리로 가로세로 가운데에 (줄마다 따로 정렬하면 그림이 틀어짐) */
+    .stage{ height:calc(14 * 1.15em); display:flex; align-items:center; justify-content:center; }
+    #art{ font:inherit; line-height:1.15; white-space:pre; }
     #caption{ margin-top:14px; font-size:15px; line-height:1.65; min-height:3.3em; word-break:keep-all; overflow-wrap:anywhere; }
     .controls{ display:flex; align-items:center; gap:10px; margin-top:12px; }
     .nav{
@@ -89,6 +86,23 @@
     #counter{ font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; min-width:44px; text-align:center; }
     .controls .spacer{ flex:1; }
     #model{ margin-top:10px; font-size:12px; color:var(--muted); }
+
+    #history{ margin-top:40px; }
+    #history h2{ font-size:13px; font-weight:500; color:var(--muted); }
+    #comicList{ list-style:none; margin-top:10px; border-top:1px solid var(--line); }
+    #comicList li{ display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); }
+    .open{
+        flex:1; min-width:0; text-align:left; background:none; border:0;
+        padding:12px 0; font:inherit; color:inherit; cursor:pointer;
+    }
+    .open .t{ display:block; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .open.on .t{ font-weight:500; }
+    .open .m{ display:block; margin-top:2px; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .del{
+        border:0; background:none; color:var(--muted);
+        font-size:18px; line-height:1; padding:2px 6px; cursor:pointer;
+    }
+    .del:hover{ color:var(--ink); }
 </style>
 </head>
 <body>
@@ -118,7 +132,7 @@
 
     <section id="viewer" hidden>
         <h2 id="comicTitle"></h2>
-        <div class="frame" id="frame"><pre id="art"></pre></div>
+        <div class="frame" id="frame"><div class="stage"><pre id="art"></pre></div></div>
         <p id="caption"></p>
         <div class="controls">
             <button type="button" class="nav" id="prev" aria-label="이전">‹</button>
@@ -128,6 +142,11 @@
             <button type="button" class="ghost" id="play">재생</button>
         </div>
         <p id="model"></p>
+    </section>
+
+    <section id="history" hidden>
+        <h2>지난 만화</h2>
+        <ul id="comicList"></ul>
     </section>
 </main>
 
@@ -146,9 +165,12 @@
     const form = $('form'), plotInput = $('plot'), makeBtn = $('make'), statusEl = $('status');
     const viewer = $('viewer'), comicTitle = $('comicTitle'), frame = $('frame'), art = $('art'), caption = $('caption');
     const prevBtn = $('prev'), nextBtn = $('next'), counter = $('counter'), playBtn = $('play'), modelEl = $('model');
+    const historyEl = $('history'), comicList = $('comicList');
 
     let db = null;
+    let currentUser = null;
     let comic = null;       // { title, panels: [{ art, caption }], model }
+    let openId = null;      // 지금 보고 있는 저장된 만화
     let index = 0;
     let timer = null;
 
@@ -171,18 +193,119 @@
         }
         statusEl.textContent = '';
         comic = data;
+        openId = null;
+        openComic();
+        viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        saveComic(plot, data);
+    }
+
+    // ── 저장: 그림은 글자 그대로(텍스트) 저장. 작성자는 서버가 로그인 정보로 채움 ──
+    async function saveComic(plot, data) {
+        const { data: row, error } = await db
+            .from('comics')
+            .insert({ plot, title: data.title, panels: data.panels, model: data.model })
+            .select('id')
+            .single();
+        if (error) return fail({ message: `저장하지 못했습니다: ${error.message}` });
+        openId = row.id;
+        loadList();
+    }
+
+    // 목록: 제목, 작성자, 시각만 (그림은 누를 때 가져옴)
+    async function loadList() {
+        const { data, error } = await db
+            .from('comics')
+            .select('id, title, user_id, author_email, created_at')
+            .order('created_at', { ascending: false })
+            .limit(30);
+        if (error) return fail(error);
+        renderList(data);
+    }
+
+    async function openSaved(id) {
+        const { data, error } = await db.from('comics').select('title, panels, model').eq('id', id).single();
+        if (error) return fail(error);
+        statusEl.textContent = '';
+        comic = data;
+        openId = id;
+        openComic();
+        loadList();
+        viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // 지우기: 서버 규칙상 내 만화만 지워짐
+    async function removeComic(id) {
+        if (!confirm('삭제할까요?')) return;
+        const { error } = await db.from('comics').delete().eq('id', id);
+        if (error) return fail(error);
+        if (openId === id) {
+            stop();
+            comic = null;
+            openId = null;
+            viewer.hidden = true;
+        }
+        loadList();
+    }
+
+    function renderList(rows) {
+        historyEl.hidden = rows.length === 0;
+        comicList.replaceChildren(...rows.map(row => {
+            const li = document.createElement('li');
+
+            const open = document.createElement('button');
+            open.type = 'button';
+            open.className = 'open' + (row.id === openId ? ' on' : '');
+            const title = document.createElement('span');
+            title.className = 't';
+            title.textContent = row.title || '제목 없음';
+            const meta = document.createElement('span');
+            meta.className = 'm';
+            const name = (row.author_email || '').split('@')[0];
+            meta.textContent = (name ? name + ' · ' : '') + formatTime(row.created_at);
+            open.append(title, meta);
+            open.onclick = () => openSaved(row.id);
+            li.append(open);
+
+            if (currentUser && row.user_id === currentUser.id) {
+                const del = document.createElement('button');
+                del.className = 'del';
+                del.type = 'button';
+                del.textContent = '×';
+                del.setAttribute('aria-label', '삭제');
+                del.onclick = () => removeComic(row.id);
+                li.append(del);
+            }
+            return li;
+        }));
+    }
+
+    function formatTime(iso) {
+        const d = new Date(iso);
+        const p = n => String(n).padStart(2, '0');
+        return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    function openComic() {
+        stop();
         comicTitle.textContent = comic.title;
         modelEl.textContent = comic.model || '';
         viewer.hidden = false;
         show(0);
-        viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // 모든 줄 앞에 공통으로 붙은 빈칸을 걷어냄 → 그림이 정확히 가운데에 옴
+    function dedent(art) {
+        const lines = art.split('\n');
+        const indents = lines.filter(l => l.trim()).map(l => l.match(/^ */)[0].length);
+        const cut = indents.length ? Math.min(...indents) : 0;
+        return lines.map(l => l.slice(cut)).join('\n');
     }
 
     // ── 슬라이드쇼 (서버와 상관없이 브라우저 안에서만) ──
     function show(i) {
         index = Math.max(0, Math.min(comic.panels.length - 1, i));
         const panel = comic.panels[index];
-        art.textContent = panel.art;
+        art.textContent = dedent(panel.art);
         caption.textContent = panel.caption;
         counter.textContent = `${index + 1} / ${comic.panels.length}`;
         prevBtn.disabled = index === 0;
@@ -219,16 +342,22 @@
         statusEl.textContent = '';
     }
 
-    // 로그인 안 했으면 로그인 칸만, 했으면 줄거리 입력칸
+    // 로그인 안 했으면 로그인 칸만, 했으면 줄거리 입력칸과 지난 만화
     function applyUser(user) {
+        currentUser = user;
         loginForm.hidden = !!user;
         who.hidden = !user;
         emailEl.textContent = user ? user.email : '';
         form.hidden = !user;
-        if (!user) {
+        if (user) {
+            loadList();
+        } else {
             stop();
             comic = null;
+            openId = null;
             viewer.hidden = true;
+            historyEl.hidden = true;
+            comicList.replaceChildren();
         }
     }
 
@@ -281,6 +410,11 @@
                 setTimeout(() => applyUser(session ? session.user : null), 0);
             }
         });
+
+        // 누가 만화를 만들거나 지우면 열려 있는 모든 화면의 목록에 반영
+        db.channel('comics')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'comics' }, () => currentUser && loadList())
+            .subscribe();
     }
 
     if (SUPABASE_URL && SUPABASE_KEY) {
