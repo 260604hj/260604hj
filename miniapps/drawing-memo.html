@@ -40,16 +40,26 @@
     }
 
     form, #board{ margin-top:28px; }
-    input{
+    form input{
         display:block; width:100%;
         border:1px solid var(--line); border-radius:0;
         padding:12px 16px;
         font:inherit; font-size:16px; line-height:1.6; color:inherit;
         outline:none;
     }
-    input + input{ border-top:0; }
-    input:focus{ border-color:var(--ink); }
-    input + input:focus{ border-top:1px solid var(--ink); margin-top:-1px; }
+    form input + input{ border-top:0; }
+    form input:focus{ border-color:var(--ink); }
+    form input + input:focus{ border-top:1px solid var(--ink); margin-top:-1px; }
+
+    .tools{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .tool{
+        border:1px solid var(--line); background:var(--paper); color:var(--ink);
+        padding:7px 14px; font:inherit; font-size:13px; cursor:pointer;
+    }
+    .tool[aria-pressed="true"]{ border-color:var(--ink); background:var(--ink); color:#fff; }
+    #width{ flex:1; min-width:0; accent-color:var(--ink); }
+    .dot-box{ flex:none; width:30px; height:30px; display:flex; align-items:center; justify-content:center; }
+    #widthDot{ display:block; border-radius:50%; background:var(--ink); }
 
     canvas{
         display:block; width:100%; aspect-ratio:1 / 1;
@@ -98,9 +108,15 @@
     </form>
 
     <section id="board" hidden>
+        <div class="tools">
+            <button type="button" class="tool" id="pen" aria-pressed="true">펜</button>
+            <button type="button" class="tool" id="eraser" aria-pressed="false">지우개</button>
+            <input type="range" id="width" min="2" max="40" value="6" aria-label="굵기">
+            <span class="dot-box"><span id="widthDot"></span></span>
+        </div>
         <canvas id="canvas" width="720" height="720"></canvas>
         <div class="row">
-            <button type="button" class="ghost" id="clear">지우기</button>
+            <button type="button" class="ghost" id="clear">비우기</button>
             <button type="button" class="pri" id="save" disabled>저장</button>
         </div>
     </section>
@@ -122,6 +138,7 @@
     const loginForm = $('loginForm'), loginEmail = $('loginEmail'), loginPassword = $('loginPassword'), loginBtn = $('loginBtn');
     const who = $('who'), emailEl = $('email'), logout = $('logout');
     const board = $('board'), canvas = $('canvas'), clearBtn = $('clear'), saveBtn = $('save');
+    const penBtn = $('pen'), eraserBtn = $('eraser'), widthInput = $('width'), widthDot = $('widthDot');
     const statusEl = $('status'), list = $('list');
     const ctx = canvas.getContext('2d');
 
@@ -129,16 +146,51 @@
     let currentUser = null;
 
     // ── 그리기 (서버와 상관없이 브라우저 안에서만) ──
-    let drawing = false, last = null;
+    // 획마다 굵기와 지나간 점들을 기억해 둬야 획 단위로 지울 수 있음. 저장할 때만 한 장의 그림(PNG)이 됨
+    let strokes = [];        // [{ width, points: [{ x, y }, ...] }]
+    let tool = 'pen';        // 'pen' | 'eraser'
+    let current = null;      // 지금 긋고 있는 획
+    let erasing = false, lastErase = null;
 
-    function resetCanvas() {
+    // 남은 획들로 캔버스를 처음부터 다시 그림
+    function redraw() {
         ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for (const s of strokes) drawStroke(s);
+        saveBtn.disabled = strokes.length === 0;
+    }
+
+    function drawStroke(s) {
         ctx.strokeStyle = INK;
-        ctx.lineWidth = 6;
+        ctx.fillStyle = INK;
+        ctx.lineWidth = s.width;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        saveBtn.disabled = true;
+        const [first, ...rest] = s.points;
+        ctx.beginPath();
+        if (rest.length === 0) {
+            ctx.arc(first.x, first.y, s.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+            return;
+        }
+        ctx.moveTo(first.x, first.y);
+        for (const p of rest) ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+    }
+
+    function drawSegment(a, b, width) {
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = width;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+    }
+
+    function clearAll() {
+        strokes = [];
+        redraw();
     }
 
     // 화면 좌표 → 캔버스 좌표 (화면에 보이는 크기와 실제 캔버스 크기가 달라서)
@@ -147,31 +199,90 @@
         return { x: (e.clientX - r.left) * canvas.width / r.width, y: (e.clientY - r.top) * canvas.height / r.height };
     }
 
-    function startStroke(e) {
-        drawing = true;
-        canvas.setPointerCapture(e.pointerId);
-        last = point(e);
-        ctx.fillStyle = INK;
-        ctx.beginPath();
-        ctx.arc(last.x, last.y, ctx.lineWidth / 2, 0, Math.PI * 2);
-        ctx.fill();
-        saveBtn.disabled = false;
+    // 점 p 와 선분 ab 사이의 거리
+    function distToSegment(p, a, b) {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len2 = dx * dx + dy * dy;
+        const t = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+        return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
     }
 
-    function moveStroke(e) {
-        if (!drawing) return;
-        const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-        for (const ev of events.length ? events : [e]) {
-            const p = point(ev);
-            ctx.beginPath();
-            ctx.moveTo(last.x, last.y);
-            ctx.lineTo(p.x, p.y);
-            ctx.stroke();
-            last = p;
+    function touches(s, p, reach) {
+        const limit = s.width / 2 + reach;
+        if (s.points.length === 1) return Math.hypot(p.x - s.points[0].x, p.y - s.points[0].y) <= limit;
+        for (let i = 1; i < s.points.length; i++) {
+            if (distToSegment(p, s.points[i - 1], s.points[i]) <= limit) return true;
+        }
+        return false;
+    }
+
+    // 지우개: 이 점에 닿은 획 중 가장 위에 있는 획을 통째로 삭제
+    function eraseAt(p) {
+        const reach = 10 * canvas.width / canvas.getBoundingClientRect().width;  // 화면에서 10px 정도 여유
+        for (let i = strokes.length - 1; i >= 0; i--) {
+            if (touches(strokes[i], p, reach)) {
+                strokes.splice(i, 1);
+                redraw();
+                return;
+            }
         }
     }
 
-    function endStroke() { drawing = false; }
+    // 빠르게 쓸어도 사이에 있는 획을 놓치지 않게 촘촘히 확인
+    function eraseAlong(a, b) {
+        const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4));
+        for (let i = 1; i <= steps; i++) {
+            eraseAt({ x: a.x + (b.x - a.x) * i / steps, y: a.y + (b.y - a.y) * i / steps });
+        }
+    }
+
+    function onDown(e) {
+        canvas.setPointerCapture(e.pointerId);
+        const p = point(e);
+        if (tool === 'eraser') {
+            erasing = true;
+            lastErase = p;
+            eraseAt(p);
+            return;
+        }
+        current = { width: Number(widthInput.value), points: [p] };
+        strokes.push(current);
+        drawStroke(current);
+        saveBtn.disabled = false;
+    }
+
+    function onMove(e) {
+        if (!current && !erasing) return;
+        const coalesced = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+        for (const ev of coalesced.length ? coalesced : [e]) {
+            const p = point(ev);
+            if (erasing) {
+                eraseAlong(lastErase, p);
+                lastErase = p;
+            } else {
+                drawSegment(current.points[current.points.length - 1], p, current.width);
+                current.points.push(p);
+            }
+        }
+    }
+
+    function onUp() {
+        current = null;
+        erasing = false;
+    }
+
+    function setTool(name) {
+        tool = name;
+        penBtn.setAttribute('aria-pressed', name === 'pen');
+        eraserBtn.setAttribute('aria-pressed', name === 'eraser');
+        canvas.style.cursor = name === 'eraser' ? 'cell' : 'crosshair';
+    }
+
+    // 굵기 미리보기: 캔버스에 실제로 보일 크기의 점
+    function showWidth() {
+        const size = Math.max(2, Number(widthInput.value) * (canvas.clientWidth || 330) / canvas.width);
+        widthDot.style.width = widthDot.style.height = size + 'px';
+    }
 
     // ── 서버와 주고받기 ──
 
@@ -196,7 +307,7 @@
             return fail(error);
         }
         statusEl.textContent = '';
-        resetCanvas();
+        clearAll();
         load();
     }
 
@@ -226,6 +337,7 @@
         who.hidden = !user;
         emailEl.textContent = user ? user.email : '';
         board.hidden = !user;
+        showWidth();
 
         if (user) load();
         else list.replaceChildren();
@@ -276,12 +388,16 @@
     }
 
     function start() {
-        resetCanvas();
-        canvas.addEventListener('pointerdown', startStroke);
-        canvas.addEventListener('pointermove', moveStroke);
-        canvas.addEventListener('pointerup', endStroke);
-        canvas.addEventListener('pointercancel', endStroke);
-        clearBtn.onclick = resetCanvas;
+        redraw();
+        canvas.addEventListener('pointerdown', onDown);
+        canvas.addEventListener('pointermove', onMove);
+        canvas.addEventListener('pointerup', onUp);
+        canvas.addEventListener('pointercancel', onUp);
+        penBtn.onclick = () => setTool('pen');
+        eraserBtn.onclick = () => setTool('eraser');
+        widthInput.addEventListener('input', () => { setTool('pen'); showWidth(); });
+        window.addEventListener('resize', showWidth);
+        clearBtn.onclick = clearAll;
         saveBtn.onclick = save;
 
         loginForm.addEventListener('submit', e => {
