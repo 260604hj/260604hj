@@ -98,6 +98,30 @@
   .plating span{ animation:breathe 1.9s ease-in-out infinite; }
   @keyframes breathe{ 0%,100%{opacity:.35} 50%{opacity:1} }
 
+  /* ── 구상 과정 ──────────────────────────────────────── */
+  .process{
+    position:fixed; z-index:5;
+    left:22px; bottom:calc(var(--pad-bot) + 26px);
+    width:min(62vw, 400px);
+    pointer-events:none;
+    opacity:0; transition:opacity .6s ease;
+  }
+  .process.on{ opacity:1; }
+  .process .plan{
+    font-family:"Gowun Batang", serif;
+    font-size:14px; line-height:1.6; color:var(--ink-dim);
+    margin:0 0 12px; min-height:1.6em;
+  }
+  .process .log{
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:11px; line-height:1.85; color:var(--ink-faint);
+    white-space:pre;
+  }
+  .process .log div{ display:flex; gap:7px; align-items:center; }
+  .process .swatch{
+    display:inline-block; width:7px; height:7px; flex:none; border-radius:1px;
+  }
+
   /* ── 뒤로 가기 ─────────────────────────────────────── */
   .back{
     position:fixed; z-index:6;
@@ -121,15 +145,18 @@
 
 <a class="back" href="../visitor.html">←</a>
 
-<div class="plating" id="plating"><span>준비하고 있습니다</span></div>
+<div class="plating" id="plating"><span>주문을 받았습니다</span></div>
+
+<div class="process" id="process">
+  <p class="plan" id="plan"></p>
+  <div class="log" id="log"></div>
+</div>
 
 <div class="composer" id="composer">
   <p class="ask" id="ask">오늘은 무엇을 드시겠습니까</p>
   <input id="orderInput" type="text" autocomplete="off" placeholder="예: 연어 초밥, 마르게리타 피자, 딸기 빙수" />
   <p class="hint" id="hint">입력하고 엔터</p>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }
@@ -148,10 +175,10 @@ const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
 
 // Gemini 키는 Edge Function(omacase) 안에만 있고, 브라우저에는 오지 않습니다.
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const KITCHEN = `${SUPABASE_URL}/functions/v1/omacase`;
 
 /* ══════════════════════════════════════════════════════════
-   3. 화면 준비
+   2. 화면 준비
    ══════════════════════════════════════════════════════════ */
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -216,94 +243,47 @@ UNIT.torus.rotateX(-Math.PI / 2);                   // 접시에 눕힌 고리
 
 const toRad = (d) => (d || 0) * Math.PI / 180;
 const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const isHex = (c) => /^#[0-9a-fA-F]{6}$/.test(String(c ?? '').trim());
 
 function safeColor(hex, fallback = '#CCCCCC') {
-  try { return new THREE.Color(hex); } catch { return new THREE.Color(fallback); }
+  return new THREE.Color(isHex(hex) ? hex : fallback);
 }
+
+const growing = [];   // 방금 놓여서 커지는 중인 조각
 
 function buildPart(p) {
   const geo = UNIT[p.shape] || UNIT.box;
-  const mat = new THREE.MeshStandardMaterial({
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
     color: safeColor(p.color),
     roughness: 0.78,
     metalness: 0.0
-  });
-  const mesh = new THREE.Mesh(geo, mat);
+  }));
 
-  const s = Array.isArray(p.size) ? p.size : [1, 1, 1];
-  mesh.scale.set(
-    Math.max(0.05, num(s[0], 1)),
-    Math.max(0.05, num(s[1], 1)),
-    Math.max(0.05, num(s[2], 1))
+  const s = Array.isArray(p.size) ? p.size : [];
+  const to = new THREE.Vector3(
+    clamp(num(s[0], 1), 0.05, 24),
+    clamp(num(s[1], 1), 0.05, 24),
+    clamp(num(s[2], 1), 0.05, 24)
   );
 
-  const q = Array.isArray(p.pos) ? p.pos : [0, 0, 0];
-  mesh.position.set(num(q[0], 0), num(q[1], 0), num(q[2], 0));
+  const q = Array.isArray(p.pos) ? p.pos : [];
+  mesh.position.set(num(q[0], 0), Math.max(0, num(q[1], 0)), num(q[2], 0));
 
-  const r = Array.isArray(p.rot) ? p.rot : [0, 0, 0];
-  mesh.rotation.set(toRad(r[0]), toRad(r[1]), toRad(r[2]));
+  const r = Array.isArray(p.rot) ? p.rot : [];
+  mesh.rotation.set(toRad(num(r[0], 0)), toRad(num(r[1], 0)), toRad(num(r[2], 0)));
 
   mesh.castShadow = true;
   mesh.receiveShadow = true;
+
+  // 놓이는 순간이 보이게, 작은 점에서 제 크기로 부풀립니다.
+  mesh.scale.set(0.001, 0.001, 0.001);
+  growing.push({ mesh, t: 0, to });
   return mesh;
-}
-
-let plateMesh = null;
-const bites = [];   // 아직 남은 음식 묶음
-
-function buildScene(spec) {
-  clearTable();
-
-  const w = Math.min(40, Math.max(10, num(spec.plate?.width, 20)));
-  const d = spec.plate?.shape === 'circle'
-    ? w
-    : Math.min(40, Math.max(10, num(spec.plate?.depth, w)));
-
-  const plateGeo = spec.plate?.shape === 'square'
-    ? new THREE.BoxGeometry(1, 1, 1)
-    : new THREE.CylinderGeometry(0.5, 0.46, 1, 72);
-  plateMesh = new THREE.Mesh(plateGeo, new THREE.MeshStandardMaterial({
-    color: safeColor(spec.plate?.color, '#F2F0EC'),
-    roughness: 0.62,
-    metalness: 0.0
-  }));
-  plateMesh.scale.set(w, 0.9, d);
-  plateMesh.position.y = -0.45;      // 윗면이 정확히 y = 0
-  plateMesh.receiveShadow = true;
-  plateMesh.castShadow = true;
-  table.add(plateMesh);
-
-  (spec.items || []).forEach((item, i) => {
-    const g = new THREE.Group();
-    (item.parts || []).forEach((p) => g.add(buildPart(p)));
-    if (!g.children.length) return;
-
-    // 묶음의 원점을 음식이 놓인 자리로 옮깁니다.
-    // 이렇게 해야 먹을 때 접시 가운데로 빨려가지 않고 제자리에서 사라집니다.
-    const box = new THREE.Box3().setFromObject(g);
-    const c = box.getCenter(new THREE.Vector3());
-    g.children.forEach((m) => { m.position.x -= c.x; m.position.z -= c.z; });
-    g.position.set(c.x, 0, c.z);
-
-    g.userData = { name: item.name || '한 점', index: i, home: g.position.clone() };
-    table.add(g);
-    bites.push(g);
-  });
-
-  // 접시 크기에 맞춰 화면을 맞춥니다.
-  frustum = Math.max(w, d) * 1.5;
-  resizeCamera();
-  table.rotation.y = 0;
 }
 
 function disposeDeep(obj) {
   obj.traverse((o) => { if (o.isMesh) o.material?.dispose(); });
-}
-
-function clearTable() {
-  [...table.children].forEach((c) => { disposeDeep(c); table.remove(c); });
-  bites.length = 0;
-  plateMesh = null;
 }
 
 function resizeCamera() {
@@ -322,12 +302,111 @@ addEventListener('resize', () => {
 });
 
 /* ══════════════════════════════════════════════════════════
+   3. 접시 쌓기 — 글이 오는 대로 한 조각씩
+   ══════════════════════════════════════════════════════════ */
+
+let plateMesh = null;
+const bites = [];         // 아직 남은 음식 묶음
+const eating = [];        // 사라지는 중인 묶음
+let groups = [];          // 만들어 둔 묶음 (items 순서)
+let partsDone = [];       // 묶음마다 몇 조각까지 놓았는지
+
+function resetPlate() {
+  [...table.children].forEach((c) => { disposeDeep(c); table.remove(c); });
+  bites.length = 0;
+  eating.length = 0;
+  growing.length = 0;
+  groups = [];
+  partsDone = [];
+  plateMesh = null;
+}
+
+function buildPlate(plate) {
+  const shape = ['circle', 'ellipse', 'square'].includes(plate.shape) ? plate.shape : 'circle';
+  const w = clamp(num(plate.width, 20), 10, 40);
+  const d = shape === 'circle' ? w : clamp(num(plate.depth, w), 10, 40);
+
+  const geo = shape === 'square'
+    ? new THREE.BoxGeometry(1, 1, 1)
+    : new THREE.CylinderGeometry(0.5, 0.46, 1, 72);
+  plateMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    color: safeColor(plate.color, '#F2F0EC'),
+    roughness: 0.62,
+    metalness: 0.0
+  }));
+  plateMesh.scale.set(w, 0.9, d);
+  plateMesh.position.y = -0.45;      // 윗면이 정확히 y = 0
+  plateMesh.receiveShadow = true;
+  plateMesh.castShadow = true;
+  table.add(plateMesh);
+
+  frustum = Math.max(w, d) * 1.5;
+  resizeCamera();
+  table.rotation.y = 0;
+  return { shape, w, d };
+}
+
+// 한 조각이 다 왔는지 (쓰는 중인 마지막 조각은 아직 놓지 않습니다)
+function partReady(p) {
+  return !!p && typeof p.shape === 'string' && typeof p.color === 'string'
+    && Array.isArray(p.size) && p.size.length === 3
+    && Array.isArray(p.pos) && p.pos.length === 3;
+}
+
+// 반쯤 온 spec 을 화면에 반영. final 이면 마지막 조각까지 놓습니다.
+function growPlate(spec, final) {
+  if (!spec) return;
+  if (!plateMesh && spec.plate && typeof spec.plate.width === 'number') {
+    const p = buildPlate(spec.plate);
+    log(`접시 · ${p.shape} ${Math.round(p.w)}×${Math.round(p.d)}`, spec.plate.color);
+  }
+  if (!plateMesh) return;
+
+  const items = Array.isArray(spec.items) ? spec.items : [];
+  items.forEach((item, i) => {
+    const parts = Array.isArray(item?.parts) ? item.parts : [];
+    if (!groups[i]) {
+      if (!item?.name && !parts.length) return;
+      groups[i] = new THREE.Group();
+      partsDone[i] = 0;
+      table.add(groups[i]);
+      log(String(item?.name ?? '한 점').slice(0, 20));
+    }
+    parts.forEach((p, j) => {
+      if (j < partsDone[i]) return;
+      // 마지막 묶음의 마지막 조각은 아직 쓰는 중일 수 있습니다.
+      if (!final && i === items.length - 1 && j === parts.length - 1) return;
+      if (!partReady(p)) return;
+      groups[i].add(buildPart(p));
+      partsDone[i] = j + 1;
+      const s = p.size.map((n) => Math.round(num(n, 0) * 10) / 10).join('×');
+      log(`  ${p.shape} ${s}`, p.color);
+    });
+  });
+}
+
+// 다 왔으면 묶음마다 원점을 제자리로 옮깁니다.
+// 이렇게 해야 먹을 때 접시 가운데로 빨려가지 않고 제자리에서 사라집니다.
+function finishPlate() {
+  bites.length = 0;
+  groups.forEach((g) => {
+    if (!g) return;
+    if (!g.children.length) { table.remove(g); return; }
+    const box = new THREE.Box3().setFromObject(g);
+    const c = box.getCenter(new THREE.Vector3());
+    g.children.forEach((m) => { m.position.x -= c.x; m.position.z -= c.z; });
+    g.position.set(c.x, 0, c.z);
+    g.userData = { home: g.position.clone() };
+    bites.push(g);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
    4. 먹기
    ══════════════════════════════════════════════════════════ */
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-const eating = [];          // 사라지는 중인 묶음
 
 const el = {
   osinagaki: document.getElementById('osinagaki'),
@@ -337,7 +416,10 @@ const el = {
   ask:       document.getElementById('ask'),
   input:     document.getElementById('orderInput'),
   hint:      document.getElementById('hint'),
-  plating:   document.getElementById('plating')
+  plating:   document.getElementById('plating'),
+  process:   document.getElementById('process'),
+  plan:      document.getElementById('plan'),
+  logBox:    document.getElementById('log')
 };
 
 function drawPips(total, left) {
@@ -413,20 +495,115 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 });
 
 /* ══════════════════════════════════════════════════════════
-   5. 주문 → Gemini → 접시
+   5. 구상 과정 보이기
    ══════════════════════════════════════════════════════════ */
 
-async function askKitchen(order) {
-  const { data, error } = await db.functions.invoke('omacase', { body: { order } });
-  if (error) {
-    const body = await error.context?.json?.().catch(() => null);
-    throw new Error(body?.error || '주방에서 응답이 없습니다');
+const LOG_LINES = 7;
+
+function clearProcess() {
+  el.plan.textContent = '';
+  el.logBox.innerHTML = '';
+  el.process.classList.remove('on');
+}
+
+function log(text, color) {
+  const line = document.createElement('div');
+  if (isHex(color)) {
+    const dot = document.createElement('span');
+    dot.className = 'swatch';
+    dot.style.background = color;
+    line.appendChild(dot);
   }
-  if (data?.error) throw new Error(data.error);
-  if (!Array.isArray(data?.items) || !data.items.length) {
-    throw new Error('이 주문은 담아내지 못했습니다. 다르게 말씀해 주세요');
+  line.appendChild(document.createTextNode(text));
+  el.logBox.appendChild(line);
+  while (el.logBox.children.length > LOG_LINES) el.logBox.firstChild.remove();
+  const all = [...el.logBox.children];
+  all.forEach((c, i) => { c.style.opacity = 0.3 + 0.7 * ((i + 1) / all.length); });
+}
+
+/* ══════════════════════════════════════════════════════════
+   6. 반쯤 온 JSON 읽기
+   ══════════════════════════════════════════════════════════ */
+
+// 아직 닫히지 않은 괄호를 임시로 닫아 봅니다. 글자를 쓰는 중이면 null.
+function closeUp(src) {
+  const stack = [];
+  let inStr = false, esc = false;
+  for (const c of src) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if (c === '}' || c === ']') stack.pop();
   }
-  return data;
+  if (inStr) return null;
+  return src + stack.reverse().join('');
+}
+
+// 지금까지 온 만큼만 읽어 낸 객체 (뒤에서부터 잘라 가며 말이 되는 지점을 찾음)
+function parsePartial(text) {
+  for (let end = text.length; end > 0; end--) {
+    const c = text[end - 1];
+    if (c !== '}' && c !== ']' && c !== '"' && !/[0-9a-z]/.test(c)) continue;
+    const cand = closeUp(text.slice(0, end));
+    if (cand === null) continue;
+    try { return JSON.parse(cand); } catch { /* 더 앞으로 */ }
+  }
+  return null;
+}
+
+// 아직 닫히지 않은 plan 문장도 쓰이는 대로 보여 줍니다.
+function peekPlan(text) {
+  const m = text.match(/"plan"\s*:\s*"((?:[^"\\]|\\.)*)/);
+  if (!m) return null;
+  try { return JSON.parse(`"${m[1].replace(/\\$/, '')}"`); } catch { return null; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   7. 주문 → 주방 → 접시
+   ══════════════════════════════════════════════════════════ */
+
+async function askKitchen(order, onText) {
+  const res = await fetch(KITCHEN, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    },
+    body: JSON.stringify({ order })
+  });
+
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `주방에서 응답이 없습니다 (${res.status})`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '', text = '';
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      let msg;
+      try { msg = JSON.parse(line.slice(5)); } catch { continue; }
+      if (msg.error) throw new Error(msg.error);
+      if (msg.t) { text += msg.t; onText(text); }
+    }
+  }
+  if (!text.trim()) throw new Error('접시가 비어 돌아왔습니다. 다시 주문해 주세요');
+  return text;
 }
 
 let busy = false;
@@ -435,20 +612,49 @@ async function order(text) {
   if (busy) return;
   const q = text.trim();
   if (!q) return;
+
   busy = true;
   el.composer.classList.add('hidden');
   el.osinagaki.classList.remove('on');
   el.plating.classList.add('on');
-  clearTable();
+  clearProcess();
+  resetPlate();
+
+  let shownPlan = '';
+
+  // 글자가 올 때마다: 구상은 글로, 접시와 음식은 그 자리에서 3D 로
+  const onText = (all) => {
+    el.plating.classList.remove('on');
+    el.process.classList.add('on');
+
+    const plan = peekPlan(all);
+    if (plan && plan !== shownPlan) { shownPlan = plan; el.plan.textContent = plan; }
+
+    const spec = parsePartial(all);
+    if (spec?.dish && el.dishName.textContent !== spec.dish) {
+      el.dishName.textContent = spec.dish;
+      el.osinagaki.classList.add('on');
+    }
+    growPlate(spec, false);
+  };
 
   try {
-    const spec = await askKitchen(q);
-    buildScene(spec);
+    const raw = await askKitchen(q, onText);
+    const spec = parsePartial(raw);
+    growPlate(spec, true);
+    finishPlate();
+    if (!bites.length) throw new Error('이 주문은 담아내지 못했습니다. 다르게 말씀해 주세요');
+
     servedTotal = bites.length;
     el.dishName.textContent = spec.dish || q;
     drawPips(servedTotal, servedTotal);
     el.osinagaki.classList.add('on');
+    setTimeout(() => el.process.classList.remove('on'), 1600);
   } catch (err) {
+    resetPlate();
+    clearProcess();
+    el.osinagaki.classList.remove('on');
+    el.dishName.textContent = '';
     el.hint.textContent = err.message || '무언가 잘못되었습니다';
     el.hint.classList.add('warn');
     el.composer.classList.remove('hidden');
@@ -469,7 +675,7 @@ el.input.addEventListener('keydown', (e) => {
 el.input.focus();
 
 /* ══════════════════════════════════════════════════════════
-   6. 그리기
+   8. 그리기
    ══════════════════════════════════════════════════════════ */
 
 const clock = new THREE.Clock();
@@ -481,6 +687,20 @@ function tick() {
   if (!dragging && Math.abs(spin) > 0.00002) {
     table.rotation.y += spin;
     spin *= 0.92;
+  }
+
+  // 막 놓인 조각: 작은 점에서 제 크기로 부풀어 오릅니다.
+  for (let i = growing.length - 1; i >= 0; i--) {
+    const g = growing[i];
+    g.t += dt / 0.28;
+    const k = Math.min(1, g.t);
+    const ease = 1 - Math.pow(1 - k, 3);
+    g.mesh.scale.set(
+      Math.max(0.001, g.to.x * ease),
+      Math.max(0.001, g.to.y * ease),
+      Math.max(0.001, g.to.z * ease)
+    );
+    if (k >= 1) growing.splice(i, 1);
   }
 
   // 먹히는 중인 음식: 살짝 떠올랐다가 작아지며 사라집니다.
