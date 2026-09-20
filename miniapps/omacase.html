@@ -147,7 +147,7 @@ import * as THREE from 'three';
 const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
 
-// Gemini 키는 Edge Function(omakase) 안에만 있고, 브라우저에는 오지 않습니다.
+// Gemini 키는 Edge Function(omacase) 안에만 있고, 브라우저에는 오지 않습니다.
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ══════════════════════════════════════════════════════════
@@ -417,7 +417,7 @@ renderer.domElement.addEventListener('pointermove', (e) => {
    ══════════════════════════════════════════════════════════ */
 
 async function askKitchen(order) {
-  const { data, error } = await db.functions.invoke('omakase', { body: { order } });
+  const { data, error } = await db.functions.invoke('omacase', { body: { order } });
   if (error) {
     const body = await error.context?.json?.().catch(() => null);
     throw new Error(body?.error || '주방에서 응답이 없습니다');

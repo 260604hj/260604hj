@@ -1,4 +1,4 @@
-// 오마카세 — Supabase Edge Function (이름: omakase)
+// 오마카세 — Supabase Edge Function (이름: omacase)
 // Supabase 대시보드 > Edge Functions > Deploy a new function > Via Editor 에 붙여넣고 배포
 // Gemini API 키는 다른 함수와 같은 GEMINI_API_KEY (Edge Function Secrets, 프로젝트 전체 공용)
 // 이 함수만 로그인 없이 누구나 부를 수 있습니다 (Visitor 용).

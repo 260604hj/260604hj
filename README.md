@@ -77,7 +77,7 @@
 │  └─ old/                ← 예전 앱 보관
 ├─ supabase/
 │  ├─ migrations/         ← 데이터베이스 구조 기록 (.sql)
-│  └─ functions/          ← Supabase 서버에서 도는 코드 (summarize, ascii-comic, omakase)
+│  └─ functions/          ← Supabase 서버에서 도는 코드 (summarize, ascii-comic, omacase)
 ├─ IMG/                   ← 이미지 모음
 ├─ data/                  ← 엑셀(xlsx), csv 등 데이터 파일
 └─ README.md              ← 이 안내문
@@ -104,7 +104,7 @@
   `002_admin_memos.sql` 맨 아래 주석의 관리자 등록 줄을 따로 실행합니다.
 - `supabase/functions/` 는 Supabase 서버에서 실행되는 코드(Edge Function)의 원본입니다.
   대시보드의 Edge Functions 에 붙여넣어 배포합니다. 이 폴더를 고쳐도 배포하기 전에는 서버에 반영되지 않습니다.
-  `omakase` 는 로그인 없이 쓰는 함수라, 배포할 때 **Verify JWT 를 꺼야** 합니다.
+  `omacase` 는 로그인 없이 쓰는 함수라, 배포할 때 **Verify JWT 를 꺼야** 합니다.
 - 키는 두 종류입니다.
   - **Publishable key** (`sb_publishable_...`) — 공개용. html 에 넣어도 됩니다.
   - **Secret key** (`sb_secret_...`) 와 **데이터베이스 비밀번호** — 절대 이 폴더에 넣지 마세요.
