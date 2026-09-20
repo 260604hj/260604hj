@@ -3,14 +3,14 @@
 // Gemini API 키는 다른 함수와 같은 GEMINI_API_KEY (Edge Function Secrets, 프로젝트 전체 공용)
 // 이 함수만 로그인 없이 누구나 부를 수 있습니다 (Visitor 용). Verify JWT 를 꺼 두세요.
 //
-// 응답은 스트리밍입니다. Gemini 가 글자를 만들어 내는 대로 그대로 흘려보내고,
-// 브라우저가 반쯤 온 JSON 을 읽어 가며 접시를 하나씩 쌓습니다.
+// 모델은 좌표를 계산하지 않습니다. "무슨 그릇에 어떤 모양으로 몇 개를 어떻게 담는가" 만 고르고,
+// 그릇 모양과 자리 계산은 브라우저(omacase.html)가 합니다. 그래서 응답이 짧고 빠르고 덜 틀립니다.
+// 응답은 스트리밍입니다.
 
 const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"];
 const TRY_NEXT = [404, 429, 500, 503];
 
 const MAX_ORDER = 60;
-const MAX_ITEMS = 9;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,68 +19,67 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SYSTEM_PROMPT = `You are a 3D food stylist. You describe a dish as a small set of simple
-solid shapes, so a three.js renderer can build it. You never write code. You only return the JSON
-object that matches the given schema.
+const VESSELS = ["flat_plate", "rimmed_plate", "bowl", "deep_bowl", "stone_pot", "board", "basket", "glass"];
+const ARRANGEMENTS = ["row", "grid", "ring", "fan", "mound", "stack", "scatter", "submerged"];
+const FORMS = [
+  "nigiri", "dumpling", "roll", "slice", "cube", "ball",
+  "scoop", "noodle_nest", "skewer", "heap", "ring", "sheet", "custom",
+];
 
-FIRST RULE — BUILD WHAT WAS ORDERED
-- The order is the dish. Never substitute another dish, never drift to a dish you find easier.
-  "딸기 빙수" is shaved ice with strawberries, not dumplings. "마르게리타 피자" is a round pizza
-  with red sauce, white mozzarella and green basil, not sushi.
-- Work it out before you build: what does this exact food look like — its container, its colour,
-  its texture, how it is served, how a person eats it. Write that in plan, then build it.
-- Use the real colours of that food. Rice is off-white "#FDFBF7", salmon "#F08050", nori "#2B2B2B",
-  strawberry "#E23B4A", condensed milk "#FFFDF6", basil "#4C8A3F", char on grilled meat "#4A2E1E".
-- If the order names a country or a style (Korean, Italian, street food), keep to it.
-- If the order is vague ("아무거나", "맛있는 거"), choose one specific real dish and name it in dish.
-- If the order is not food, build the closest edible thing and say so in plan.
+const SYSTEM_PROMPT = `You are a food stylist for a miniature 3D restaurant. You do not draw and you do not
+compute coordinates. You answer one question: how is this exact dish really served, and what is on it?
+The renderer owns the geometry — it knows how to build each vessel and each form, and where to put things.
 
-STYLE
-- Low-poly toy food, seen in isometric view on a plate, like a miniature model.
-- Every part is flat-coloured. No textures, no gradients. Colours are hex strings like "#E8734A".
-- Readable, not realistic: a shrimp nigiri is a rice cylinder plus an orange-pink capsule.
-- A bowl dish (bingsu, ramen, stew) is still built on the plate: use a wide cylinder as the bowl,
-  then heap the food on top of it. Rings and cones read well as noodles, ice and toppings.
+FIRST — REMEMBER THE REAL DISH
+Before choosing anything, picture the dish as it is actually served in its own country.
+- What vessel does it come in? Ramen comes in a deep bowl, not on a plate. Bibimbap comes in a stone pot.
+  Nigiri comes on a flat plate or a wooden board. Bingsu comes in a wide bowl. Tteokbokki in a shallow bowl
+  with red broth. Pizza on a board. Beer or smoothie in a glass. Fried chicken in a basket.
+- Is there liquid? Broth, soup, sauce, syrup, milk — say so and give its colour and how full the vessel is.
+- How is it laid out? A row of nigiri, a ring of dumplings, a mound of shaved ice, a nest of noodles
+  submerged in broth, slices fanned out, skewers laid in a row.
+- What is one mouthful of it? The person picks up one piece at a time.
+Write that recollection in plan, in 2-3 short plain Korean sentences, then choose to match it.
+Never substitute a different dish. If the order is vague, pick one specific real dish and name it in dish.
+If the order is not food, build the closest edible thing.
 
-COORDINATES AND UNITS
-- 1 unit = 1 cm. The plate top surface is y = 0. Up is +y.
-- pos is the CENTRE of the part, relative to the centre of the plate.
-- size is the bounding box [x, y, z] of the part in cm.
-- rot is [x, y, z] in DEGREES. Omit it when there is no rotation.
-- Nothing may sit below y = 0. A part of height h resting on the plate has pos y = h / 2.
-  A part stacked on top of another has pos y = (height of what is under it) + h / 2.
-- Keep every part inside the plate: |pos x| < width/2 - 1, |pos z| < depth/2 - 1.
+VESSEL — pick the one that is actually used
+- flat_plate: 평평한 접시. Nigiri, cake slices, grilled meat, sandwiches.
+- rimmed_plate: 테두리 있는 접시. Pasta, curry with rice, saucy dishes with no deep broth.
+- bowl: 사발. Bingsu, salad, rice bowls, stew served wide, ice cream.
+- deep_bowl: 깊은 면기. Ramen, pho, udon, soup with noodles submerged.
+- stone_pot: 돌솥·뚝배기. Bibimbap, sundubu, anything served bubbling.
+- board: 나무 도마. Pizza, bread, cheese, sushi geta, barbecue.
+- basket: 바구니. Fried chicken, chips, street food, steamed buns.
+- glass: 유리잔. Drinks, smoothies, parfait, affogato.
+size is the width across, in cm: 16-20 for a small plate or glass, 20-26 for a main plate or bowl.
+color is the vessel's own colour: white "#F2F0EC", dark slate "#39463F", wood "#B08050",
+black stone "#3A3632", glass "#CFE0E6", woven basket "#C8A66B".
+liquid is the broth or sauce lying in the vessel: colour plus level 0-1 (how full). null when the dish is dry.
 
-SHAPES (all sized by their bounding box)
-- box: a cuboid. Bread, tofu, cake, sushi rice seen square-on.
-- sphere: an ellipsoid. Meatballs, fruit, scoops.
-- cylinder: a disc or tube, axis along y before rotation. Bowls, rice, sausage slices, cups.
-- cone: a cone, tip pointing +y before rotation. Heaps, ice, shaved toppings, carrot pieces.
-- capsule: a rounded rod, axis along y before rotation. Shrimp, sausage, fingers of food.
-- torus: a flat ring lying on the plate before rotation. Onion rings, donuts, coiled noodles.
+ARRANGEMENT — how the mouthfuls sit in the vessel
+row (한 줄), grid (격자), ring (둥글게), fan (부채꼴), mound (수북이 쌓기),
+stack (위로 포개기), scatter (흩뿌리기), submerged (국물에 잠기게).
+count is how many mouthfuls: 4 to 9.
 
-ITEMS
-- items is the list of BITES. The person clicks one bite and eats it, so each item must be one
-  mouthful that makes sense on its own: one piece of sushi, one dumpling, one spoonful of bingsu,
-  one slice of cake.
-- Give between 4 and ${MAX_ITEMS} items. Each item has 1 to 5 parts.
-- Spread the items over the plate so they do not overlap each other.
-- Vary them. A real plate is not 6 identical objects in a straight line. When one dish is served as
-  one mass (bingsu, pasta), cut it into 4-9 spoon-sized heaps sitting side by side.
-- name is a short Korean name for that bite, such as "연어 초밥".
-
-PLATE
-- width and depth are in cm, usually between 16 and 26.
-- "circle" for round, "ellipse" for a long oval, "square" for square.
-- Plate colour follows the food: near-white "#F2F0EC" for most, dark slate "#39463F" for sushi and
-  grilled meat, wood "#B08050" for bread and street food, glass-grey "#DCE3E6" for cold desserts.
-
-PLAN
-- plan is 2-3 short Korean sentences, written before you build, saying what this exact dish looks
-  like and how you will lay it out. Plain and concrete, no greetings.
+BITES — each one is a single mouthful, in the order they sit
+- form is the shape the renderer builds:
+  nigiri (초밥 한 점), dumpling (만두·교자), roll (김밥·마키 한 조각), slice (얇게 썬 조각),
+  cube (깍둑 썬 덩이), ball (동그란 덩이), scoop (한 숟갈 퍼 담은 덩이), noodle_nest (면 뭉치),
+  skewer (꼬치), heap (수북한 더미), ring (고리 모양), sheet (넓고 얇은 조각), custom (그 밖의 것).
+- base_color is the body of the bite, top_color what lies on top (fish, sauce, cheese, syrup). Real colours:
+  rice "#FDFBF7", salmon "#F08050", tuna "#B3223A", nori "#2B2B2B", shaved ice "#F3F7FA",
+  strawberry "#E23B4A", condensed milk "#FFFDF6", basil "#4C8A3F", char "#4A2E1E", cheese "#F0C860".
+- scale 0.7-1.4, larger for a big piece of meat, smaller for a berry.
+- toppings: 0 to 3 small things sprinkled on that bite — each is a colour plus one of
+  dot, stick, flake. Sesame, herbs, chilli, chocolate, spring onion.
+- Vary the bites where the real dish varies (a sushi plate), keep them alike where it does not (dumplings).
+- Use form "custom" only when nothing else fits, and then give parts: simple shapes
+  (box, sphere, cylinder, cone, capsule, torus) with color and size [x,y,z] in cm, around 3-5 cm per bite.
+  The renderer places the bite; parts are positioned relative to the bite's own centre, y = 0 at its bottom.
 
 OUTPUT
-- dish is a short Korean name for the whole dish, matching the order.
+- dish: short Korean name matching the order.
 - Return the JSON object only.`;
 
 const RESPONSE_SCHEMA = {
@@ -88,27 +87,56 @@ const RESPONSE_SCHEMA = {
   properties: {
     dish: { type: "STRING" },
     plan: { type: "STRING" },
-    plate: {
+    serving: {
       type: "OBJECT",
       properties: {
-        shape: { type: "STRING", enum: ["circle", "ellipse", "square"] },
+        vessel: { type: "STRING", enum: VESSELS },
+        size: { type: "NUMBER" },
         color: { type: "STRING" },
-        width: { type: "NUMBER" },
-        depth: { type: "NUMBER" },
+        liquid: {
+          type: "OBJECT",
+          nullable: true,
+          properties: {
+            color: { type: "STRING" },
+            level: { type: "NUMBER" },
+          },
+          required: ["color", "level"],
+          propertyOrdering: ["color", "level"],
+        },
+        arrangement: { type: "STRING", enum: ARRANGEMENTS },
+        count: { type: "INTEGER" },
       },
-      required: ["shape", "color", "width", "depth"],
-      propertyOrdering: ["shape", "color", "width", "depth"],
+      required: ["vessel", "size", "color", "arrangement", "count"],
+      propertyOrdering: ["vessel", "size", "color", "liquid", "arrangement", "count"],
     },
-    items: {
+    bites: {
       type: "ARRAY",
       minItems: 4,
-      maxItems: MAX_ITEMS,
+      maxItems: 9,
       items: {
         type: "OBJECT",
         properties: {
           name: { type: "STRING" },
+          form: { type: "STRING", enum: FORMS },
+          base_color: { type: "STRING" },
+          top_color: { type: "STRING" },
+          scale: { type: "NUMBER" },
+          toppings: {
+            type: "ARRAY",
+            maxItems: 3,
+            items: {
+              type: "OBJECT",
+              properties: {
+                kind: { type: "STRING", enum: ["dot", "stick", "flake"] },
+                color: { type: "STRING" },
+              },
+              required: ["kind", "color"],
+              propertyOrdering: ["kind", "color"],
+            },
+          },
           parts: {
             type: "ARRAY",
+            maxItems: 5,
             items: {
               type: "OBJECT",
               properties: {
@@ -118,19 +146,19 @@ const RESPONSE_SCHEMA = {
                 pos: { type: "ARRAY", items: { type: "NUMBER" } },
                 rot: { type: "ARRAY", items: { type: "NUMBER" } },
               },
-              required: ["shape", "color", "size", "pos"],
+              required: ["shape", "color", "size"],
               propertyOrdering: ["shape", "color", "size", "pos", "rot"],
             },
           },
         },
-        required: ["name", "parts"],
-        propertyOrdering: ["name", "parts"],
+        required: ["name", "form", "base_color"],
+        propertyOrdering: ["name", "form", "base_color", "top_color", "scale", "toppings", "parts"],
       },
     },
   },
-  required: ["dish", "plan", "plate", "items"],
-  // 스트리밍으로 받을 때 이 순서대로 옵니다: 이름 → 구상 → 접시 → 음식
-  propertyOrdering: ["dish", "plan", "plate", "items"],
+  required: ["dish", "plan", "serving", "bites"],
+  // 스트리밍으로 이 순서대로 옵니다: 이름 → 구상 → 그릇 → 한 입씩
+  propertyOrdering: ["dish", "plan", "serving", "bites"],
 };
 
 function reply(body: Record<string, unknown>, status = 200) {

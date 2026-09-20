@@ -175,6 +175,7 @@ const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
 
 // Gemini 키는 Edge Function(omacase) 안에만 있고, 브라우저에는 오지 않습니다.
+// 서버는 "무슨 그릇에 어떻게 담는가" 만 보내고, 그릇 모양과 자리 계산은 여기서 합니다.
 const KITCHEN = `${SUPABASE_URL}/functions/v1/omacase`;
 
 /* ══════════════════════════════════════════════════════════
@@ -192,7 +193,7 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
-// 접시와 음식이 모두 들어가는 묶음. 드래그하면 이것만 돈다.
+// 그릇과 음식이 모두 들어가는 묶음. 드래그하면 이것만 돈다.
 const table = new THREE.Group();
 scene.add(table);
 
@@ -202,94 +203,30 @@ camera.position.set(60, 52, 60);
 camera.lookAt(0, 0, 0);
 resizeCamera();
 
-const key = new THREE.DirectionalLight(0xffffff, 2.1);
-key.position.set(34, 56, 26);
-key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left = -26;
-key.shadow.camera.right = 26;
-key.shadow.camera.top = 26;
-key.shadow.camera.bottom = -26;
-key.shadow.camera.near = 1;
-key.shadow.camera.far = 160;
-key.shadow.bias = -0.0009;
-key.shadow.radius = 3;
-scene.add(key);
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
+keyLight.position.set(34, 56, 26);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.left = -26;
+keyLight.shadow.camera.right = 26;
+keyLight.shadow.camera.top = 26;
+keyLight.shadow.camera.bottom = -26;
+keyLight.shadow.camera.near = 1;
+keyLight.shadow.camera.far = 160;
+keyLight.shadow.bias = -0.0009;
+keyLight.shadow.radius = 3;
+scene.add(keyLight);
 
-const fill = new THREE.DirectionalLight(0xdfe6ef, 0.5);
-fill.position.set(-30, 22, -18);
-scene.add(fill);
+const fillLight = new THREE.DirectionalLight(0xdfe6ef, 0.5);
+fillLight.position.set(-30, 22, -18);
+scene.add(fillLight);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x1a1a1a, 0.7));
-
-/* ── 모양 만들기 ──────────────────────────────────────── */
-
-const UNIT = {
-  box:      new THREE.BoxGeometry(1, 1, 1),
-  sphere:   new THREE.SphereGeometry(0.5, 28, 18),
-  cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 30),
-  cone:     new THREE.ConeGeometry(0.5, 1, 26),
-  capsule:  new THREE.CapsuleGeometry(0.3, 0.4, 6, 18),
-  torus:    new THREE.TorusGeometry(0.35, 0.15, 14, 34)
-};
-// 캡슐과 도넛은 쓰기 편한 방향으로 미리 돌려 둡니다.
-UNIT.capsule.computeBoundingBox();
-(() => {
-  const b = UNIT.capsule.boundingBox, s = new THREE.Vector3();
-  b.getSize(s);
-  UNIT.capsule.scale(1 / s.x, 1 / s.y, 1 / s.z);   // 1×1×1 로 정규화
-})();
-UNIT.torus.rotateX(-Math.PI / 2);                   // 접시에 눕힌 고리
-
-const toRad = (d) => (d || 0) * Math.PI / 180;
-const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
-const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-const isHex = (c) => /^#[0-9a-fA-F]{6}$/.test(String(c ?? '').trim());
-
-function safeColor(hex, fallback = '#CCCCCC') {
-  return new THREE.Color(isHex(hex) ? hex : fallback);
-}
-
-const growing = [];   // 방금 놓여서 커지는 중인 조각
-
-function buildPart(p) {
-  const geo = UNIT[p.shape] || UNIT.box;
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-    color: safeColor(p.color),
-    roughness: 0.78,
-    metalness: 0.0
-  }));
-
-  const s = Array.isArray(p.size) ? p.size : [];
-  const to = new THREE.Vector3(
-    clamp(num(s[0], 1), 0.05, 24),
-    clamp(num(s[1], 1), 0.05, 24),
-    clamp(num(s[2], 1), 0.05, 24)
-  );
-
-  const q = Array.isArray(p.pos) ? p.pos : [];
-  mesh.position.set(num(q[0], 0), Math.max(0, num(q[1], 0)), num(q[2], 0));
-
-  const r = Array.isArray(p.rot) ? p.rot : [];
-  mesh.rotation.set(toRad(num(r[0], 0)), toRad(num(r[1], 0)), toRad(num(r[2], 0)));
-
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-
-  // 놓이는 순간이 보이게, 작은 점에서 제 크기로 부풀립니다.
-  mesh.scale.set(0.001, 0.001, 0.001);
-  growing.push({ mesh, t: 0, to });
-  return mesh;
-}
-
-function disposeDeep(obj) {
-  obj.traverse((o) => { if (o.isMesh) o.material?.dispose(); });
-}
 
 function resizeCamera() {
   const a = innerWidth / innerHeight;
   const h = frustum / 2;
-  const wHalf = a >= 1 ? h * a : h;          // 세로 화면에서도 접시가 안 잘리게
+  const wHalf = a >= 1 ? h * a : h;          // 세로 화면에서도 그릇이 안 잘리게
   const vHalf = a >= 1 ? h : h / a;
   camera.left = -wHalf; camera.right = wHalf;
   camera.top = vHalf;  camera.bottom = -vHalf;
@@ -302,107 +239,449 @@ addEventListener('resize', () => {
 });
 
 /* ══════════════════════════════════════════════════════════
-   3. 접시 쌓기 — 글이 오는 대로 한 조각씩
+   3. 기본 도형
    ══════════════════════════════════════════════════════════ */
 
-let plateMesh = null;
-const bites = [];         // 아직 남은 음식 묶음
-const eating = [];        // 사라지는 중인 묶음
-let groups = [];          // 만들어 둔 묶음 (items 순서)
-let partsDone = [];       // 묶음마다 몇 조각까지 놓았는지
+const UNIT = {
+  box:      new THREE.BoxGeometry(1, 1, 1),
+  sphere:   new THREE.SphereGeometry(0.5, 28, 18),
+  cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 30),
+  cone:     new THREE.ConeGeometry(0.5, 1, 26),
+  capsule:  new THREE.CapsuleGeometry(0.3, 0.4, 6, 18),
+  torus:    new THREE.TorusGeometry(0.35, 0.15, 14, 34)
+};
+UNIT.capsule.computeBoundingBox();
+(() => {
+  const b = UNIT.capsule.boundingBox, s = new THREE.Vector3();
+  b.getSize(s);
+  UNIT.capsule.scale(1 / s.x, 1 / s.y, 1 / s.z);   // 1×1×1 로 정규화
+})();
+UNIT.torus.rotateX(-Math.PI / 2);                   // 눕힌 고리
+
+const toRad = (d) => (d || 0) * Math.PI / 180;
+const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const isHex = (c) => /^#[0-9a-fA-F]{6}$/.test(String(c ?? '').trim());
+const pick = (...c) => c.find(isHex) ?? '#CCCCCC';
+
+function safeColor(hex, fallback = '#CCCCCC') {
+  return new THREE.Color(isHex(hex) ? hex : fallback);
+}
+
+function foodMat(color) {
+  return new THREE.MeshStandardMaterial({ color: safeColor(color), roughness: 0.78, metalness: 0 });
+}
+
+const growing = [];   // 방금 놓여서 커지는 중인 조각
+
+// 한 조각. 놓이는 순간이 보이도록 작은 점에서 제 크기로 부풀립니다.
+function part(shape, color, size, pos = [0, 0, 0], rot = [0, 0, 0]) {
+  const mesh = new THREE.Mesh(UNIT[shape] || UNIT.box, foodMat(color));
+  const to = new THREE.Vector3(
+    clamp(num(size[0], 1), 0.05, 26),
+    clamp(num(size[1], 1), 0.05, 26),
+    clamp(num(size[2], 1), 0.05, 26)
+  );
+  mesh.position.set(num(pos[0], 0), num(pos[1], 0), num(pos[2], 0));
+  mesh.rotation.set(toRad(num(rot[0], 0)), toRad(num(rot[1], 0)), toRad(num(rot[2], 0)));
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.scale.set(0.001, 0.001, 0.001);
+  growing.push({ mesh, t: 0, to });
+  return mesh;
+}
+
+function disposeDeep(obj) {
+  obj.traverse((o) => { if (o.isMesh) o.material?.dispose(); });
+}
+
+/* ══════════════════════════════════════════════════════════
+   4. 그릇 — 이름만 오면 모양은 여기서 만듭니다
+   ══════════════════════════════════════════════════════════ */
+
+// 바닥에서 테두리까지 이어지는 곡면 하나로 사발을 만듭니다.
+function hollow(size, height, color, opts = {}) {
+  const R = size / 2, N = 16, pts = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    pts.push(new THREE.Vector2(R * Math.sin(t * Math.PI / 2) * 0.99, height * (1 - Math.cos(t * Math.PI / 2))));
+  }
+  const mesh = new THREE.Mesh(
+    new THREE.LatheGeometry(pts, 56),
+    new THREE.MeshStandardMaterial({
+      color: safeColor(color, '#F2F0EC'),
+      roughness: 0.55, metalness: 0, side: THREE.DoubleSide, ...opts
+    })
+  );
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function slab(color, size, pos) {
+  const mesh = new THREE.Mesh(UNIT.box, new THREE.MeshStandardMaterial({
+    color: safeColor(color, '#B08050'), roughness: 0.7, metalness: 0
+  }));
+  mesh.scale.set(...size);
+  mesh.position.set(...pos);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+// 각 그릇: obj(3D), y0(음식이 놓이는 높이), r(음식을 놓을 수 있는 반경), depth(그릇 깊이)
+const VESSELS = {
+  flat_plate(size, color) {
+    const m = new THREE.Mesh(UNIT.cylinder, new THREE.MeshStandardMaterial({
+      color: safeColor(color, '#F2F0EC'), roughness: 0.6, metalness: 0
+    }));
+    m.scale.set(size, 1.2, size);
+    m.position.y = -0.6;
+    m.castShadow = true; m.receiveShadow = true;
+    return { obj: m, y0: 0, r: size / 2 - 1.8, rz: size / 2 - 1.8, depth: 0 };
+  },
+  rimmed_plate(size, color) {
+    const g = new THREE.Group();
+    const base = VESSELS.flat_plate(size * 0.97, color).obj;
+    g.add(base);
+    const rimGeo = new THREE.TorusGeometry(size / 2 - 0.6, 0.62, 14, 64);
+    rimGeo.rotateX(-Math.PI / 2);
+    const rim = new THREE.Mesh(rimGeo, new THREE.MeshStandardMaterial({
+      color: safeColor(color, '#F2F0EC'), roughness: 0.6, metalness: 0
+    }));
+    rim.castShadow = true; rim.receiveShadow = true;
+    g.add(rim);
+    return { obj: g, y0: 0.2, r: size / 2 - 2.6, rz: size / 2 - 2.6, depth: 0.8 };
+  },
+  bowl(size, color) {
+    const h = size * 0.40;
+    return { obj: hollow(size, h, color), y0: h * 0.34, r: size / 2 * 0.62, depth: h };
+  },
+  deep_bowl(size, color) {
+    const h = size * 0.62;
+    return { obj: hollow(size, h, color), y0: h * 0.5, r: size / 2 * 0.56, depth: h };
+  },
+  stone_pot(size, color) {
+    const h = size * 0.46;
+    const g = new THREE.Group();
+    g.add(hollow(size, h, color || '#3A3632'));
+    const foot = new THREE.Mesh(UNIT.cylinder, new THREE.MeshStandardMaterial({
+      color: safeColor(color, '#3A3632'), roughness: 0.85, metalness: 0
+    }));
+    foot.scale.set(size * 0.55, 1.1, size * 0.55);
+    foot.position.y = -0.55;
+    foot.castShadow = true; foot.receiveShadow = true;
+    g.add(foot);
+    return { obj: g, y0: h * 0.42, r: size / 2 * 0.58, depth: h };
+  },
+  board(size, color) {
+    const d = size * 0.72;
+    const g = new THREE.Group();
+    g.add(slab(color || '#B08050', [size, 1.5, d], [0, -0.75, 0]));
+    return { obj: g, y0: 0, r: size / 2 - 1.8, rz: d / 2 - 1.6, depth: 0 };
+  },
+  basket(size, color) {
+    const h = size * 0.34;
+    const g = new THREE.Group();
+    g.add(hollow(size, h, color || '#C8A66B'));
+    const lip = new THREE.TorusGeometry(size / 2 * 0.99, 0.45, 12, 52);
+    lip.rotateX(-Math.PI / 2);
+    const rim = new THREE.Mesh(lip, new THREE.MeshStandardMaterial({
+      color: safeColor(color, '#C8A66B'), roughness: 0.85, metalness: 0
+    }));
+    rim.position.y = h;
+    rim.castShadow = true; rim.receiveShadow = true;
+    g.add(rim);
+    return { obj: g, y0: h * 0.42, r: size / 2 * 0.64, depth: h };
+  },
+  glass(size, color) {
+    const h = size * 1.15;
+    const obj = hollow(size, h, color || '#CFE0E6', { transparent: true, opacity: 0.42, roughness: 0.1 });
+    obj.castShadow = false;
+    return { obj, y0: h * 0.42, r: size / 2 * 0.58, depth: h };
+  }
+};
+
+/* ══════════════════════════════════════════════════════════
+   5. 놓는 자리 — 배치 이름만 오면 좌표는 여기서 계산
+   ══════════════════════════════════════════════════════════ */
+
+const spread = (n, f) => Array.from({ length: n }, (_, i) => f(i));
+
+const ARRANGE = {
+  row: (n, rx) => {
+    const step = (2 * rx) / n;
+    return spread(n, (i) => ({ x: (i - (n - 1) / 2) * step, z: 0 }));
+  },
+  grid: (n, rx, rz) => {
+    const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
+    const sx = (2 * rx) / cols, sz = (2 * rz) / rows;
+    return spread(n, (i) => ({
+      x: ((i % cols) - (cols - 1) / 2) * sx,
+      z: (Math.floor(i / cols) - (rows - 1) / 2) * sz
+    }));
+  },
+  ring: (n, rx, rz) => spread(n, (i) => {
+    const a = (i / n) * Math.PI * 2;
+    return { x: Math.cos(a) * rx * 0.68, z: Math.sin(a) * rz * 0.68, ry: -a };
+  }),
+  fan: (n, rx, rz) => spread(n, (i) => {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    const a = (-0.5 + t) * Math.PI;
+    return { x: Math.cos(a) * rx * 0.66, z: Math.sin(a) * rz * 0.5 + rz * 0.2, ry: -a + Math.PI / 2 };
+  }),
+  mound: (n, rx, rz) => spread(n, (i) => {
+    if (i === n - 1) return { x: 0, z: 0, y: 1.9 };
+    const a = (i / Math.max(n - 1, 1)) * Math.PI * 2;
+    return { x: Math.cos(a) * rx * 0.46, z: Math.sin(a) * rz * 0.46, ry: -a };
+  }),
+  stack: (n) => spread(n, (i) => ({
+    x: Math.sin(i * 1.1) * 0.5, z: Math.cos(i * 1.1) * 0.5, y: i * 1.6, ry: i * 0.5
+  })),
+  scatter: (n, rx, rz) => spread(n, (i) => {
+    const a = i * 2.39996, k = Math.sqrt((i + 0.6) / n);        // 해바라기 배열
+    return { x: Math.cos(a) * rx * 0.82 * k, z: Math.sin(a) * rz * 0.82 * k, ry: a };
+  }),
+  submerged: (n, rx, rz) => spread(n, (i) => {
+    const a = (i / n) * Math.PI * 2;
+    return { x: Math.cos(a) * rx * 0.62, z: Math.sin(a) * rz * 0.62, y: -0.55, ry: -a };
+  })
+};
+
+// 자리끼리 너무 가까우면 한 입 크기를 줄여서 겹치지 않게 합니다.
+const BITE = 4.4;
+function fitScale(slots, how) {
+  if (how === 'mound' || how === 'stack' || slots.length < 2) return 1;
+  let min = Infinity;
+  for (let i = 0; i < slots.length; i++) {
+    for (let j = i + 1; j < slots.length; j++) {
+      const dx = num(slots[i].x, 0) - num(slots[j].x, 0);
+      const dz = num(slots[i].z, 0) - num(slots[j].z, 0);
+      min = Math.min(min, Math.hypot(dx, dz));
+    }
+  }
+  return clamp(min / BITE, 0.5, 1.15);
+}
+
+/* ══════════════════════════════════════════════════════════
+   6. 한 입 — 형태 이름만 오면 모양은 여기서 만듭니다
+   ══════════════════════════════════════════════════════════ */
+
+const FORMS = {
+  nigiri: (b, t) => [
+    part('box', b, [3.4, 1.5, 2.1], [0, 0.75, 0]),
+    part('box', t, [3.8, 0.55, 2.3], [0, 1.72, 0], [0, 0, 3])
+  ],
+  dumpling: (b, t) => [
+    part('sphere', b, [3.2, 2.1, 2.4], [0, 1.05, 0]),
+    part('sphere', t, [0.8, 0.8, 0.8], [-1.0, 1.9, 0]),
+    part('sphere', t, [0.8, 0.8, 0.8], [0, 2.05, 0]),
+    part('sphere', t, [0.8, 0.8, 0.8], [1.0, 1.9, 0])
+  ],
+  roll: (b, t) => [
+    part('cylinder', t, [2.9, 2.2, 2.9], [0, 1.1, 0]),
+    part('cylinder', b, [2.2, 2.3, 2.2], [0, 1.18, 0])
+  ],
+  slice: (b, t) => [
+    part('box', b, [3.7, 0.85, 2.7], [0, 0.55, 0], [-9, 0, 0]),
+    part('box', t, [3.4, 0.28, 2.4], [0, 1.05, 0], [-9, 0, 0])
+  ],
+  cube: (b, t) => [
+    part('box', b, [2.5, 2.3, 2.5], [0, 1.15, 0], [0, 14, 0]),
+    part('box', t, [2.3, 0.3, 2.3], [0, 2.35, 0], [0, 14, 0])
+  ],
+  ball: (b, t) => [
+    part('sphere', b, [2.7, 2.7, 2.7], [0, 1.35, 0]),
+    part('sphere', t, [1.0, 0.7, 1.0], [0, 2.5, 0])
+  ],
+  scoop: (b, t) => [
+    part('sphere', b, [3.1, 2.5, 3.1], [0, 1.05, 0]),
+    part('sphere', t, [1.3, 1.0, 1.3], [0.3, 2.1, 0.2])
+  ],
+  noodle_nest: (b, t) => [
+    part('torus', b, [3.6, 1.1, 3.6], [0, 0.55, 0]),
+    part('torus', b, [2.9, 1.0, 2.9], [0.2, 1.3, 0.1], [0, 34, 0]),
+    part('sphere', t, [1.5, 0.7, 1.5], [0, 1.9, 0])
+  ],
+  skewer: (b, t) => [
+    part('cylinder', '#C9A268', [0.32, 7.2, 0.32], [0.6, 0.45, 0], [0, 0, 90]),
+    part('sphere', b, [1.9, 1.9, 1.9], [-1.9, 1.1, 0]),
+    part('sphere', t, [1.9, 1.9, 1.9], [0, 1.1, 0]),
+    part('sphere', b, [1.9, 1.9, 1.9], [1.9, 1.1, 0])
+  ],
+  heap: (b, t) => [
+    part('cone', b, [3.3, 2.7, 3.3], [0, 1.35, 0]),
+    part('sphere', t, [1.1, 1.1, 1.1], [0, 2.6, 0])
+  ],
+  ring: (b, t) => [
+    part('torus', b, [3.3, 1.2, 3.3], [0, 0.6, 0]),
+    part('torus', t, [3.3, 0.4, 3.3], [0, 1.1, 0])
+  ],
+  sheet: (b, t) => [
+    part('box', b, [3.8, 0.32, 3.1], [0, 0.3, 0], [-6, 0, 5]),
+    part('box', t, [3.0, 0.2, 2.4], [0, 0.5, 0], [-6, 0, 5])
+  ]
+};
+
+const TOPPING = {
+  dot:   (c, x, y) => part('sphere', c, [0.55, 0.55, 0.55], [x, y, 0.2]),
+  stick: (c, x, y) => part('capsule', c, [1.7, 0.3, 0.3], [x, y, -0.2], [0, 25, 0]),
+  flake: (c, x, y) => part('box', c, [0.9, 0.14, 0.7], [x, y, 0.1], [0, 30, 8])
+};
+
+// 한 입 묶음 만들기. 바닥이 y = 0 인 채로 돌려주고, 자리는 부르는 쪽이 정합니다.
+function buildBite(bite) {
+  const g = new THREE.Group();
+  const base = pick(bite.base_color, '#D9D2C5');
+  const top = pick(bite.top_color, bite.base_color, '#D9D2C5');
+  const form = FORMS[bite.form] ? bite.form : (Array.isArray(bite.parts) && bite.parts.length ? 'custom' : 'scoop');
+
+  if (form === 'custom') {
+    (bite.parts || []).slice(0, 5).forEach((p) => {
+      const s = Array.isArray(p?.size) ? p.size : [2, 2, 2];
+      const pos = Array.isArray(p?.pos) ? p.pos : [0, num(s[1], 2) / 2, 0];
+      g.add(part(p?.shape, pick(p?.color, base), s, [num(pos[0], 0), Math.max(0, num(pos[1], 0)), num(pos[2], 0)], p?.rot));
+    });
+  } else {
+    FORMS[form](base, top).forEach((m) => g.add(m));
+  }
+  if (!g.children.length) FORMS.scoop(base, top).forEach((m) => g.add(m));
+
+  // 고명은 맨 위에
+  const tops = Array.isArray(bite.toppings) ? bite.toppings.slice(0, 3) : [];
+  if (tops.length) {
+    const y = new THREE.Box3().setFromObject(g).max.y + 0.15;
+    tops.forEach((t, i) => {
+      const make = TOPPING[t?.kind] || TOPPING.dot;
+      g.add(make(pick(t?.color, top), (i - (tops.length - 1) / 2) * 1.1, y));
+    });
+  }
+
+  g.scale.setScalar(clamp(num(bite.scale, 1), 0.6, 1.5) * (vessel?.fit ?? 1));
+  return g;
+}
+
+/* ══════════════════════════════════════════════════════════
+   7. 담기
+   ══════════════════════════════════════════════════════════ */
+
+let vessel = null;       // 지금 그릇
+let slots = [];          // 한 입씩 놓을 자리
+const bites = [];        // 아직 남은 음식
+const eating = [];       // 사라지는 중인 음식
+let placed = 0;          // 몇 입까지 놓았는지
 
 function resetPlate() {
   [...table.children].forEach((c) => { disposeDeep(c); table.remove(c); });
   bites.length = 0;
   eating.length = 0;
   growing.length = 0;
-  groups = [];
-  partsDone = [];
-  plateMesh = null;
+  vessel = null;
+  slots = [];
+  placed = 0;
 }
 
-function buildPlate(plate) {
-  const shape = ['circle', 'ellipse', 'square'].includes(plate.shape) ? plate.shape : 'circle';
-  const w = clamp(num(plate.width, 20), 10, 40);
-  const d = shape === 'circle' ? w : clamp(num(plate.depth, w), 10, 40);
+function buildVessel(serving) {
+  const kind = VESSELS[serving.vessel] ? serving.vessel : 'flat_plate';
+  const size = clamp(num(serving.size, 20), 10, 34);
+  vessel = VESSELS[kind](size, serving.color);
+  vessel.kind = kind;
+  vessel.size = size;
+  table.add(vessel.obj);
 
-  const geo = shape === 'square'
-    ? new THREE.BoxGeometry(1, 1, 1)
-    : new THREE.CylinderGeometry(0.5, 0.46, 1, 72);
-  plateMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-    color: safeColor(plate.color, '#F2F0EC'),
-    roughness: 0.62,
-    metalness: 0.0
-  }));
-  plateMesh.scale.set(w, 0.9, d);
-  plateMesh.position.y = -0.45;      // 윗면이 정확히 y = 0
-  plateMesh.receiveShadow = true;
-  plateMesh.castShadow = true;
-  table.add(plateMesh);
+  // 국물·소스
+  const liquid = serving.liquid;
+  if (liquid && isHex(liquid.color) && vessel.depth > 0.5) {
+    const level = clamp(num(liquid.level, 0.5), 0.1, 0.95);
+    const disc = new THREE.Mesh(UNIT.cylinder, new THREE.MeshStandardMaterial({
+      color: safeColor(liquid.color), roughness: 0.25, metalness: 0
+    }));
+    const y = vessel.depth * level;
+    const rr = Math.min(vessel.size / 2 * 0.98, vessel.r * 1.6);
+    disc.scale.set(rr * 2, 0.5, rr * 2);
+    disc.position.y = y;
+    disc.receiveShadow = true;
+    table.add(disc);
+    vessel.y0 = y;                                  // 음식은 국물 위에
+    log(`국물 · ${Math.round(level * 100)}%`, liquid.color);
+  }
 
-  frustum = Math.max(w, d) * 1.5;
+  // 오목한 그릇은 음식이 놓이는 높이에서의 넓이를 씁니다 (국물이 차오를수록 넓어짐)
+  if (vessel.depth > 0.5) {
+    const t = clamp(1 - vessel.y0 / vessel.depth, -1, 1);
+    vessel.r = (size / 2) * Math.sqrt(Math.max(0.05, 1 - t * t)) * 0.78;
+    vessel.rz = vessel.r;
+  }
+
+  const how = ARRANGE[serving.arrangement] ? serving.arrangement : 'grid';
+  const count = clamp(Math.round(num(serving.count, 6)), 1, 9);
+  slots = ARRANGE[how](count, vessel.r, vessel.rz ?? vessel.r);
+  vessel.how = how;
+  vessel.fit = fitScale(slots, how);
+
+  frustum = Math.max(size, vessel.depth * 2.2) * 1.55;
   resizeCamera();
   table.rotation.y = 0;
-  return { shape, w, d };
+
+  log(`${kind} · ${Math.round(size)}cm`, serving.color);
+  log(`${how} · ${count}입`);
 }
 
-// 한 조각이 다 왔는지 (쓰는 중인 마지막 조각은 아직 놓지 않습니다)
-function partReady(p) {
-  return !!p && typeof p.shape === 'string' && typeof p.color === 'string'
-    && Array.isArray(p.size) && p.size.length === 3
-    && Array.isArray(p.pos) && p.pos.length === 3;
+function placeBite(bite) {
+  const g = buildBite(bite);
+  const slot = slots[placed] || slots[slots.length - 1] || { x: 0, z: 0 };
+  g.position.set(num(slot.x, 0), vessel.y0 + num(slot.y, 0), num(slot.z, 0));
+  g.rotation.y = num(slot.ry, 0) + (placed % 2 ? 0.2 : -0.15);
+  g.userData = { home: g.position.clone() };
+  table.add(g);
+  bites.push(g);
+  placed += 1;
+  log(`${String(bite.name ?? '한 점').slice(0, 14)} · ${bite.form ?? ''}`.trim(), bite.base_color);
 }
 
-// 반쯤 온 spec 을 화면에 반영. final 이면 마지막 조각까지 놓습니다.
-function growPlate(spec, final) {
+// 한 입이 다 왔는지 (쓰는 중인 마지막 입은 아직 놓지 않습니다)
+function biteReady(b) {
+  return !!b && typeof b.name === 'string' && typeof b.form === 'string';
+}
+
+// 자리 수와 실제 입 수가 다르면 다 온 뒤에 다시 배치
+function relayout() {
+  if (!vessel || !bites.length) return;
+  if (slots.length === bites.length) return;
+  slots = ARRANGE[vessel.how](bites.length, vessel.r, vessel.rz ?? vessel.r);
+  const refit = fitScale(slots, vessel.how) / (vessel.fit || 1);
+  vessel.fit = (vessel.fit || 1) * refit;
+  bites.forEach((g, i) => {
+    g.scale.multiplyScalar(refit);
+    const s = slots[i];
+    g.position.set(num(s.x, 0), vessel.y0 + num(s.y, 0), num(s.z, 0));
+    g.rotation.y = num(s.ry, 0);
+    g.userData.home = g.position.clone();
+  });
+}
+
+// 반쯤 온 spec 을 화면에 반영. final 이면 마지막 입까지 놓습니다.
+function grow(spec, final) {
   if (!spec) return;
-  if (!plateMesh && spec.plate && typeof spec.plate.width === 'number') {
-    const p = buildPlate(spec.plate);
-    log(`접시 · ${p.shape} ${Math.round(p.w)}×${Math.round(p.d)}`, spec.plate.color);
-  }
-  if (!plateMesh) return;
+  // 그릇은 담는 방식(국물·배치·개수)까지 다 온 뒤에 만듭니다. 먼저 만들면 배치를 모릅니다.
+  const sv = spec.serving;
+  const servingReady = sv && typeof sv.vessel === 'string' && typeof sv.size === 'number'
+    && typeof sv.arrangement === 'string' && typeof sv.count === 'number';
+  if (!vessel && (servingReady || (final && sv))) buildVessel(sv);
+  if (!vessel) return;
 
-  const items = Array.isArray(spec.items) ? spec.items : [];
-  items.forEach((item, i) => {
-    const parts = Array.isArray(item?.parts) ? item.parts : [];
-    if (!groups[i]) {
-      if (!item?.name && !parts.length) return;
-      groups[i] = new THREE.Group();
-      partsDone[i] = 0;
-      table.add(groups[i]);
-      log(String(item?.name ?? '한 점').slice(0, 20));
-    }
-    parts.forEach((p, j) => {
-      if (j < partsDone[i]) return;
-      // 마지막 묶음의 마지막 조각은 아직 쓰는 중일 수 있습니다.
-      if (!final && i === items.length - 1 && j === parts.length - 1) return;
-      if (!partReady(p)) return;
-      groups[i].add(buildPart(p));
-      partsDone[i] = j + 1;
-      const s = p.size.map((n) => Math.round(num(n, 0) * 10) / 10).join('×');
-      log(`  ${p.shape} ${s}`, p.color);
-    });
+  const list = Array.isArray(spec.bites) ? spec.bites : [];
+  list.forEach((b, i) => {
+    if (i < placed) return;
+    if (!final && i === list.length - 1) return;   // 아직 쓰는 중일 수 있음
+    if (!biteReady(b)) return;
+    placeBite(b);
   });
-}
-
-// 다 왔으면 묶음마다 원점을 제자리로 옮깁니다.
-// 이렇게 해야 먹을 때 접시 가운데로 빨려가지 않고 제자리에서 사라집니다.
-function finishPlate() {
-  bites.length = 0;
-  groups.forEach((g) => {
-    if (!g) return;
-    if (!g.children.length) { table.remove(g); return; }
-    const box = new THREE.Box3().setFromObject(g);
-    const c = box.getCenter(new THREE.Vector3());
-    g.children.forEach((m) => { m.position.x -= c.x; m.position.z -= c.z; });
-    g.position.set(c.x, 0, c.z);
-    g.userData = { home: g.position.clone() };
-    bites.push(g);
-  });
+  if (final) relayout();
 }
 
 /* ══════════════════════════════════════════════════════════
-   4. 먹기
+   8. 먹기
    ══════════════════════════════════════════════════════════ */
 
 const raycaster = new THREE.Raycaster();
@@ -441,9 +720,7 @@ function eat(group) {
   eating.push({ g: group, t: 0 });
   drawPips(servedTotal, bites.length);
 
-  if (bites.length === 0) {
-    setTimeout(finishCourse, 620);
-  }
+  if (bites.length === 0) setTimeout(finishCourse, 620);
 }
 
 function finishCourse() {
@@ -495,7 +772,7 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 });
 
 /* ══════════════════════════════════════════════════════════
-   5. 구상 과정 보이기
+   9. 구상 과정 보이기
    ══════════════════════════════════════════════════════════ */
 
 const LOG_LINES = 7;
@@ -522,7 +799,7 @@ function log(text, color) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   6. 반쯤 온 JSON 읽기
+   10. 반쯤 온 JSON 읽기
    ══════════════════════════════════════════════════════════ */
 
 // 아직 닫히지 않은 괄호를 임시로 닫아 봅니다. 글자를 쓰는 중이면 null.
@@ -564,8 +841,29 @@ function peekPlan(text) {
   try { return JSON.parse(`"${m[1].replace(/\\$/, '')}"`); } catch { return null; }
 }
 
+// 예전 함수(좌표까지 보내던 방식)의 응답도 받아 줍니다.
+function asServing(spec) {
+  if (!spec || !Array.isArray(spec.items) || spec.bites) return spec;
+  const plate = spec.plate ?? {};
+  return {
+    dish: spec.dish,
+    plan: spec.plan,
+    serving: {
+      vessel: plate.shape === 'square' ? 'board' : 'flat_plate',
+      size: num(plate.width, 20),
+      color: plate.color,
+      arrangement: 'scatter',
+      count: spec.items.length
+    },
+    bites: spec.items.map((it) => ({
+      name: it?.name, form: 'custom', base_color: it?.parts?.[0]?.color,
+      parts: (it?.parts ?? []).map((p) => ({ ...p, pos: undefined }))
+    }))
+  };
+}
+
 /* ══════════════════════════════════════════════════════════
-   7. 주문 → 주방 → 접시
+   11. 주문 → 주방 → 그릇
    ══════════════════════════════════════════════════════════ */
 
 async function askKitchen(order, onText) {
@@ -630,7 +928,7 @@ async function order(text) {
 
   let shownPlan = '';
 
-  // 글자가 올 때마다: 구상은 글로, 접시와 음식은 그 자리에서 3D 로
+  // 글자가 올 때마다: 구상은 글로, 그릇과 음식은 그 자리에서 3D 로
   const onText = (all) => {
     el.plating.classList.remove('on');
     el.process.classList.add('on');
@@ -638,19 +936,18 @@ async function order(text) {
     const plan = peekPlan(all);
     if (plan && plan !== shownPlan) { shownPlan = plan; el.plan.textContent = plan; }
 
-    const spec = parsePartial(all);
+    const spec = asServing(parsePartial(all));
     if (spec?.dish && el.dishName.textContent !== spec.dish) {
       el.dishName.textContent = spec.dish;
       el.osinagaki.classList.add('on');
     }
-    growPlate(spec, false);
+    grow(spec, false);
   };
 
   try {
     const raw = await askKitchen(q, onText);
-    const spec = parsePartial(raw);
-    growPlate(spec, true);
-    finishPlate();
+    const spec = asServing(parsePartial(raw));
+    grow(spec, true);
     if (!bites.length) throw new Error('이 주문은 담아내지 못했습니다. 다르게 말씀해 주세요');
 
     servedTotal = bites.length;
@@ -683,7 +980,7 @@ el.input.addEventListener('keydown', (e) => {
 el.input.focus();
 
 /* ══════════════════════════════════════════════════════════
-   8. 그리기
+   12. 그리기
    ══════════════════════════════════════════════════════════ */
 
 const clock = new THREE.Clock();
@@ -718,9 +1015,8 @@ function tick() {
     const k = Math.min(1, e.t);
     const ease = 1 - Math.pow(1 - k, 3);
     e.g.position.y = e.g.userData.home.y + ease * 5.5;
-    e.g.rotation.y = ease * 1.2;
-    const s = Math.max(0.001, 1 - ease);
-    e.g.scale.setScalar(s);
+    e.g.rotation.y += dt * 2.4;
+    e.g.scale.multiplyScalar(Math.max(0.001, 1 - dt * 3.4));
     if (k >= 1) {
       disposeDeep(e.g);
       table.remove(e.g);
