@@ -797,6 +797,24 @@ function arrangeOf(name) {
   return ARRANGE[name] ? name : (ARRANGE[ARRANGE_ALIAS[name]] ? ARRANGE_ALIAS[name] : 'scatter');
 }
 
+// 다른 구성요소가 이미 쓴 자리면 가까운 빈 곳으로 비켜 놓습니다.
+// (초밥 세트처럼 한 점짜리 구성요소가 여럿 올 때 한 자리에 겹치는 것을 막습니다)
+function claim(x, z, r, pattern) {
+  const spot = { x, z, r };
+  if (pattern === 'stack' || pattern === 'mound') { taken.push(spot); return spot; }
+  const free = (px, pz) => taken.every((t) => Math.hypot(px - t.x, pz - t.z) >= (t.r + r) * 0.9);
+  if (free(x, z)) { taken.push(spot); return spot; }
+  for (let step = 1; step <= 48; step++) {
+    const rad = r * 0.7 * Math.ceil(step / 8);
+    const a = step * 0.86;
+    const px = clamp(x + Math.cos(a) * rad, -vessel.rx, vessel.rx);
+    const pz = clamp(z + Math.sin(a) * rad, -vessel.rz, vessel.rz);
+    if (free(px, pz)) { taken.push({ x: px, z: pz, r }); return { x: px, z: pz }; }
+  }
+  taken.push(spot);
+  return spot;
+}
+
 // 자리끼리 너무 가까우면 조각을 줄여 겹치지 않게
 function fitScale(spots, w, pattern) {
   if (['mound', 'stack', 'center', 'fan', 'overlap'].includes(pattern) || spots.length < 2) return 1;
@@ -825,6 +843,7 @@ const TYPE_VESSEL = {
 };
 
 let vessel = null;
+let taken = [];        // 이미 무엇이 놓인 자리 { x, z, r }
 let beds = [];         // { h(r) } 높이를 돌려주는 바닥들
 let placed = 0;        // 몇 번째 구성요소까지 놓았는지
 const bites = [];      // 집어 먹을 수 있는 조각
@@ -837,6 +856,7 @@ function resetPlate() {
   eating.length = 0;
   growing.length = 0;
   beds = [];
+  taken = [];
   vessel = null;
   leftovers = null;
   placed = 0;
@@ -973,7 +993,9 @@ function addComponent(comp) {
 
   spots.forEach((s, i) => {
     const g = buildPiece(rawForm, w, color, top, mods);
-    const x = num(s.x, 0), z = num(s.z, 0);
+    const put = bed ? { x: num(s.x, 0), z: num(s.z, 0) }
+      : claim(num(s.x, 0), num(s.z, 0), w * 0.46, pattern);
+    const x = put.x, z = put.z;
     g.position.set(x, surfaceAt(x, z) + num(s.y, 0), z);
     g.rotation.y = num(s.ry, 0) + wobble(i) * 0.3;
     popIn(g);
