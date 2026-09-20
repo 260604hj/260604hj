@@ -102,7 +102,7 @@
   .process{
     position:fixed; z-index:5;
     left:22px; bottom:calc(var(--pad-bot) + 26px);
-    width:min(62vw, 400px);
+    width:min(56vw, 370px);
     pointer-events:none;
     opacity:0; transition:opacity .6s ease;
   }
@@ -126,7 +126,12 @@
     font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size:11px; line-height:1.85; color:var(--ink-faint);
     white-space:pre;
+    max-height:34vh; overflow-y:auto; scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(to bottom, transparent, #000 20%);
+            mask-image:linear-gradient(to bottom, transparent, #000 20%);
   }
+  .process .log::-webkit-scrollbar{ display:none; }
+  .process.done{ opacity:.3; }
   .process .log div{ display:flex; gap:7px; align-items:center; }
   .process .swatch{
     display:inline-block; width:7px; height:7px; flex:none; border-radius:1px;
@@ -291,6 +296,12 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const isHex = (c) => /^#[0-9a-fA-F]{6}$/.test(String(c ?? '').trim());
 const pick = (...c) => c.find(isHex) ?? '#CCCCCC';
 
+// 두 색이 사실상 같은 색인지
+function near(a, b) {
+  const x = safeColor(a), y = safeColor(b);
+  return Math.abs(x.r - y.r) + Math.abs(x.g - y.g) + Math.abs(x.b - y.b) < 0.22;
+}
+
 function safeColor(hex, fallback = '#CCCCCC') {
   return new THREE.Color(isHex(hex) ? hex : fallback);
 }
@@ -430,6 +441,77 @@ const VESSELS = {
 };
 
 /* ══════════════════════════════════════════════════════════
+   4-2. 알갱이 — 밥·얼음처럼 작은 알이 모인 것
+   ══════════════════════════════════════════════════════════ */
+
+// 알갱이 하나의 모양. 낱개로 수백 개를 그리면 무거우므로 한 번에 그립니다(InstancedMesh).
+const GRAIN_GEO = {
+  rice:  new THREE.CapsuleGeometry(0.16, 0.26, 3, 7),
+  ice:   new THREE.IcosahedronGeometry(0.24, 0),
+  crumb: new THREE.BoxGeometry(0.3, 0.22, 0.28),
+  smooth: null
+};
+const GRAIN_SIZE = { rice: 1, ice: 1.15, crumb: 1 };
+
+// 흩어진 값이지만 주문마다 같은 모습이 나오도록, 난수 대신 규칙으로 흩뿌립니다.
+function scatterPoint(i, n) {
+  const k = Math.sqrt((i + 0.5) / n);          // 가운데가 촘촘하지 않게
+  const a = i * 2.39996;                        // 해바라기 각도
+  return { k, a };
+}
+
+// 덩어리 돔 + 알갱이 껍질. 바닥이 y = 0 인 묶음을 돌려줍니다.
+function grainMound(kind, color, R, H, count) {
+  const g = new THREE.Group();
+  const shade = new THREE.Color(safeColor(color)).multiplyScalar(0.88);
+
+  // 저층부는 덩어리 하나로 (알갱이를 속까지 채우면 무겁습니다)
+  const dome = new THREE.Mesh(UNIT.sphere, new THREE.MeshStandardMaterial({
+    color: shade, roughness: 0.9, metalness: 0
+  }));
+  dome.scale.set(R * 2, H * 1.9, R * 2);
+  dome.position.y = -H * 0.02;
+  dome.castShadow = true;
+  dome.receiveShadow = true;
+  g.add(dome);
+
+  const geo = GRAIN_GEO[kind] || GRAIN_GEO.rice;
+  const grains = new THREE.InstancedMesh(
+    geo,
+    new THREE.MeshStandardMaterial({ color: safeColor(color), roughness: 0.82, metalness: 0 }),
+    count
+  );
+  grains.castShadow = true;
+  grains.receiveShadow = true;
+
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  const pos = new THREE.Vector3(), sc = new THREE.Vector3();
+  const tint = new THREE.Color();
+  const size = (GRAIN_SIZE[kind] || 1) * clamp(R / 7, 0.75, 1.4);
+
+  for (let i = 0; i < count; i++) {
+    const { k, a } = scatterPoint(i, count);
+    const rr = R * 0.985 * k;
+    const surface = H * 0.95 * Math.sqrt(Math.max(0, 1 - k * k));   // 돔 표면 높이
+    const wob = Math.sin(i * 12.9898) * 0.5;                        // 들쭉날쭉하게
+    pos.set(Math.cos(a) * rr, surface + wob * 0.22 * size, Math.sin(a) * rr);
+    e.set(i * 1.7, a + i * 0.31, Math.sin(i * 7.1) * 0.9);
+    q.setFromEuler(e);
+    sc.setScalar(size * (0.85 + 0.3 * (0.5 + 0.5 * Math.sin(i * 3.7))));
+    m.compose(pos, q, sc);
+    grains.setMatrixAt(i, m);
+    tint.copy(safeColor(color)).multiplyScalar(0.92 + 0.13 * (0.5 + 0.5 * Math.cos(i * 2.1)));
+    grains.setColorAt(i, tint);
+  }
+  grains.instanceMatrix.needsUpdate = true;
+  if (grains.instanceColor) grains.instanceColor.needsUpdate = true;
+  g.add(grains);
+
+  g.userData.top = H;
+  return g;
+}
+
+/* ══════════════════════════════════════════════════════════
    5. 놓는 자리 — 배치 이름만 오면 좌표는 여기서 계산
    ══════════════════════════════════════════════════════════ */
 
@@ -521,6 +603,7 @@ const FORMS = {
     part('sphere', b, [2.7, 2.7, 2.7], [0, 1.35, 0]),
     part('sphere', t, [1.0, 0.7, 1.0], [0, 2.5, 0])
   ],
+  grains: (b, t) => [],            // 아래 buildBite 에서 따로 만듭니다
   scoop: (b, t) => [
     part('sphere', b, [3.1, 2.5, 3.1], [0, 1.05, 0]),
     part('sphere', t, [1.3, 1.0, 1.3], [0.3, 2.1, 0.2])
@@ -561,9 +644,16 @@ function buildBite(bite) {
   const g = new THREE.Group();
   const base = pick(bite.base_color, '#D9D2C5');
   const top = pick(bite.top_color, bite.base_color, '#D9D2C5');
-  const form = FORMS[bite.form] ? bite.form : (Array.isArray(bite.parts) && bite.parts.length ? 'custom' : 'scoop');
+  let form = FORMS[bite.form] ? bite.form : (Array.isArray(bite.parts) && bite.parts.length ? 'custom' : 'scoop');
+  // 한 술 뜬 밥·얼음을 둥근 덩어리로 그리면 쌀알 하나처럼 보입니다.
+  // 바닥과 같은 색으로 퍼 담은 것만 알갱이 더미로 바꿉니다 (나물·고기 더미는 그대로).
+  if (form === 'scoop' && vessel?.bedColor && near(base, vessel.bedColor)) form = 'grains';
 
-  if (form === 'custom') {
+  if (form === 'grains') {
+    const kind = vessel?.bedKind === 'ice' ? 'ice' : (vessel?.bedKind === 'crumb' ? 'crumb' : 'rice');
+    g.add(grainMound(kind, base, 1.7, 1.3, 46));
+    if (isHex(bite.top_color)) g.add(part('sphere', top, [1.1, 0.8, 1.1], [0.2, 1.5, 0.1]));
+  } else if (form === 'custom') {
     (bite.parts || []).slice(0, 5).forEach((p) => {
       const s = Array.isArray(p?.size) ? p.size : [2, 2, 2];
       const pos = Array.isArray(p?.pos) ? p.pos : [0, num(s[1], 2) / 2, 0];
@@ -585,6 +675,7 @@ function buildBite(bite) {
   }
 
   g.scale.setScalar(clamp(num(bite.scale, 1), 0.6, 1.5) * (vessel?.fit ?? 1));
+  g.userData.form = form;
   return g;
 }
 
@@ -615,6 +706,7 @@ function buildVessel(serving, matter) {
   vessel = VESSELS[kind](size, serving.color);
   vessel.kind = kind;
   vessel.size = size;
+  vessel.matter = matter;
   table.add(vessel.obj);
 
   // 국물·소스
@@ -637,8 +729,27 @@ function buildVessel(serving, matter) {
   // 오목한 그릇은 음식이 놓이는 높이에서의 넓이를 씁니다 (국물이 차오를수록 넓어짐)
   if (vessel.depth > 0.5) {
     const t = clamp(1 - vessel.y0 / vessel.depth, -1, 1);
-    vessel.r = (size / 2) * Math.sqrt(Math.max(0.05, 1 - t * t)) * 0.78;
+    vessel.rim = (size / 2) * Math.sqrt(Math.max(0.05, 1 - t * t));   // 음식 높이에서 그릇 안쪽 너비
+    vessel.r = vessel.rim * 0.78;
     vessel.rz = vessel.r;
+  }
+
+  // 밥·얼음처럼 알갱이가 그릇을 채우는 음식은 바닥을 먼저 깝니다.
+  const bed = serving.bed ?? (matter === 'grain' ? { kind: 'rice', color: '#FAF5E9' } : null);
+  if (bed && bed.kind !== 'smooth') {
+    const bedR = Math.min((vessel.rim ?? vessel.size / 2) * 0.94, Math.max(vessel.r * 1.5, 4));
+    const bedH = clamp(vessel.depth > 0.5 ? vessel.depth * 0.42 : bedR * 0.3, 1.4, 6);
+    const count = clamp(Math.round(bedR * bedR * 4.2), 90, 460);
+    const mound = grainMound(bed.kind, pick(bed.color, '#FAF5E9'), bedR, bedH, count);
+    mound.position.y = vessel.y0;
+    table.add(mound);
+    growing.push({ mesh: mound, t: 0, to: new THREE.Vector3(1, 1, 1) });
+    vessel.y0 += bedH * 0.72;                       // 음식은 그 위에
+    vessel.r = Math.max(vessel.r, bedR * 0.62);
+    vessel.rz = vessel.r;
+    vessel.bedKind = bed.kind;
+    vessel.bedColor = pick(bed.color, '#FAF5E9');
+    log(`${BED_LABEL[bed.kind] ?? bed.kind} ${count}알`, bed.color);
   }
 
   const how = ARRANGE[serving.arrangement] ? serving.arrangement : 'grid';
@@ -663,11 +774,12 @@ function placeBite(bite) {
   const slot = slots[placed] || slots[slots.length - 1] || { x: 0, z: 0 };
   g.position.set(num(slot.x, 0), vessel.y0 + num(slot.y, 0), num(slot.z, 0));
   g.rotation.y = num(slot.ry, 0) + (placed % 2 ? 0.2 : -0.15);
-  g.userData = { home: g.position.clone() };
+  const form = g.userData.form;
+  g.userData = { home: g.position.clone(), form };
   table.add(g);
   bites.push(g);
   placed += 1;
-  log(`${String(bite.name ?? '한 점').slice(0, 14)} · ${bite.form ?? ''}`.trim(), bite.base_color);
+  log(`${String(bite.name ?? '한 점').slice(0, 14)} · ${form}`, bite.base_color);
 }
 
 // 한 입이 다 왔는지 (쓰는 중인 마지막 입은 아직 놓지 않습니다)
@@ -810,13 +922,14 @@ renderer.domElement.addEventListener('pointermove', (e) => {
    9. 구상 과정 보이기
    ══════════════════════════════════════════════════════════ */
 
-const LOG_LINES = 7;
+const LOG_MAX = 80;
 
 const MATTER_LABEL = { drink: '음료', soup: '국물', grain: '알갱이', noodle: '면', object: '덩어리' };
 const VESSEL_LABEL = {
   flat_plate: '평접시', rimmed_plate: '테두리 접시', bowl: '사발', deep_bowl: '깊은 면기',
   stone_pot: '돌솥', board: '나무 도마', basket: '바구니', glass: '유리잔'
 };
+const BED_LABEL = { rice: '밥알', ice: '간 얼음', crumb: '부스러기', smooth: '덩어리' };
 const ARRANGE_LABEL = {
   row: '한 줄', grid: '격자', ring: '둥글게', fan: '부채꼴', mound: '수북이',
   stack: '포개기', scatter: '흩뿌리기', submerged: '국물에 잠기게'
@@ -838,7 +951,7 @@ function clearProcess() {
     el['step' + n].classList.remove('on');
   });
   el.logBox.innerHTML = '';
-  el.process.classList.remove('on');
+  el.process.classList.remove('on', 'done');
 }
 
 function log(text, color) {
@@ -851,9 +964,8 @@ function log(text, color) {
   }
   line.appendChild(document.createTextNode(text));
   el.logBox.appendChild(line);
-  while (el.logBox.children.length > LOG_LINES) el.logBox.firstChild.remove();
-  const all = [...el.logBox.children];
-  all.forEach((c, i) => { c.style.opacity = 0.3 + 0.7 * ((i + 1) / all.length); });
+  while (el.logBox.children.length > LOG_MAX) el.logBox.firstChild.remove();
+  el.logBox.scrollTop = el.logBox.scrollHeight;   // 쌓이면서 아래로 따라감
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1034,7 +1146,7 @@ async function order(text) {
     el.dishName.textContent = spec.dish || q;
     drawPips(servedTotal, servedTotal);
     el.osinagaki.classList.add('on');
-    setTimeout(() => el.process.classList.remove('on'), 1600);
+    setTimeout(() => el.process.classList.add('done'), 1600);
   } catch (err) {
     resetPlate();
     clearProcess();

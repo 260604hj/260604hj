@@ -24,8 +24,9 @@ const VESSELS = ["flat_plate", "rimmed_plate", "bowl", "deep_bowl", "stone_pot",
 const ARRANGEMENTS = ["row", "grid", "ring", "fan", "mound", "stack", "scatter", "submerged"];
 const FORMS = [
   "nigiri", "dumpling", "roll", "slice", "cube", "ball",
-  "scoop", "noodle_nest", "skewer", "heap", "ring", "sheet", "custom",
+  "scoop", "grains", "noodle_nest", "skewer", "heap", "ring", "sheet", "custom",
 ];
+const BEDS = ["rice", "ice", "crumb", "smooth"];
 
 const SYSTEM_PROMPT = `You are a food stylist for a miniature 3D restaurant. You do not draw and you do not
 compute coordinates. You answer one question: how is this exact dish really served, and what is on it?
@@ -69,6 +70,15 @@ color is the vessel's own colour: white "#F2F0EC", dark slate "#39463F", wood "#
 black stone "#3A3632", glass "#CFE0E6", woven basket "#C8A66B".
 liquid is the broth or sauce lying in the vessel: colour plus level 0-1 (how full). null when the dish is dry.
 
+BED — the mass the dish sits on, when matter is grain (or a dish is served on rice)
+- Rice, shaved ice, couscous, chopped salad, crumbs: these are thousands of tiny grains. Do not make
+  them bites. Give bed: its colour and kind — rice (밥알), ice (간 얼음), crumb (부스러기), smooth (덩어리).
+  The renderer draws a heaped mass of hundreds of tiny grains and puts the bites on top of it.
+- bites are then only what is placed ON the bed: 나물, 고기, 계란, 딸기, 연유.
+- bed is null for a dish with no such mass (sushi, pizza, soup with no rice).
+- When one single mouthful is itself a spoonful of grains (a scoop of bingsu, a spoon of rice),
+  use form "grains" for that bite — never a plain ball or scoop, which look like one giant grain.
+
 ARRANGEMENT — how the mouthfuls sit in the vessel
 row (한 줄), grid (격자), ring (둥글게), fan (부채꼴), mound (수북이 쌓기),
 stack (위로 포개기), scatter (흩뿌리기), submerged (국물에 잠기게).
@@ -93,7 +103,7 @@ BITES — each one is a single mouthful, in the order they sit
 OUTPUT — return exactly this JSON object, nothing else, no code fence
 {"dish":"돈코츠 라멘","matter":"noodle","matter_why":"...","serving":{"vessel":"deep_bowl",
 "vessel_why":"...","size":22,"color":"#39463F","liquid":{"color":"#E8D9B5","level":0.6},
-"arrangement":"submerged","count":6},"bites":[{"name":"면 한 젓가락","form":"noodle_nest",
+"bed":null,"arrangement":"submerged","count":6},"bites":[{"name":"면 한 젓가락","form":"noodle_nest",
 "base_color":"#F2E3B8","top_color":"#E8D9B5","scale":1,"toppings":[{"kind":"flake","color":"#4C8A3F"}]}]}
 - dish: short Korean name matching the order. liquid may be omitted when the dish is dry.`;
 
@@ -120,11 +130,21 @@ const RESPONSE_SCHEMA = {
           required: ["color", "level"],
           propertyOrdering: ["color", "level"],
         },
+        bed: {
+          type: "OBJECT",
+          nullable: true,
+          properties: {
+            kind: { type: "STRING", enum: BEDS },
+            color: { type: "STRING" },
+          },
+          required: ["kind", "color"],
+          propertyOrdering: ["kind", "color"],
+        },
         arrangement: { type: "STRING", enum: ARRANGEMENTS },
         count: { type: "INTEGER" },
       },
       required: ["vessel", "vessel_why", "size", "color", "arrangement", "count"],
-      propertyOrdering: ["vessel", "vessel_why", "size", "color", "liquid", "arrangement", "count"],
+      propertyOrdering: ["vessel", "vessel_why", "size", "color", "liquid", "bed", "arrangement", "count"],
     },
     bites: {
       type: "ARRAY",
