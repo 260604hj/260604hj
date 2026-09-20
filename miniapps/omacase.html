@@ -584,6 +584,14 @@ async function askKitchen(order, onText) {
     throw new Error(body?.error || `주방에서 응답이 없습니다 (${res.status})`);
   }
 
+  // 함수가 아직 한 번에 보내는 예전 방식이면, 받은 JSON 을 그대로 씁니다.
+  if (!(res.headers.get('content-type') || '').includes('text/event-stream')) {
+    const whole = await res.text();
+    if (!whole.trim()) throw new Error('접시가 비어 돌아왔습니다. 다시 주문해 주세요');
+    onText(whole);
+    return whole;
+  }
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '', text = '';
