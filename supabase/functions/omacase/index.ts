@@ -19,6 +19,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const MATTERS = ["drink", "soup", "grain", "noodle", "object"];
 const VESSELS = ["flat_plate", "rimmed_plate", "bowl", "deep_bowl", "stone_pot", "board", "basket", "glass"];
 const ARRANGEMENTS = ["row", "grid", "ring", "fan", "mound", "stack", "scatter", "submerged"];
 const FORMS = [
@@ -30,7 +31,17 @@ const SYSTEM_PROMPT = `You are a food stylist for a miniature 3D restaurant. You
 compute coordinates. You answer one question: how is this exact dish really served, and what is on it?
 The renderer owns the geometry — it knows how to build each vessel and each form, and where to put things.
 
-FIRST — REMEMBER THE REAL DISH
+DECIDE IN THIS ORDER, AND SHOW YOUR REASONING AS YOU GO
+1. matter — what state the food is in, because that decides the vessel:
+   drink (마시는 액체), soup (국물 있는 음식), grain (밥·샐러드처럼 알갱이가 모인 것),
+   noodle (면), object (빵·초밥·고기처럼 덩어리로 집어 먹는 것).
+   matter_why: one short Korean sentence saying why, naming the dish's real form.
+2. vessel — the container that matter and that dish actually come in.
+   vessel_why: one short Korean sentence, naming what the dish is really served in.
+3. the rest — liquid, arrangement, count, then the bites one by one.
+Each step follows from the one before it. Never contradict a step you already wrote.
+
+REMEMBER THE REAL DISH
 Before choosing anything, picture the dish as it is actually served in its own country.
 - What vessel does it come in? Ramen comes in a deep bowl, not on a plate. Bibimbap comes in a stone pot.
   Nigiri comes on a flat plate or a wooden board. Bingsu comes in a wide bowl. Tteokbokki in a shallow bowl
@@ -39,11 +50,12 @@ Before choosing anything, picture the dish as it is actually served in its own c
 - How is it laid out? A row of nigiri, a ring of dumplings, a mound of shaved ice, a nest of noodles
   submerged in broth, slices fanned out, skewers laid in a row.
 - What is one mouthful of it? The person picks up one piece at a time.
-Write that recollection in plan, in 2-3 short plain Korean sentences, then choose to match it.
 Never substitute a different dish. If the order is vague, pick one specific real dish and name it in dish.
 If the order is not food, build the closest edible thing.
 
-VESSEL — pick the one that is actually used
+VESSEL — pick the one that is actually used, and let matter decide it
+drink → glass. soup and noodle → deep_bowl (or bowl when it is served wide, stone_pot when it bubbles).
+grain → bowl, stone_pot, or rimmed_plate. object → flat_plate, board or basket.
 - flat_plate: 평평한 접시. Nigiri, cake slices, grilled meat, sandwiches.
 - rimmed_plate: 테두리 있는 접시. Pasta, curry with rice, saucy dishes with no deep broth.
 - bowl: 사발. Bingsu, salad, rice bowls, stew served wide, ice cream.
@@ -86,11 +98,13 @@ const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     dish: { type: "STRING" },
-    plan: { type: "STRING" },
+    matter: { type: "STRING", enum: MATTERS },
+    matter_why: { type: "STRING" },
     serving: {
       type: "OBJECT",
       properties: {
         vessel: { type: "STRING", enum: VESSELS },
+        vessel_why: { type: "STRING" },
         size: { type: "NUMBER" },
         color: { type: "STRING" },
         liquid: {
@@ -106,8 +120,8 @@ const RESPONSE_SCHEMA = {
         arrangement: { type: "STRING", enum: ARRANGEMENTS },
         count: { type: "INTEGER" },
       },
-      required: ["vessel", "size", "color", "arrangement", "count"],
-      propertyOrdering: ["vessel", "size", "color", "liquid", "arrangement", "count"],
+      required: ["vessel", "vessel_why", "size", "color", "arrangement", "count"],
+      propertyOrdering: ["vessel", "vessel_why", "size", "color", "liquid", "arrangement", "count"],
     },
     bites: {
       type: "ARRAY",
@@ -156,9 +170,9 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["dish", "plan", "serving", "bites"],
-  // 스트리밍으로 이 순서대로 옵니다: 이름 → 구상 → 그릇 → 한 입씩
-  propertyOrdering: ["dish", "plan", "serving", "bites"],
+  required: ["dish", "matter", "matter_why", "serving", "bites"],
+  // 스트리밍으로 이 순서대로 옵니다: 이름 → 형상 → 그릇 → 담기 → 한 입씩
+  propertyOrdering: ["dish", "matter", "matter_why", "serving", "bites"],
 };
 
 function reply(body: Record<string, unknown>, status = 200) {

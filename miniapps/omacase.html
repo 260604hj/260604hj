@@ -107,11 +107,21 @@
     opacity:0; transition:opacity .6s ease;
   }
   .process.on{ opacity:1; }
-  .process .plan{
-    font-family:"Gowun Batang", serif;
-    font-size:14px; line-height:1.6; color:var(--ink-dim);
-    margin:0 0 12px; min-height:1.6em;
+  .process .steps{ margin-bottom:13px; }
+  .process .step{
+    display:flex; gap:10px; align-items:baseline;
+    font-size:13px; line-height:1.55; margin-bottom:3px;
+    color:var(--ink-faint);
+    opacity:.45; transition:opacity .4s ease, color .4s ease;
   }
+  .process .step.on{ opacity:1; color:var(--ink-dim); }
+  .process .step b{
+    flex:none; width:34px;
+    font-weight:400; font-size:11px; letter-spacing:.08em;
+    color:var(--ink-faint);
+  }
+  .process .step.on b{ color:var(--ink-dim); }
+  .process .step span{ font-family:"Gowun Batang", serif; }
   .process .log{
     font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size:11px; line-height:1.85; color:var(--ink-faint);
@@ -148,7 +158,11 @@
 <div class="plating" id="plating"><span>주문을 받았습니다</span></div>
 
 <div class="process" id="process">
-  <p class="plan" id="plan"></p>
+  <div class="steps">
+    <div class="step" id="step1"><b>형상</b><span>…</span></div>
+    <div class="step" id="step2"><b>그릇</b><span>…</span></div>
+    <div class="step" id="step3"><b>담기</b><span>…</span></div>
+  </div>
   <div class="log" id="log"></div>
 </div>
 
@@ -199,8 +213,21 @@ scene.add(table);
 
 let frustum = 30;
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
-camera.position.set(60, 52, 60);
-camera.lookAt(0, 0, 0);
+
+// 카메라가 그릇 둘레를 돕니다. azim 은 좌우, polar 는 위아래(0 이면 바로 위에서 내려다봄)
+const ORBIT = { dist: 110, azim: Math.PI / 4, polar: 0.96, min: 0.14, max: 1.36 };
+const camTarget = new THREE.Vector3(0, 0, 0);
+
+function orbit() {
+  const { dist, azim, polar } = ORBIT;
+  camera.position.set(
+    camTarget.x + dist * Math.sin(polar) * Math.cos(azim),
+    camTarget.y + dist * Math.cos(polar),
+    camTarget.z + dist * Math.sin(polar) * Math.sin(azim)
+  );
+  camera.lookAt(camTarget);
+}
+orbit();
 resizeCamera();
 
 const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
@@ -581,8 +608,9 @@ function resetPlate() {
   placed = 0;
 }
 
-function buildVessel(serving) {
-  const kind = VESSELS[serving.vessel] ? serving.vessel : 'flat_plate';
+function buildVessel(serving, matter) {
+  const kind = VESSELS[serving.vessel] ? serving.vessel
+    : (MATTER_VESSEL[matter] || 'flat_plate');
   const size = clamp(num(serving.size, 20), 10, 34);
   vessel = VESSELS[kind](size, serving.color);
   vessel.kind = kind;
@@ -603,7 +631,7 @@ function buildVessel(serving) {
     disc.receiveShadow = true;
     table.add(disc);
     vessel.y0 = y;                                  // 음식은 국물 위에
-    log(`국물 · ${Math.round(level * 100)}%`, liquid.color);
+    log(`국물 ${Math.round(level * 100)}%`, liquid.color);
   }
 
   // 오목한 그릇은 음식이 놓이는 높이에서의 넓이를 씁니다 (국물이 차오를수록 넓어짐)
@@ -620,11 +648,14 @@ function buildVessel(serving) {
   vessel.fit = fitScale(slots, how);
 
   frustum = Math.max(size, vessel.depth * 2.2) * 1.55;
+  camTarget.set(0, vessel.depth * 0.34, 0);
+  ORBIT.azim = Math.PI / 4;
+  ORBIT.polar = 0.96;
+  orbit();
   resizeCamera();
-  table.rotation.y = 0;
 
-  log(`${kind} · ${Math.round(size)}cm`, serving.color);
-  log(`${how} · ${count}입`);
+  log(`${VESSEL_LABEL[kind] ?? kind} ${Math.round(size)}cm`, serving.color);
+  setStep(3, `${ARRANGE_LABEL[how] ?? how} · ${count}입`);
 }
 
 function placeBite(bite) {
@@ -667,7 +698,7 @@ function grow(spec, final) {
   const sv = spec.serving;
   const servingReady = sv && typeof sv.vessel === 'string' && typeof sv.size === 'number'
     && typeof sv.arrangement === 'string' && typeof sv.count === 'number';
-  if (!vessel && (servingReady || (final && sv))) buildVessel(sv);
+  if (!vessel && (servingReady || (final && sv))) buildVessel(sv, spec.matter);
   if (!vessel) return;
 
   const list = Array.isArray(spec.bites) ? spec.bites : [];
@@ -697,7 +728,9 @@ const el = {
   hint:      document.getElementById('hint'),
   plating:   document.getElementById('plating'),
   process:   document.getElementById('process'),
-  plan:      document.getElementById('plan'),
+  step1:     document.getElementById('step1'),
+  step2:     document.getElementById('step2'),
+  step3:     document.getElementById('step3'),
   logBox:    document.getElementById('log')
 };
 
@@ -733,20 +766,22 @@ function finishCourse() {
 }
 
 /* 드래그는 회전, 짧게 누르면 먹기 */
-let dragging = false, moved = 0, lastX = 0, spin = 0;
+let dragging = false, moved = 0, lastX = 0, lastY = 0, spin = 0;
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
-  dragging = true; moved = 0; lastX = e.clientX; spin = 0;
+  dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY; spin = 0;
   renderer.domElement.setPointerCapture(e.pointerId);
 });
 
 renderer.domElement.addEventListener('pointermove', (e) => {
   if (!dragging) return;
-  const dx = e.clientX - lastX;
-  lastX = e.clientX;
-  moved += Math.abs(dx);
-  spin = dx * 0.006;
-  table.rotation.y += spin;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  moved += Math.abs(dx) + Math.abs(dy);
+  spin = -dx * 0.006;                                              // 좌우: 놓으면 천천히 멎음
+  ORBIT.azim += spin;
+  ORBIT.polar = clamp(ORBIT.polar + dy * 0.0045, ORBIT.min, ORBIT.max);   // 위아래
+  orbit();
 });
 
 renderer.domElement.addEventListener('pointerup', (e) => {
@@ -777,8 +812,31 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 
 const LOG_LINES = 7;
 
+const MATTER_LABEL = { drink: '음료', soup: '국물', grain: '알갱이', noodle: '면', object: '덩어리' };
+const VESSEL_LABEL = {
+  flat_plate: '평접시', rimmed_plate: '테두리 접시', bowl: '사발', deep_bowl: '깊은 면기',
+  stone_pot: '돌솥', board: '나무 도마', basket: '바구니', glass: '유리잔'
+};
+const ARRANGE_LABEL = {
+  row: '한 줄', grid: '격자', ring: '둥글게', fan: '부채꼴', mound: '수북이',
+  stack: '포개기', scatter: '흩뿌리기', submerged: '국물에 잠기게'
+};
+// 형상이 정해지면 그릇도 대개 정해집니다 (모델이 그릇을 안 고르면 이걸로)
+const MATTER_VESSEL = { drink: 'glass', soup: 'deep_bowl', grain: 'bowl', noodle: 'deep_bowl', object: 'flat_plate' };
+
+// 생각하는 순서를 그대로 보여 줍니다: ① 형상 ② 그릇 ③ 담기
+function setStep(n, head, tail) {
+  const box = el['step' + n];
+  if (!box) return;
+  box.querySelector('span').textContent = head + (tail ? ` · ${tail}` : '');
+  box.classList.add('on');
+}
+
 function clearProcess() {
-  el.plan.textContent = '';
+  [1, 2, 3].forEach((n) => {
+    el['step' + n].querySelector('span').textContent = '…';
+    el['step' + n].classList.remove('on');
+  });
   el.logBox.innerHTML = '';
   el.process.classList.remove('on');
 }
@@ -834,11 +892,31 @@ function parsePartial(text) {
   return null;
 }
 
-// 아직 닫히지 않은 plan 문장도 쓰이는 대로 보여 줍니다.
-function peekPlan(text) {
-  const m = text.match(/"plan"\s*:\s*"((?:[^"\\]|\\.)*)/);
-  if (!m) return null;
-  try { return JSON.parse(`"${m[1].replace(/\\$/, '')}"`); } catch { return null; }
+// 아직 닫히지 않은 문장도 쓰이는 대로 보여 줍니다. (JSON 이 다 오기 전에 값만 훔쳐봄)
+function peekString(text, key) {
+  const at = text.indexOf('"' + key + '"');
+  if (at < 0) return '';
+  const colon = text.indexOf(':', at);
+  const open = text.indexOf('"', colon + 1);
+  if (colon < 0 || open < 0) return '';
+  let out = '';
+  for (let i = open + 1; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') break;
+    if (c !== '\\') { out += c; continue; }
+    const n = text[i + 1];
+    if (n === undefined) break;
+    if (n === 'u') {
+      const hex = text.slice(i + 2, i + 6);
+      if (hex.length < 4) break;
+      out += String.fromCharCode(parseInt(hex, 16));
+      i += 5;
+      continue;
+    }
+    out += ({ n: '\n', t: '\t', r: '' })[n] ?? n;
+    i += 1;
+  }
+  return out;
 }
 
 // 예전 함수(좌표까지 보내던 방식)의 응답도 받아 줍니다.
@@ -847,7 +925,7 @@ function asServing(spec) {
   const plate = spec.plate ?? {};
   return {
     dish: spec.dish,
-    plan: spec.plan,
+    matter: 'object',
     serving: {
       vessel: plate.shape === 'square' ? 'board' : 'flat_plate',
       size: num(plate.width, 20),
@@ -926,20 +1004,20 @@ async function order(text) {
   clearProcess();
   resetPlate();
 
-  let shownPlan = '';
-
   // 글자가 올 때마다: 구상은 글로, 그릇과 음식은 그 자리에서 3D 로
   const onText = (all) => {
     el.plating.classList.remove('on');
     el.process.classList.add('on');
 
-    const plan = peekPlan(all);
-    if (plan && plan !== shownPlan) { shownPlan = plan; el.plan.textContent = plan; }
-
     const spec = asServing(parsePartial(all));
     if (spec?.dish && el.dishName.textContent !== spec.dish) {
       el.dishName.textContent = spec.dish;
       el.osinagaki.classList.add('on');
+    }
+    // 생각하는 순서 그대로: ① 무슨 형상인지 ② 그러면 무슨 그릇인지 ③ 어떻게 담는지
+    if (spec?.matter) setStep(1, MATTER_LABEL[spec.matter] ?? spec.matter, peekString(all, 'matter_why'));
+    if (spec?.serving?.vessel) {
+      setStep(2, VESSEL_LABEL[spec.serving.vessel] ?? spec.serving.vessel, peekString(all, 'vessel_why'));
     }
     grow(spec, false);
   };
@@ -990,8 +1068,9 @@ function tick() {
 
   // 손을 뗀 뒤 남은 회전이 천천히 멎습니다.
   if (!dragging && Math.abs(spin) > 0.00002) {
-    table.rotation.y += spin;
+    ORBIT.azim += spin;
     spin *= 0.92;
+    orbit();
   }
 
   // 막 놓인 조각: 작은 점에서 제 크기로 부풀어 오릅니다.
