@@ -3,13 +3,10 @@
 // Gemini API 키는 다른 함수와 같은 GEMINI_API_KEY (Edge Function Secrets, 프로젝트 전체 공용)
 // 이 함수만 로그인 없이 누구나 부를 수 있습니다 (Visitor 용). Verify JWT 를 꺼 두세요.
 //
-// 모델은 좌표도 덩어리도 만들지 않습니다. 세 가지만 차례로 정합니다.
-//   ① 형상  음료·국물·알갱이·면·덩어리 중 무엇인가
-//   ② 그릇  그 형상은 무슨 그릇에 담기는가
-//   ③ 층    바닥부터 위로, 무엇을 몇 개씩 어떻게 놓는가
-// 실제 모양·좌표·쌓이는 높이는 브라우저(omacase.html)가 계산합니다.
-// 층과 조각 크기는 miniapps/ref/foodspace.3dm (실제 음식 모델링)의 구성을 따릅니다:
-// 접시 19~30cm, 한 조각 1~3cm 짜리 수십 개, 고명 0.3~1cm, 바닥부터 3~4층.
+// FOOD FORM SYSTEM
+//   음식 이름 → 유형(type) → 그릇(vessel) → 구성요소(form + arrangement + modifiers) → 3D
+// 음식 이름을 그대로 모델링하지 않고, 다시 쓸 수 있는 형태로 옮깁니다.
+// 실제 모양·좌표·높이는 브라우저(omacase.html)가 만듭니다.
 
 const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"];
 const TRY_NEXT = [404, 429, 500, 503];
@@ -23,82 +20,147 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MATTERS = ["drink", "soup", "grain", "noodle", "object"];
-const VESSELS = ["flat_plate", "rimmed_plate", "bowl", "deep_bowl", "stone_pot", "board", "basket", "glass"];
-const ROLES = ["base", "body", "top", "accent"];
-const FORMS = [
-  "disc", "sheet", "slab", "wedge", "round", "dome", "rod", "ring",
-  "cone", "nest", "cube", "nigiri", "roll", "leaf", "grains", "crumb",
+const FOOD_TYPES = ["piece", "slice", "wrapped", "linear", "particulate", "spread", "liquid", "composite"];
+
+const VESSELS = [
+  "flat_plate", "rimmed_plate", "deep_plate", "oval_plate", "square_plate",
+  "bowl", "deep_bowl", "wide_bowl", "small_bowl",
+  "cup", "glass", "jar", "stone_pot",
+  "tray", "board", "basket", "leaf", "none",
 ];
-const PATTERNS = ["fill", "ring", "grid", "row", "fan", "scatter", "mound", "stack", "submerged"];
 
-const SYSTEM_PROMPT = `You are a food stylist for a miniature 3D restaurant. You never draw and you never
-give coordinates. You decide, in this order: what state the food is in, what it is served in, and what
-layers it is built from, bottom first. The renderer owns every shape, position and height.
+const FORMS = [
+  // 덩어리
+  "sphere", "ellipsoid", "cube", "cuboid", "cylinder", "capsule", "cone", "block", "wedge", "irregular_piece",
+  // 납작한 것
+  "sheet", "disc", "slice", "strip", "ribbon", "flake",
+  // 길쭉한 것
+  "strand", "noodle", "stick", "tube", "skewer",
+  // 싸거나 만 것
+  "roll", "dumpling", "pocket", "wrap", "nest",
+  // 빈 가운데
+  "ring", "torus",
+  // 알갱이
+  "grain", "particle", "crumb",
+  // 펴 바른 것 · 액체
+  "smear", "pool", "layer",
+  // 그 밖
+  "scoop", "heap",
+];
 
-STEP 1 — matter
-drink (마시는 액체), soup (국물 있는 음식), grain (밥·간 얼음처럼 알갱이가 모인 것),
-noodle (면), object (빵·초밥·고기처럼 덩어리로 집어 먹는 것).
-matter_why: one short Korean sentence, naming the dish's real form.
+const ARRANGEMENTS = [
+  "row", "zigzag", "arc", "fan",
+  "grid", "radial", "ring",
+  "mound", "heap", "stack", "cluster",
+  "scatter",
+  "pool", "submerged", "floating",
+  "nest", "bundle",
+  "center", "border", "smear", "quadrant", "dot", "overlap", "pile",
+];
 
-STEP 2 — vessel, which follows from matter
-drink → glass. soup, noodle → deep_bowl (bowl when served wide, stone_pot when it bubbles).
-grain → bowl, stone_pot, rimmed_plate. object → flat_plate, board, basket.
-flat_plate 평접시, rimmed_plate 테두리 접시, bowl 사발, deep_bowl 깊은 면기,
-stone_pot 돌솥, board 나무 도마, basket 바구니, glass 유리잔.
+const MODIFIERS = [
+  "flatten", "elongate", "compress", "taper", "bulge",
+  "bend", "curve", "twist", "warp",
+  "smooth", "rough", "ridged", "wrinkled", "pleated", "crimped",
+  "irregular_edge", "torn_edge", "folded_edge", "scalloped_edge",
+  "layered", "wrapped", "filled", "stuffed", "stacked",
+  "sliced", "diced", "quartered", "halved",
+  "grilled", "fried", "baked", "charred",
+];
+
+const SYSTEM_PROMPT = `You read a food name and resolve it into a plate composition. You never draw, never
+give coordinates, never invent a new shape. You choose from fixed vocabularies. The renderer owns every
+shape, position and height.
+
+FOOD NAME → TYPE → VESSEL → COMPONENTS → 3D
+
+STEP 1 — type
+The dish's dominant physical form, 1 or 2 of:
+piece (독립된 덩어리: 초밥·스테이크·두부·완자), slice (얇게 썬 것: 사시미·카르파초·케이크 한 쪽),
+wrapped (싸거나 만 것: 만두·김밥·타코), linear (길고 가는 것: 면·감자튀김·꼬치),
+particulate (알갱이가 모인 것: 밥·리소토·견과·캐비아), spread (펴 바른 것: 퓌레·크림·소스·팬케이크),
+liquid (액체: 국·카레·요거트), composite (서로 다른 요소가 함께: 비빔밥·샐러드·스테이크와 퓌레).
+When a dish could be several, pick the dominant physical form. 라멘 = linear + liquid. 카레라이스 = composite.
+read: one short Korean sentence saying why it is that type, naming the real dish.
+
+STEP 2 — vessel, which follows from the type
+마른 것 평평한 것 → flat_plate. 귀한 한 점씩 → rimmed_plate. 사시미 → flat_plate.
+면·국 → bowl / deep_bowl. 국물이 깊으면 → deep_bowl. 구운 것·투박한 것 → board / stone_pot.
+튀김·나눠 먹는 것 → basket / tray. 작은 디저트 → small_bowl. 마시는 것 → glass / cup.
+망설여지면 마른 음식은 rimmed_plate, 젖었거나 수북한 음식은 bowl.
 vessel_why: one short Korean sentence, naming what this dish is really served in.
-size: the width across in cm — 18-22 small, 22-28 a main plate or bowl, 10-14 a glass.
-color: the vessel's own colour. liquid: broth or sauce lying in it (colour + level 0-1), or null when dry.
+size: width across in cm — 18-22 작은 접시, 22-28 메인 접시·사발, 10-14 잔.
+color: the vessel's own colour.
+liquid: the broth filling the vessel (colour + level 0-1), or null. Sauce on a plate is not this —
+that is a component with form "pool".
 
-STEP 3 — layers, from the bottom up
-A real plate is not five big lumps. It is one broad base, then a few sizeable pieces, then many small
-ones, then a sprinkle. Build it that way: 2 to 5 layers, always bottom first.
-- role: base (바닥을 채우는 것: 도우·밥·면·크림·빵), body (그 위의 큰 조각: 슬라이스·고기·만두),
-  top (작은 조각 여럿: 토핑·나물·과일), accent (뿌리는 것: 깨·허브·후추·초콜릿).
-- form, the shape of ONE piece:
-  disc 납작한 원판(도우·크래커·전), sheet 얇고 넓은 조각(치즈·김·햄), slab 도톰한 사각(빵·케이크·두부),
-  wedge 삼각 조각(피자 한 쪽·레몬), round 공(완자·과일), dome 반구(스쿱·만두),
-  rod 길쭉한 것(소시지·새우·감자), ring 고리(오징어링·양파), cone 뿔 모양 더미,
-  nest 면 뭉치, cube 깍둑 썬 것, nigiri 초밥 한 점, roll 김밥·마키 한 조각, leaf 잎(바질·상추),
-  grains 알갱이 무리(밥알·간 얼음 — 렌더러가 수백 알로 그림), crumb 부스러기·가루.
-- size: the width of ONE piece in cm. base 16-28. body 3-7. top 1.5-3.5. accent 0.4-1.
-- count: how many pieces. base 1 (grains is always 1). body 3-10. top 8-24. accent 20-60.
-  A 24cm plate of pasta is ~60 pieces of 1.6cm, never 5 pieces of 5cm. Small and many.
-- pattern: fill (바닥 전체를 덮음 — base 는 거의 언제나 이것), ring, grid, row, fan,
-  scatter (흩뿌리기), mound (수북이), stack (위로 포개기), submerged (국물에 잠기게).
-- color, and top_color for what lies on that piece (생선·소스·치즈). name: short Korean.
-The person eats one piece at a time from the body and top layers, so those are the mouthfuls.
+STEP 3 — components, bottom first
+2 to 6 components. The first ones are what lies on the vessel (밥·면·소스·도우), then what sits on them.
+- food: short Korean name. form: one shape from the list. arrangement: how they sit.
+- count: how many pieces. 개별 조각 3-8, 얇은 조각 3-7, 만두 4-8, 초밥 5-8,
+  면은 1(한 덩어리로), 밥·알갱이는 1(렌더러가 수백 알로 그림), 샐러드 5-15,
+  소스 1-5, 고명 3-10. Never hundreds of separate objects.
+- size: the width of ONE piece in cm. 바닥에 까는 것 12-26, 큰 조각 3-7, 작은 조각 1.5-3.5, 고명 0.4-1.
+- color, and top_color for what lies on that piece (생선·소스·치즈).
+- modifiers: only what is needed to recognise the food, 0-3 of them.
 
-COLOURS — this kitchen's palette. Every channel is a multiple of 18; stay near these:
+FORMS
+sphere ellipsoid cube cuboid cylinder capsule cone block wedge irregular_piece
+sheet disc slice strip ribbon flake
+strand noodle stick tube skewer
+roll dumpling pocket wrap nest
+ring torus
+grain particle crumb
+smear pool layer
+scoop heap
+
+ARRANGEMENTS
+row zigzag arc fan | grid radial ring | mound heap stack cluster | scatter
+pool submerged floating | nest bundle | center border smear quadrant dot overlap pile
+
+MODIFIERS
+flatten elongate compress taper bulge | bend curve twist warp
+smooth rough ridged wrinkled pleated crimped | irregular_edge torn_edge folded_edge scalloped_edge
+layered wrapped filled stuffed stacked | sliced diced quartered halved | grilled fried baked charred
+
+SEMANTIC DEFAULTS
+초밥 piece · capsule+sheet · rimmed_plate · row | 사시미 slice · slice · flat_plate · fan
+만두 wrapped · dumpling · plate · cluster | 김밥 wrapped · roll · flat_plate · row
+라멘 linear+liquid · noodle+pool · deep_bowl · submerged | 파스타 linear · strand · deep_plate · nest
+감자튀김 linear · stick · basket · pile | 스테이크 piece · block · flat_plate · center
+밥 particulate · grain · bowl · mound | 카레 liquid+piece · pool+chunk · bowl · submerged
+비빔밥 composite · grain+pieces · bowl · mound | 샐러드 composite · leaf+pieces · bowl · cluster
+퓌레 spread · smear · flat_plate · smear | 팬케이크 spread · disc · flat_plate · stack
+케이크 slice · wedge · flat_plate · center | 아이스크림 piece · scoop · bowl · cluster
+캐비아 particulate · grain · small_bowl · mound | 꼬치 linear · skewer · board · row
+
+WHAT MATTERS, IN ORDER
+실루엣 → 비례 → 배치 → 색 → 큰 표면 특징 → 작은 디테일.
+A simple model with the right silhouette and arrangement beats a detailed one with wrong proportions.
+Unknown food: infer its dominant geometry, take the closest type, form, vessel and a conventional
+arrangement. Never invent a complicated one-off.
+
+COLOURS — this kitchen's palette (every channel a multiple of 18). Stay near these:
 #FCFCEA #FCFCD8 #FCEAC6 #EAD8C6 #D8C690 #D8B490 #D8B47E #D8B46C #EAB45A #EAB448 #EAC648 #FCD86C
 #EA9036 #C69036 #D8905A #FC907E #D89090 #C64836 #C63624 #B45A36 #B47E48 #7E5A36 #5A3624 #242424
 #7E9036 #5A9036 #6C9048 #489048 #367E36 #90486C
 
-REMEMBER THE REAL DISH
-Picture it as it is actually served in its own country, then build that. Never substitute another dish.
-Pizza: a disc base, wedges or sheets of cheese, many small round toppings, a sprinkle of leaf.
-Bibimbap: a grains base of rice, a ring of small piles, one round egg, a sprinkle of crumb.
-Ramen: liquid in a deep bowl, a nest base, a few slab slices of pork, small tops, leaf accents.
-Bingsu: a grains base of ice, small round fruit on top, a sprinkle.
-If the order is vague, pick one specific real dish and name it in dish. If it is not food, build the
-closest edible thing.
-
 OUTPUT — this exact JSON object, nothing else, no code fence
-{"dish":"마르게리타 피자","matter":"object","matter_why":"손으로 집는 납작한 덩어리 음식이다.",
-"serving":{"vessel":"board","vessel_why":"피자는 나무 도마에 통째로 올려 낸다.","size":26,
-"color":"#B47E48","liquid":null},
-"layers":[
-{"role":"base","name":"도우","form":"disc","color":"#EAB45A","size":24,"count":1,"pattern":"fill"},
-{"role":"body","name":"치즈","form":"sheet","color":"#FCFCD8","size":5,"count":8,"pattern":"scatter"},
-{"role":"top","name":"방울토마토","form":"round","color":"#C63624","size":2.2,"count":14,"pattern":"scatter"},
-{"role":"accent","name":"바질","form":"leaf","color":"#5A9036","size":0.9,"count":24,"pattern":"scatter"}]}`;
+{"dish":"연어 초밥","type":["piece"],"read":"밥 위에 생선을 얹어 한 점씩 집어 먹는 덩어리 음식이다.",
+"serving":{"vessel":"rimmed_plate","vessel_why":"초밥은 한 점씩 놓는 테두리 접시에 낸다.","size":24,
+"color":"#FCFCEA","liquid":null},
+"components":[
+{"food":"초밥","form":"capsule","arrangement":"row","count":6,"size":4.2,"color":"#FCFCEA",
+"top_color":"#EA9036","modifiers":["flatten"]},
+{"food":"생강","form":"flake","arrangement":"cluster","count":5,"size":1.4,"color":"#FCEAC6","modifiers":[]},
+{"food":"간장","form":"pool","arrangement":"dot","count":1,"size":3,"color":"#5A3624","modifiers":[]}]}`;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     dish: { type: "STRING" },
-    matter: { type: "STRING", enum: MATTERS },
-    matter_why: { type: "STRING" },
+    type: { type: "ARRAY", minItems: 1, maxItems: 2, items: { type: "STRING", enum: FOOD_TYPES } },
+    read: { type: "STRING" },
     serving: {
       type: "OBJECT",
       properties: {
@@ -109,10 +171,7 @@ const RESPONSE_SCHEMA = {
         liquid: {
           type: "OBJECT",
           nullable: true,
-          properties: {
-            color: { type: "STRING" },
-            level: { type: "NUMBER" },
-          },
+          properties: { color: { type: "STRING" }, level: { type: "NUMBER" } },
           required: ["color", "level"],
           propertyOrdering: ["color", "level"],
         },
@@ -120,30 +179,30 @@ const RESPONSE_SCHEMA = {
       required: ["vessel", "vessel_why", "size", "color"],
       propertyOrdering: ["vessel", "vessel_why", "size", "color", "liquid"],
     },
-    layers: {
+    components: {
       type: "ARRAY",
-      minItems: 2,
-      maxItems: 5,
+      minItems: 1,
+      maxItems: 6,
       items: {
         type: "OBJECT",
         properties: {
-          role: { type: "STRING", enum: ROLES },
-          name: { type: "STRING" },
+          food: { type: "STRING" },
           form: { type: "STRING", enum: FORMS },
+          arrangement: { type: "STRING", enum: ARRANGEMENTS },
+          count: { type: "INTEGER" },
+          size: { type: "NUMBER" },
           color: { type: "STRING" },
           top_color: { type: "STRING" },
-          size: { type: "NUMBER" },
-          count: { type: "INTEGER" },
-          pattern: { type: "STRING", enum: PATTERNS },
+          modifiers: { type: "ARRAY", maxItems: 3, items: { type: "STRING", enum: MODIFIERS } },
         },
-        required: ["role", "name", "form", "color", "size", "count", "pattern"],
-        propertyOrdering: ["role", "name", "form", "color", "top_color", "size", "count", "pattern"],
+        required: ["food", "form", "arrangement", "count", "size", "color"],
+        propertyOrdering: ["food", "form", "arrangement", "count", "size", "color", "top_color", "modifiers"],
       },
     },
   },
-  required: ["dish", "matter", "matter_why", "serving", "layers"],
-  // 스트리밍으로 이 순서대로 옵니다: 이름 → 형상 → 그릇 → 바닥부터 한 층씩
-  propertyOrdering: ["dish", "matter", "matter_why", "serving", "layers"],
+  required: ["dish", "type", "read", "serving", "components"],
+  // 스트리밍으로 이 순서대로 옵니다: 이름 → 유형 → 그릇 → 구성요소(바닥부터)
+  propertyOrdering: ["dish", "type", "read", "serving", "components"],
 };
 
 function reply(body: Record<string, unknown>, status = 200) {

@@ -99,16 +99,15 @@
   .plating span{ animation:breathe 1.9s ease-in-out infinite; }
   @keyframes breathe{ 0%,100%{opacity:.35} 50%{opacity:1} }
 
-  /* ── 생각하는 과정 ──────────────────────────────────── */
+  /* ── 해석 과정 ──────────────────────────────────────── */
   .process{
     position:fixed; z-index:5;
     left:22px; bottom:calc(var(--pad-bot) + 26px);
-    width:min(56vw, 370px);
+    width:min(56vw, 380px);
     pointer-events:none;
     opacity:0; transition:opacity .6s ease;
   }
   .process.on{ opacity:1; }
-  .process.done{ opacity:.3; }
   .process .steps{ margin-bottom:13px; }
   .process .step{
     display:flex; gap:10px; align-items:baseline;
@@ -128,9 +127,7 @@
     font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size:11px; line-height:1.85; color:var(--ink-faint);
     white-space:pre;
-    max-height:34vh; overflow-y:auto; scrollbar-width:none;
-    -webkit-mask-image:linear-gradient(to bottom, transparent, #000 20%);
-            mask-image:linear-gradient(to bottom, transparent, #000 20%);
+    max-height:36vh; overflow-y:auto; scrollbar-width:none;
   }
   .process .log::-webkit-scrollbar{ display:none; }
   .process .log div{ display:flex; gap:7px; align-items:center; }
@@ -165,16 +162,16 @@
 
 <div class="process" id="process">
   <div class="steps">
-    <div class="step" id="step1"><b>형상</b><span>…</span></div>
+    <div class="step" id="step1"><b>유형</b><span>…</span></div>
     <div class="step" id="step2"><b>그릇</b><span>…</span></div>
-    <div class="step" id="step3"><b>층</b><span>…</span></div>
+    <div class="step" id="step3"><b>구성</b><span>…</span></div>
   </div>
   <div class="log" id="log"></div>
 </div>
 
 <div class="composer" id="composer">
   <p class="ask" id="ask">오늘은 무엇을 드시겠습니까</p>
-  <input id="orderInput" type="text" autocomplete="off" placeholder="예: 마르게리타 피자, 돈코츠 라멘, 딸기 빙수" />
+  <input id="orderInput" type="text" autocomplete="off" placeholder="예: 연어 초밥, 돈코츠 라멘, 스테이크와 퓌레" />
   <p class="hint" id="hint">입력하고 엔터</p>
 </div>
 
@@ -187,15 +184,16 @@ import * as THREE from 'three';
 
 /* ══════════════════════════════════════════════════════════
    1. 서버 연결
+
+   FOOD NAME → TYPE → VESSEL → COMPONENTS → 3D
+   서버는 이름·유형·그릇·구성요소(형태·배치·수식어)만 보냅니다.
+   모양, 자리, 높이, 겹침은 전부 여기서 만듭니다.
    ══════════════════════════════════════════════════════════ */
 
 // Supabase 대시보드 > Connect 에서 복사
 // KEY 는 Publishable key (sb_publishable_...). Secret key 는 절대 넣지 말 것.
 const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
-
-// 서버는 ① 형상 ② 그릇 ③ 층(무엇을 몇 개 어떻게) 만 보냅니다.
-// 조각의 모양, 놓이는 자리, 쌓이는 높이는 전부 여기서 만듭니다.
 const KITCHEN = `${SUPABASE_URL}/functions/v1/omacase`;
 
 /* ══════════════════════════════════════════════════════════
@@ -213,7 +211,7 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
-const table = new THREE.Group();     // 그릇과 음식이 모두 들어가는 묶음
+const table = new THREE.Group();
 scene.add(table);
 
 let frustum = 30;
@@ -236,10 +234,10 @@ function orbit() {
 function resizeCamera() {
   const a = innerWidth / innerHeight;
   const h = frustum / 2;
-  const wHalf = a >= 1 ? h * a : h;
-  const vHalf = a >= 1 ? h : h / a;
-  camera.left = -wHalf; camera.right = wHalf;
-  camera.top = vHalf;  camera.bottom = -vHalf;
+  camera.left = -(a >= 1 ? h * a : h);
+  camera.right = (a >= 1 ? h * a : h);
+  camera.top = (a >= 1 ? h : h / a);
+  camera.bottom = -(a >= 1 ? h : h / a);
   camera.updateProjectionMatrix();
 }
 orbit();
@@ -276,17 +274,19 @@ addEventListener('resize', () => {
 
 const UNIT = {
   box:      new THREE.BoxGeometry(1, 1, 1),
-  sphere:   new THREE.SphereGeometry(0.5, 26, 16),
-  cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 30),
-  cone:     new THREE.ConeGeometry(0.5, 1, 24),
+  sphere:   new THREE.SphereGeometry(0.5, 24, 14),
+  cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 28),
+  cone:     new THREE.ConeGeometry(0.5, 1, 22),
   capsule:  new THREE.CapsuleGeometry(0.3, 0.4, 5, 16),
-  torus:    new THREE.TorusGeometry(0.35, 0.15, 12, 30),
-  wedge:    new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0, Math.PI / 2.6)
+  torus:    new THREE.TorusGeometry(0.35, 0.15, 12, 28),
+  tube:     new THREE.CylinderGeometry(0.5, 0.5, 1, 20, 1, true),
+  wedge:    new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0, Math.PI / 2.6),
+  rock:     new THREE.DodecahedronGeometry(0.5, 0)
 };
 UNIT.capsule.computeBoundingBox();
 (() => {
-  const b = UNIT.capsule.boundingBox, s = new THREE.Vector3();
-  b.getSize(s);
+  const s = new THREE.Vector3();
+  UNIT.capsule.boundingBox.getSize(s);
   UNIT.capsule.scale(1 / s.x, 1 / s.y, 1 / s.z);
 })();
 UNIT.torus.rotateX(-Math.PI / 2);
@@ -296,6 +296,7 @@ const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const isHex = (c) => /^#[0-9a-fA-F]{6}$/.test(String(c ?? '').trim());
 const pick = (...c) => c.find(isHex) ?? '#D8B490';
+const wobble = (i) => Math.sin(i * 12.9898) * 0.5 + Math.sin(i * 78.233) * 0.5;   // -1~1, 늘 같은 값
 
 // ref/foodspace.3dm 의 팔레트는 채널이 모두 18 의 배수입니다. 같은 결로 맞춥니다.
 function snap18(hex) {
@@ -303,32 +304,34 @@ function snap18(hex) {
   const q = (x) => clamp(Math.round(x / 18) * 18, 0, 252);
   return (q((v >> 16) & 255) << 16) | (q((v >> 8) & 255) << 8) | q(v & 255);
 }
-function foodColor(hex, fallback) {
-  return new THREE.Color(snap18(pick(hex, fallback)));
-}
-function safeColor(hex, fallback = '#CCCCCC') {
-  return new THREE.Color(isHex(hex) ? hex : fallback);
-}
+const foodColor = (hex, fb) => new THREE.Color(snap18(pick(hex, fb)));
+const safeColor = (hex, fb = '#CCCCCC') => new THREE.Color(isHex(hex) ? hex : fb);
 
 const growing = [];   // 방금 놓여서 커지는 중인 것
 
-// 조각 하나. 놓이는 순간이 보이도록 작은 점에서 제 크기로 부풀립니다.
 function part(shape, color, size, pos = [0, 0, 0], rot = [0, 0, 0]) {
   const mesh = new THREE.Mesh(UNIT[shape] || UNIT.box, new THREE.MeshStandardMaterial({
-    color: foodColor(color), roughness: 0.78, metalness: 0
+    color: color instanceof THREE.Color ? color : foodColor(color),
+    roughness: 0.78, metalness: 0,
+    side: shape === 'tube' ? THREE.DoubleSide : THREE.FrontSide
   }));
-  const to = new THREE.Vector3(
-    clamp(num(size[0], 1), 0.04, 30),
-    clamp(num(size[1], 1), 0.04, 30),
-    clamp(num(size[2], 1), 0.04, 30)
-  );
   mesh.position.set(num(pos[0], 0), num(pos[1], 0), num(pos[2], 0));
   mesh.rotation.set(toRad(num(rot[0], 0)), toRad(num(rot[1], 0)), toRad(num(rot[2], 0)));
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  mesh.scale.set(0.001, 0.001, 0.001);
-  growing.push({ mesh, t: 0, to });
+  mesh.userData.to = new THREE.Vector3(
+    clamp(num(size[0], 1), 0.03, 40), clamp(num(size[1], 1), 0.03, 40), clamp(num(size[2], 1), 0.03, 40)
+  );
+  mesh.scale.copy(mesh.userData.to);
   return mesh;
+}
+
+// 묶음이 작은 점에서 제 크기로 부풀어 오르게
+function popIn(group) {
+  group.userData.pop = { t: 0, to: group.scale.clone() };
+  group.scale.multiplyScalar(0.001);
+  growing.push(group);
+  return group;
 }
 
 function disposeDeep(obj) {
@@ -339,13 +342,23 @@ function disposeDeep(obj) {
    4. 그릇
    ══════════════════════════════════════════════════════════ */
 
+const VESSEL_ALIAS = {
+  deep_plate: 'rimmed_plate', oval_plate: 'flat_plate', square_plate: 'tray',
+  wide_bowl: 'bowl', jar: 'glass', cup: 'cup', small_bowl: 'small_bowl'
+};
+const VESSEL_LABEL = {
+  flat_plate: '평접시', rimmed_plate: '테두리 접시', bowl: '사발', deep_bowl: '깊은 면기',
+  small_bowl: '종지', stone_pot: '돌솥', board: '나무 도마', tray: '쟁반', basket: '바구니',
+  glass: '유리잔', cup: '잔', leaf: '잎', none: '그릇 없이'
+};
+
 function hollow(size, height, color, opts = {}) {
   const R = size / 2, N = 16, pts = [];
   for (let i = 0; i <= N; i++) {
     const t = i / N;
     pts.push(new THREE.Vector2(R * Math.sin(t * Math.PI / 2) * 0.99, height * (1 - Math.cos(t * Math.PI / 2))));
   }
-  const mesh = new THREE.Mesh(new THREE.LatheGeometry(pts, 56), new THREE.MeshStandardMaterial({
+  const mesh = new THREE.Mesh(new THREE.LatheGeometry(pts, 52), new THREE.MeshStandardMaterial({
     color: safeColor(color, '#F2F0EC'), roughness: 0.55, metalness: 0, side: THREE.DoubleSide, ...opts
   }));
   mesh.castShadow = true;
@@ -353,7 +366,7 @@ function hollow(size, height, color, opts = {}) {
   return mesh;
 }
 
-function flat(color, size, pos) {
+function slabMesh(color, size, pos) {
   const mesh = new THREE.Mesh(UNIT.box, new THREE.MeshStandardMaterial({
     color: safeColor(color, '#B08050'), roughness: 0.7, metalness: 0
   }));
@@ -364,7 +377,7 @@ function flat(color, size, pos) {
   return mesh;
 }
 
-// obj(3D), y0(음식이 놓이기 시작하는 높이), rx·rz(놓을 수 있는 넓이), depth(그릇 깊이)
+// obj, y0(음식이 시작하는 높이), rx·rz(놓을 수 있는 넓이), depth(깊이)
 const VESSELS = {
   flat_plate(size, color) {
     const m = new THREE.Mesh(UNIT.cylinder, new THREE.MeshStandardMaterial({
@@ -378,7 +391,7 @@ const VESSELS = {
   rimmed_plate(size, color) {
     const g = new THREE.Group();
     g.add(VESSELS.flat_plate(size * 0.97, color).obj);
-    const rimGeo = new THREE.TorusGeometry(size / 2 - 0.6, 0.62, 14, 64);
+    const rimGeo = new THREE.TorusGeometry(size / 2 - 0.6, 0.62, 12, 56);
     rimGeo.rotateX(-Math.PI / 2);
     const rim = new THREE.Mesh(rimGeo, new THREE.MeshStandardMaterial({
       color: safeColor(color, '#F2F0EC'), roughness: 0.6, metalness: 0
@@ -387,18 +400,13 @@ const VESSELS = {
     g.add(rim);
     return { obj: g, y0: 0.2, rx: size / 2 - 2.4, rz: size / 2 - 2.4, depth: 0.8 };
   },
-  bowl(size, color) {
-    const h = size * 0.40;
-    return { obj: hollow(size, h, color), y0: h * 0.30, rx: 0, rz: 0, depth: h };
-  },
-  deep_bowl(size, color) {
-    const h = size * 0.62;
-    return { obj: hollow(size, h, color), y0: h * 0.44, rx: 0, rz: 0, depth: h };
-  },
+  bowl: (size, color) => bowlish(size, size * 0.40, color, 0.28),
+  deep_bowl: (size, color) => bowlish(size, size * 0.62, color, 0.42),
+  small_bowl: (size, color) => bowlish(size * 0.62, size * 0.30, color, 0.3),
   stone_pot(size, color) {
-    const h = size * 0.46;
+    const v = bowlish(size, size * 0.46, color || '#3A3632', 0.34);
     const g = new THREE.Group();
-    g.add(hollow(size, h, color || '#3A3632'));
+    g.add(v.obj);
     const foot = new THREE.Mesh(UNIT.cylinder, new THREE.MeshStandardMaterial({
       color: safeColor(color, '#3A3632'), roughness: 0.85, metalness: 0
     }));
@@ -406,54 +414,85 @@ const VESSELS = {
     foot.position.y = -0.55;
     foot.castShadow = true; foot.receiveShadow = true;
     g.add(foot);
-    return { obj: g, y0: h * 0.36, rx: 0, rz: 0, depth: h };
+    v.obj = g;
+    return v;
   },
   board(size, color) {
     const d = size * 0.74;
     const g = new THREE.Group();
-    g.add(flat(color || '#B08050', [size, 1.5, d], [0, -0.75, 0]));
+    g.add(slabMesh(color || '#B08050', [size, 1.5, d], [0, -0.75, 0]));
     return { obj: g, y0: 0, rx: size / 2 - 1.4, rz: d / 2 - 1.4, depth: 0 };
   },
-  basket(size, color) {
-    const h = size * 0.34;
+  tray(size, color) {
+    const d = size * 0.78;
     const g = new THREE.Group();
-    g.add(hollow(size, h, color || '#C8A66B'));
-    const lipGeo = new THREE.TorusGeometry(size / 2 * 0.99, 0.45, 12, 52);
+    g.add(slabMesh(color || '#7E5A36', [size, 1.1, d], [0, -0.55, 0]));
+    [[size / 2, 0, 0.6, d], [-size / 2, 0, 0.6, d], [0, d / 2, size, 0.6], [0, -d / 2, size, 0.6]]
+      .forEach(([x, z, w, dd]) => g.add(slabMesh(color || '#7E5A36', [w, 1.4, dd], [x, 0.1, z])));
+    return { obj: g, y0: 0.2, rx: size / 2 - 1.8, rz: d / 2 - 1.8, depth: 0.9 };
+  },
+  basket(size, color) {
+    const v = bowlish(size, size * 0.34, color || '#C8A66B', 0.3);
+    const g = new THREE.Group();
+    g.add(v.obj);
+    const lipGeo = new THREE.TorusGeometry(size / 2 * 0.99, 0.45, 10, 46);
     lipGeo.rotateX(-Math.PI / 2);
     const lip = new THREE.Mesh(lipGeo, new THREE.MeshStandardMaterial({
       color: safeColor(color, '#C8A66B'), roughness: 0.85, metalness: 0
     }));
-    lip.position.y = h;
+    lip.position.y = size * 0.34;
     lip.castShadow = true; lip.receiveShadow = true;
     g.add(lip);
-    return { obj: g, y0: h * 0.34, rx: 0, rz: 0, depth: h };
+    v.obj = g;
+    return v;
   },
   glass(size, color) {
-    const h = size * 1.2;
-    const obj = hollow(size, h, color || '#CFE0E6', { transparent: true, opacity: 0.4, roughness: 0.1 });
-    obj.castShadow = false;
-    return { obj, y0: h * 0.34, rx: 0, rz: 0, depth: h };
+    const v = bowlish(size, size * 1.2, color || '#CFE0E6', 0.3,
+      { transparent: true, opacity: 0.4, roughness: 0.1 });
+    v.obj.castShadow = false;
+    return v;
+  },
+  cup(size, color) {
+    const v = bowlish(size * 0.8, size * 0.8, color || '#FCFCEA', 0.3);
+    return v;
+  },
+  leaf(size, color) {
+    const m = new THREE.Mesh(UNIT.sphere, new THREE.MeshStandardMaterial({
+      color: safeColor(color, '#5A9036'), roughness: 0.8, metalness: 0
+    }));
+    m.scale.set(size, 0.7, size * 0.72);
+    m.position.y = -0.2;
+    m.receiveShadow = true;
+    return { obj: m, y0: 0.15, rx: size / 2 - 1.6, rz: size * 0.36 - 1.6, depth: 0 };
+  },
+  none(size) {
+    return { obj: new THREE.Group(), y0: 0, rx: size / 2, rz: size / 2, depth: 0 };
   }
 };
 
+function bowlish(size, height, color, fill, opts) {
+  return {
+    obj: hollow(size, height, color, opts),
+    y0: height * fill,
+    rx: 0, rz: 0,                       // 아래에서 담기는 높이에 맞춰 다시 계산
+    depth: height
+  };
+}
+
 /* ══════════════════════════════════════════════════════════
-   5. 알갱이 — 밥·간 얼음처럼 작은 알이 모인 것
+   5. 알갱이와 뿌리기 — 낱개로 그리지 않고 한 번에
    ══════════════════════════════════════════════════════════ */
 
 const GRAIN_GEO = {
-  grains: new THREE.CapsuleGeometry(0.16, 0.26, 3, 7),
-  ice:    new THREE.IcosahedronGeometry(0.24, 0),
-  crumb:  new THREE.BoxGeometry(0.3, 0.22, 0.28),
-  leaf:   new THREE.SphereGeometry(0.3, 7, 5),
-  round:  new THREE.SphereGeometry(0.3, 8, 6)
+  grain: new THREE.CapsuleGeometry(0.16, 0.26, 3, 6),
+  ice:   new THREE.IcosahedronGeometry(0.24, 0),
+  crumb: new THREE.BoxGeometry(0.3, 0.22, 0.28),
+  round: new THREE.SphereGeometry(0.3, 7, 5),
+  flake: new THREE.SphereGeometry(0.3, 6, 4)
 };
 
-// 난수 대신 규칙으로 흩뿌립니다 (같은 주문이면 같은 모습).
-function sunflower(i, n) {
-  return { k: Math.sqrt((i + 0.5) / n), a: i * 2.39996 };
-}
+const sunflower = (i, n) => ({ k: Math.sqrt((i + 0.5) / n), a: i * 2.39996 });
 
-// 덩어리 돔 위에 알갱이 수백 개를 덮습니다. 속은 채우지 않습니다.
 function grainMound(geoKey, color, R, H, count) {
   const g = new THREE.Group();
   const base = foodColor(color);
@@ -467,7 +506,7 @@ function grainMound(geoKey, color, R, H, count) {
   g.add(dome);
 
   const grains = new THREE.InstancedMesh(
-    GRAIN_GEO[geoKey] || GRAIN_GEO.grains,
+    GRAIN_GEO[geoKey] || GRAIN_GEO.grain,
     new THREE.MeshStandardMaterial({ color: base, roughness: 0.82, metalness: 0 }),
     count
   );
@@ -475,13 +514,12 @@ function grainMound(geoKey, color, R, H, count) {
 
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
   const pos = new THREE.Vector3(), sc = new THREE.Vector3(), tint = new THREE.Color();
-  const size = clamp(R / 7, 0.75, 1.5);
+  const size = clamp(R / 7, 0.7, 1.5);
 
   for (let i = 0; i < count; i++) {
     const { k, a } = sunflower(i, count);
     const rr = R * 0.985 * k;
-    const surface = H * 0.95 * Math.sqrt(Math.max(0, 1 - k * k));
-    pos.set(Math.cos(a) * rr, surface + Math.sin(i * 12.9898) * 0.11 * size, Math.sin(a) * rr);
+    pos.set(Math.cos(a) * rr, H * 0.95 * Math.sqrt(Math.max(0, 1 - k * k)) + wobble(i) * 0.1 * size, Math.sin(a) * rr);
     e.set(i * 1.7, a + i * 0.31, Math.sin(i * 7.1) * 0.9);
     q.setFromEuler(e);
     sc.setScalar(size * (0.85 + 0.3 * (0.5 + 0.5 * Math.sin(i * 3.7))));
@@ -496,7 +534,6 @@ function grainMound(geoKey, color, R, H, count) {
   return g;
 }
 
-// 고명처럼 작은 것을 여러 자리에 한 번에 뿌립니다.
 function sprinkle(geoKey, color, spots, size) {
   const base = foodColor(color);
   const mesh = new THREE.InstancedMesh(
@@ -509,10 +546,10 @@ function sprinkle(geoKey, color, spots, size) {
   const p = new THREE.Vector3(), sc = new THREE.Vector3(), tint = new THREE.Color();
   spots.forEach((s, i) => {
     p.set(s.x, s.y, s.z);
-    e.set(Math.sin(i * 5.3) * 0.5, i * 1.31, Math.cos(i * 2.7) * 0.5);
+    e.set(wobble(i) * 0.6, i * 1.31, wobble(i + 3) * 0.6);
     q.setFromEuler(e);
     const f = size * (0.8 + 0.4 * (0.5 + 0.5 * Math.sin(i * 4.1)));
-    sc.set(f, f * (geoKey === 'leaf' ? 0.35 : 0.8), f * (geoKey === 'leaf' ? 0.6 : 1));
+    sc.set(f, f * (geoKey === 'flake' ? 0.3 : 0.8), f * (geoKey === 'flake' ? 0.7 : 1));
     m.compose(p, q, sc);
     mesh.setMatrixAt(i, m);
     tint.copy(base).multiplyScalar(0.9 + 0.16 * (0.5 + 0.5 * Math.cos(i * 1.7)));
@@ -524,84 +561,180 @@ function sprinkle(geoKey, color, spots, size) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   6. 조각 — 이름만 오면 모양은 여기서. w 는 그 조각의 폭(cm)
+   6. 형태 — 이름만 오면 모양은 여기서. w 는 그 조각의 폭(cm)
    ══════════════════════════════════════════════════════════ */
 
-const PIECES = {
-  disc: (w, c, t) => [
+const FORM_ALIAS = {
+  block: 'cuboid', cuboid: 'cuboid', irregular_piece: 'irregular', torus: 'ring',
+  noodle: 'nest', strand: 'nest', particle: 'grain', wrap: 'pocket', dome: 'scoop',
+  ellipsoid: 'ellipsoid', tube: 'tube', ribbon: 'ribbon', strip: 'strip'
+};
+
+const FORMS = {
+  sphere:   (w, c, t) => [part('sphere', c, [w, w, w], [0, w / 2, 0])],
+  ellipsoid:(w, c, t) => [part('sphere', c, [w, w * 0.68, w * 0.82], [0, w * 0.34, 0])],
+  cube:     (w, c, t) => [part('box', c, [w * 0.86, w * 0.86, w * 0.86], [0, w * 0.43, 0], [0, 14, 0])],
+  cuboid:   (w, c, t) => [
+    part('box', c, [w, w * 0.52, w * 0.66], [0, w * 0.26, 0], [0, 6, 0]),
+    t && part('box', t, [w * 0.9, w * 0.08, w * 0.6], [0, w * 0.55, 0])
+  ],
+  cylinder: (w, c, t) => [
+    part('cylinder', c, [w, w * 0.55, w], [0, w * 0.28, 0]),
+    t && part('cylinder', t, [w * 0.9, w * 0.08, w * 0.9], [0, w * 0.58, 0])
+  ],
+  capsule:  (w, c, t) => [
+    part('capsule', c, [w, w * 0.44, w * 0.6], [0, w * 0.22, 0], [0, 0, 90]),
+    t && part('sheet' in UNIT ? 'box' : 'box', t, [w * 1.02, w * 0.12, w * 0.66], [0, w * 0.48, 0], [0, 0, 3])
+  ],
+  cone:     (w, c, t) => [part('cone', c, [w, w * 0.9, w], [0, w * 0.45, 0])],
+  wedge:    (w, c, t) => [
+    part('wedge', c, [w * 1.7, w * 0.3, w * 1.7], [0, w * 0.15, 0]),
+    t && part('wedge', t, [w * 1.5, w * 0.1, w * 1.5], [0, w * 0.33, 0])
+  ],
+  irregular:(w, c, t) => [part('rock', c, [w, w * 0.62, w * 0.88], [0, w * 0.31, 0], [12, 20, 8])],
+  sheet:    (w, c, t) => [part('box', c, [w, w * 0.07, w * 0.86], [0, w * 0.04, 0], [-5, 14, 4])],
+  disc:     (w, c, t) => [
     part('cylinder', c, [w, w * 0.13, w], [0, w * 0.065, 0]),
-    part('cylinder', t ?? c, [w * 0.88, w * 0.05, w * 0.88], [0, w * 0.15, 0])
+    t && part('cylinder', t, [w * 0.88, w * 0.05, w * 0.88], [0, w * 0.15, 0])
   ],
-  sheet: (w, c, t) => [
-    part('box', c, [w, w * 0.07, w * 0.86], [0, w * 0.04, 0], [-5, 14, 4])
+  slice:    (w, c, t) => [
+    part('box', c, [w, w * 0.1, w * 0.58], [0, w * 0.05, 0], [0, 0, 6]),
+    t && part('box', t, [w * 0.92, w * 0.04, w * 0.5], [0, w * 0.12, 0], [0, 0, 6])
   ],
-  slab: (w, c, t) => [
-    part('box', c, [w, w * 0.4, w * 0.72], [0, w * 0.2, 0]),
-    part('box', t ?? c, [w * 0.92, w * 0.1, w * 0.66], [0, w * 0.45, 0])
+  strip:    (w, c, t) => [part('box', c, [w, w * 0.12, w * 0.3], [0, w * 0.06, 0], [0, 8, 0])],
+  ribbon:   (w, c, t) => [
+    part('box', c, [w, w * 0.08, w * 0.26], [0, w * 0.1, 0], [12, 0, 6]),
+    part('box', c, [w * 0.8, w * 0.08, w * 0.24], [w * 0.1, w * 0.22, w * 0.06], [-10, 20, -8])
   ],
-  wedge: (w, c, t) => [
-    part('wedge', c, [w * 1.6, w * 0.22, w * 1.6], [0, w * 0.11, 0]),
-    part('wedge', t ?? c, [w * 1.44, w * 0.08, w * 1.44], [0, w * 0.25, 0])
+  flake:    (w, c, t) => [part('sphere', c, [w, w * 0.16, w * 0.7], [0, w * 0.08, 0], [0, 22, 9])],
+  stick:    (w, c, t) => [part('box', c, [w, w * 0.22, w * 0.22], [0, w * 0.11, 0], [0, 10, 3])],
+  tube:     (w, c, t) => [part('tube', c, [w, w * 0.5, w], [0, w * 0.25, 0], [90, 0, 0])],
+  skewer:   (w, c, t) => [
+    part('cylinder', '#D8B47E', [w * 0.08, w * 1.35, w * 0.08], [0, w * 0.12, 0], [0, 0, 90]),
+    part('sphere', c, [w * 0.38, w * 0.38, w * 0.38], [-w * 0.34, w * 0.24, 0]),
+    part('sphere', t ?? c, [w * 0.38, w * 0.38, w * 0.38], [0, w * 0.24, 0]),
+    part('sphere', c, [w * 0.38, w * 0.38, w * 0.38], [w * 0.34, w * 0.24, 0])
   ],
-  round: (w, c, t) => [
-    part('sphere', c, [w, w * 0.92, w], [0, w * 0.46, 0]),
-    part('sphere', t ?? c, [w * 0.42, w * 0.3, w * 0.42], [0, w * 0.88, 0])
-  ],
-  dome: (w, c, t) => [
-    part('sphere', c, [w, w * 0.78, w], [0, w * 0.3, 0]),
-    part('sphere', t ?? c, [w * 0.36, w * 0.26, w * 0.36], [w * 0.1, w * 0.66, 0])
-  ],
-  rod: (w, c, t) => [
-    part('capsule', c, [w, w * 0.38, w * 0.38], [0, w * 0.19, 0], [0, 0, 90])
-  ],
-  ring: (w, c, t) => [
-    part('torus', c, [w, w * 0.34, w], [0, w * 0.17, 0])
-  ],
-  cone: (w, c, t) => [
-    part('cone', c, [w, w * 0.82, w], [0, w * 0.41, 0]),
-    part('sphere', t ?? c, [w * 0.3, w * 0.3, w * 0.3], [0, w * 0.8, 0])
-  ],
-  nest: (w, c, t) => [
-    part('torus', c, [w, w * 0.3, w], [0, w * 0.15, 0]),
-    part('torus', c, [w * 0.76, w * 0.26, w * 0.76], [w * 0.05, w * 0.32, 0], [0, 34, 0]),
-    part('sphere', t ?? c, [w * 0.4, w * 0.2, w * 0.4], [0, w * 0.44, 0])
-  ],
-  cube: (w, c, t) => [
-    part('box', c, [w * 0.86, w * 0.8, w * 0.86], [0, w * 0.4, 0], [0, 14, 0])
-  ],
-  nigiri: (w, c, t) => [
-    part('box', c, [w, w * 0.42, w * 0.62], [0, w * 0.21, 0]),
-    part('box', t ?? c, [w * 1.06, w * 0.14, w * 0.68], [0, w * 0.48, 0], [0, 0, 3])
-  ],
-  roll: (w, c, t) => [
+  roll:     (w, c, t) => [
     part('cylinder', t ?? '#242424', [w, w * 0.78, w], [0, w * 0.39, 0]),
     part('cylinder', c, [w * 0.76, w * 0.82, w * 0.76], [0, w * 0.42, 0])
   ],
-  leaf: (w, c, t) => [
-    part('sphere', c, [w, w * 0.12, w * 0.6], [0, w * 0.06, 0], [0, 24, 7])
+  dumpling: (w, c, t) => [
+    part('sphere', c, [w, w * 0.62, w * 0.78], [0, w * 0.31, 0]),
+    part('sphere', c, [w * 0.24, w * 0.24, w * 0.24], [-w * 0.3, w * 0.56, 0]),
+    part('sphere', c, [w * 0.24, w * 0.24, w * 0.24], [0, w * 0.6, 0]),
+    part('sphere', c, [w * 0.24, w * 0.24, w * 0.24], [w * 0.3, w * 0.56, 0])
+  ],
+  pocket:   (w, c, t) => [
+    part('sphere', c, [w, w * 0.6, w * 0.5], [0, w * 0.3, 0], [0, 0, 0]),
+    t && part('box', t, [w * 0.7, w * 0.16, w * 0.3], [0, w * 0.5, 0])
+  ],
+  nest:     (w, c, t) => [
+    part('torus', c, [w, w * 0.3, w], [0, w * 0.15, 0]),
+    part('torus', c, [w * 0.78, w * 0.26, w * 0.78], [w * 0.05, w * 0.3, 0], [0, 34, 0]),
+    part('torus', c, [w * 0.56, w * 0.22, w * 0.56], [-w * 0.04, w * 0.42, w * 0.03], [0, 70, 0]),
+    t && part('sphere', t, [w * 0.34, w * 0.2, w * 0.34], [0, w * 0.5, 0])
+  ],
+  ring:     (w, c, t) => [part('torus', c, [w, w * 0.34, w], [0, w * 0.17, 0])],
+  scoop:    (w, c, t) => [
+    part('sphere', c, [w, w * 0.85, w], [0, w * 0.36, 0]),
+    t && part('sphere', t, [w * 0.34, w * 0.26, w * 0.34], [w * 0.08, w * 0.72, 0])
+  ],
+  heap:     (w, c, t) => [
+    part('cone', c, [w, w * 0.8, w], [0, w * 0.4, 0]),
+    t && part('sphere', t, [w * 0.28, w * 0.28, w * 0.28], [0, w * 0.78, 0])
   ]
 };
 
-// 조각 하나의 높이(폭 대비). 층을 얼마나 올릴지 계산할 때 씁니다.
-const PIECE_H = {
-  disc: 0.18, sheet: 0.1, slab: 0.5, wedge: 0.3, round: 1, dome: 0.7, rod: 0.4,
-  ring: 0.36, cone: 0.9, nest: 0.5, cube: 0.8, nigiri: 0.56, roll: 0.82, leaf: 0.12
+// 조각 하나의 높이(폭 대비)
+const FORM_H = {
+  sphere: 1, ellipsoid: 0.68, cube: 0.86, cuboid: 0.6, cylinder: 0.62, capsule: 0.5,
+  cone: 0.9, wedge: 0.35, irregular: 0.62, sheet: 0.1, disc: 0.18, slice: 0.14,
+  strip: 0.16, ribbon: 0.3, flake: 0.16, stick: 0.24, tube: 0.5, skewer: 0.45,
+  roll: 0.8, dumpling: 0.64, pocket: 0.6, nest: 0.55, ring: 0.34, scoop: 0.8, heap: 0.85
 };
 
-function buildPiece(form, w, color, topColor) {
+/* ── 수식어: 알아본 형태를 조금 비틀어 그 음식처럼 ───────── */
+
+const MODIFY = {
+  flatten:   (g) => g.scale.y *= 0.55,
+  compress:  (g) => { g.scale.x *= 0.82; g.scale.z *= 0.82; },
+  elongate:  (g) => g.scale.x *= 1.45,
+  bulge:     (g) => { g.scale.y *= 1.2; g.scale.x *= 1.06; g.scale.z *= 1.06; },
+  taper:     (g) => g.children.forEach((m, i) => { if (i) m.scale.multiplyScalar(0.8); }),
+  bend:      (g) => g.children.forEach((m, i) => { m.rotation.z += 0.16 * (i % 2 ? -1 : 1); }),
+  curve:     (g) => g.children.forEach((m, i) => { m.rotation.x += 0.14 * (i % 2 ? -1 : 1); }),
+  twist:     (g) => g.children.forEach((m, i) => { m.rotation.y += 0.3 * i; }),
+  warp:      (g) => g.children.forEach((m, i) => { m.position.x += wobble(i) * 0.1 * g.scale.x; }),
+  rough:     (g) => g.children.forEach((m, i) => { m.scale.multiplyScalar(1 + wobble(i) * 0.08); m.rotation.y += wobble(i) * 0.2; }),
+  wrinkled:  (g) => MODIFY.rough(g),
+  ridged:    (g) => MODIFY.rough(g),
+  pleated:   (g) => MODIFY.rough(g),
+  crimped:   (g) => MODIFY.rough(g),
+  irregular_edge: (g) => g.children.forEach((m, i) => { m.scale.x *= 1 + wobble(i) * 0.12; m.scale.z *= 1 - wobble(i + 1) * 0.1; }),
+  torn_edge: (g) => MODIFY.irregular_edge(g),
+  folded_edge: (g) => g.children.forEach((m, i) => { if (i === 0) m.rotation.x += 0.2; }),
+  scalloped_edge: (g) => MODIFY.irregular_edge(g),
+  layered:   (g, w, c) => layerUp(g, w, c, 3),
+  stacked:   (g, w, c) => layerUp(g, w, c, 3),
+  filled:    (g, w, c, t) => g.add(part('sphere', t ?? c, [w * 0.4, w * 0.3, w * 0.4], [0, w * 0.4, 0])),
+  stuffed:   (g, w, c, t) => MODIFY.filled(g, w, c, t),
+  sliced:    (g) => { g.scale.z *= 0.6; },
+  halved:    (g) => { g.scale.x *= 0.62; },
+  quartered: (g) => { g.scale.x *= 0.6; g.scale.z *= 0.6; },
+  diced:     (g) => { g.scale.multiplyScalar(0.8); },
+  grilled:   (g, w, c) => char(g, w, 2),
+  charred:   (g, w, c) => char(g, w, 3),
+  baked:     (g) => g.children.forEach((m) => m.material.color.multiplyScalar(0.92)),
+  fried:     (g) => g.children.forEach((m) => { m.material.color.lerp(new THREE.Color(0xD8B46C), 0.35); m.material.roughness = 0.95; })
+};
+
+// 같은 것을 위로 몇 겹
+function layerUp(g, w, c, n) {
+  const h = (g.userData.h ?? w * 0.4);
+  for (let i = 1; i < n; i++) {
+    const m = part('cylinder', c, [w * (1 - i * 0.12), h * 0.5, w * (1 - i * 0.12)], [0, h * (0.6 + i * 0.5), 0]);
+    g.add(m);
+  }
+}
+
+// 구운 자국
+function char(g, w, n) {
+  const y = (g.userData.h ?? w * 0.4) * 1.02;
+  for (let i = 0; i < n; i++) {
+    g.add(part('box', '#5A3624', [w * 0.86, w * 0.02, w * 0.07], [0, y, (i - (n - 1) / 2) * w * 0.16], [0, 6, 0]));
+  }
+}
+
+function buildPiece(formName, w, color, topColor, modifiers) {
+  const form = FORMS[formName] ? formName : (FORMS[FORM_ALIAS[formName]] ? FORM_ALIAS[formName] : 'ellipsoid');
   const g = new THREE.Group();
-  (PIECES[form] || PIECES.round)(w, color, topColor).forEach((m) => g.add(m));
+  (FORMS[form](w, color, topColor) || []).filter(Boolean).forEach((m) => g.add(m));
+  g.userData.h = (FORM_H[form] ?? 0.5) * w;
+  (modifiers || []).slice(0, 3).forEach((mod) => {
+    try { MODIFY[mod]?.(g, w, color, topColor); } catch { /* 모양은 못 바꿔도 접시는 나와야 합니다 */ }
+  });
+  g.userData.form = form;
   return g;
 }
 
 /* ══════════════════════════════════════════════════════════
-   7. 놓는 자리 — 배치 이름만 오면 좌표는 여기서
+   7. 배치 — 이름만 오면 좌표는 여기서
    ══════════════════════════════════════════════════════════ */
 
 const spread = (n, f) => Array.from({ length: n }, (_, i) => f(i));
 
-const PATTERNS = {
+const ARRANGE = {
   row: (n, rx) => spread(n, (i) => ({ x: (i - (n - 1) / 2) * ((2 * rx) / n), z: 0 })),
+  zigzag: (n, rx, rz) => spread(n, (i) => ({ x: (i - (n - 1) / 2) * ((2 * rx) / n), z: (i % 2 ? 1 : -1) * rz * 0.28 })),
+  arc: (n, rx, rz) => spread(n, (i) => {
+    const t = n === 1 ? 0.5 : i / (n - 1), a = (-0.42 + 0.84 * t) * Math.PI;
+    return { x: Math.cos(a) * rx * 0.72, z: Math.sin(a) * rz * 0.5 + rz * 0.2, ry: -a + Math.PI / 2 };
+  }),
+  fan: (n, rx, rz) => spread(n, (i) => {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    return { x: (t - 0.5) * rx * 1.3, z: Math.abs(t - 0.5) * rz * 0.5 - rz * 0.1, ry: (t - 0.5) * 1.1 };
+  }),
   grid: (n, rx, rz) => {
     const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
     return spread(n, (i) => ({
@@ -611,73 +744,116 @@ const PATTERNS = {
   },
   ring: (n, rx, rz) => spread(n, (i) => {
     const a = (i / n) * Math.PI * 2;
-    return { x: Math.cos(a) * rx * 0.7, z: Math.sin(a) * rz * 0.7, ry: -a };
+    return { x: Math.cos(a) * rx * 0.72, z: Math.sin(a) * rz * 0.72, ry: -a };
   }),
-  fan: (n, rx, rz) => spread(n, (i) => {
-    const t = n === 1 ? 0.5 : i / (n - 1);
-    const a = (-0.5 + t) * Math.PI;
-    return { x: Math.cos(a) * rx * 0.66, z: Math.sin(a) * rz * 0.5 + rz * 0.2, ry: -a + Math.PI / 2 };
+  radial: (n, rx, rz) => spread(n, (i) => {
+    const a = (i / n) * Math.PI * 2;
+    return { x: Math.cos(a) * rx * 0.5, z: Math.sin(a) * rz * 0.5, ry: -a };
+  }),
+  mound: (n, rx, rz) => spread(n, (i) => {
+    const { k, a } = sunflower(i, n);
+    return { x: Math.cos(a) * rx * 0.55 * k, z: Math.sin(a) * rz * 0.55 * k, y: (1 - k) * 1.6, ry: a };
+  }),
+  stack: (n) => spread(n, (i) => ({ x: Math.sin(i * 1.1) * 0.5, z: Math.cos(i * 1.1) * 0.5, y: i * 1.05, ry: i * 0.45 })),
+  cluster: (n, rx, rz) => spread(n, (i) => {
+    const { k, a } = sunflower(i, n);
+    return { x: Math.cos(a) * rx * 0.5 * k, z: Math.sin(a) * rz * 0.5 * k, ry: a };
   }),
   scatter: (n, rx, rz) => spread(n, (i) => {
     const { k, a } = sunflower(i, n);
     return { x: Math.cos(a) * rx * 0.86 * k, z: Math.sin(a) * rz * 0.86 * k, ry: a };
   }),
-  mound: (n, rx, rz) => spread(n, (i) => {
-    const { k, a } = sunflower(i, n);
-    return { x: Math.cos(a) * rx * 0.6 * k, z: Math.sin(a) * rz * 0.6 * k, y: (1 - k) * 1.8, ry: a };
+  center: (n, rx, rz) => spread(n, (i) => ({
+    x: n === 1 ? 0 : Math.cos(i * 2.4) * rx * 0.2, z: n === 1 ? 0 : Math.sin(i * 2.4) * rz * 0.2, ry: i * 0.6
+  })),
+  border: (n, rx, rz) => ARRANGE.ring(n, rx * 1.18, rz * 1.18),
+  quadrant: (n, rx, rz) => spread(n, (i) => {
+    const q = i % 4;
+    return { x: (q % 2 ? 1 : -1) * rx * 0.45, z: (q < 2 ? 1 : -1) * rz * 0.45, ry: q * 1.2 };
   }),
-  stack: (n) => spread(n, (i) => ({ x: Math.sin(i * 1.1) * 0.6, z: Math.cos(i * 1.1) * 0.6, y: i * 1.1, ry: i * 0.5 })),
+  dot: (n, rx, rz) => spread(n, (i) => {
+    const a = i * 2.39996;
+    return { x: Math.cos(a) * rx * 0.62, z: Math.sin(a) * rz * 0.62 };
+  }),
   submerged: (n, rx, rz) => spread(n, (i) => {
     const a = (i / n) * Math.PI * 2;
-    return { x: Math.cos(a) * rx * 0.62, z: Math.sin(a) * rz * 0.62, y: -0.5, ry: -a };
+    return { x: Math.cos(a) * rx * 0.6, z: Math.sin(a) * rz * 0.6, y: -0.5, ry: -a };
   }),
-  fill: (n, rx, rz) => spread(n, () => ({ x: 0, z: 0 }))
+  floating: (n, rx, rz) => ARRANGE.scatter(n, rx * 0.8, rz * 0.8)
 };
 
-// 자리끼리 너무 가까우면 조각을 줄여 겹치지 않게 합니다.
+const ARRANGE_ALIAS = {
+  heap: 'mound', pile: 'mound', overlap: 'fan', bundle: 'row', nest: 'center',
+  pool: 'center', smear: 'center'
+};
+const ARRANGE_LABEL = {
+  row: '한 줄', zigzag: '지그재그', arc: '호', fan: '부채꼴', grid: '격자', radial: '방사',
+  ring: '둥글게', mound: '수북이', stack: '포개기', cluster: '모아서', scatter: '흩뿌리기',
+  center: '가운데', border: '가장자리', quadrant: '사분면', dot: '점점이',
+  submerged: '잠기게', floating: '떠 있게'
+};
+
+function arrangeOf(name) {
+  return ARRANGE[name] ? name : (ARRANGE[ARRANGE_ALIAS[name]] ? ARRANGE_ALIAS[name] : 'scatter');
+}
+
+// 자리끼리 너무 가까우면 조각을 줄여 겹치지 않게
 function fitScale(spots, w, pattern) {
-  if (pattern === 'mound' || pattern === 'stack' || pattern === 'fill' || spots.length < 2) return 1;
+  if (['mound', 'stack', 'center', 'fan', 'overlap'].includes(pattern) || spots.length < 2) return 1;
   let min = Infinity;
   for (let i = 0; i < spots.length; i++) {
     for (let j = i + 1; j < spots.length; j++) {
       min = Math.min(min, Math.hypot(spots[i].x - spots[j].x, spots[i].z - spots[j].z));
     }
   }
-  return clamp((min * 1.15) / w, 0.45, 1.2);
+  return clamp((min * 0.94) / w, 0.45, 1.15);
 }
 
 /* ══════════════════════════════════════════════════════════
-   8. 담기 — 바닥부터 한 층씩
+   8. 담기
    ══════════════════════════════════════════════════════════ */
 
-const ROLE_LABEL = { base: '바닥', body: '몸통', top: '위', accent: '고명' };
-const SIZE_RANGE = { base: [6, 30], body: [1.5, 12], top: [0.8, 6], accent: [0.25, 2] };
-const COUNT_RANGE = { base: [1, 3], body: [1, 14], top: [1, 30], accent: [4, 90] };
-const DEFAULT_SIZE = { base: 18, body: 4, top: 2.2, accent: 0.7 };
-const DEFAULT_COUNT = { base: 1, body: 6, top: 12, accent: 30 };
+// 바닥이 되는 형태: 그 위에 다음 것이 올라갑니다.
+const BED_FORMS = ['grain', 'particle', 'pool', 'smear', 'layer', 'nest', 'noodle', 'strand'];
+const TYPE_LABEL = {
+  piece: '덩어리', slice: '저민 것', wrapped: '싼 것', linear: '길쭉한 것',
+  particulate: '알갱이', spread: '펴 바른 것', liquid: '액체', composite: '복합'
+};
+const TYPE_VESSEL = {
+  liquid: 'deep_bowl', linear: 'bowl', particulate: 'bowl', spread: 'flat_plate',
+  slice: 'flat_plate', wrapped: 'flat_plate', piece: 'rimmed_plate', composite: 'bowl'
+};
 
 let vessel = null;
-let deck = 0;          // 지금까지 쌓인 윗면
-let peak = 0;          // 전체에서 가장 높은 곳 (고명은 여기에)
-let layersDone = 0;
+let beds = [];         // { h(r) } 높이를 돌려주는 바닥들
+let placed = 0;        // 몇 번째 구성요소까지 놓았는지
 const bites = [];      // 집어 먹을 수 있는 조각
-const eating = [];     // 사라지는 중
-let leftovers = null;  // 바닥·고명처럼 집어 먹지 않는 것
+const eating = [];
+let leftovers = null;  // 바닥·국물·고명
 
 function resetPlate() {
   [...table.children].forEach((c) => { disposeDeep(c); table.remove(c); });
   bites.length = 0;
   eating.length = 0;
   growing.length = 0;
+  beds = [];
   vessel = null;
   leftovers = null;
-  deck = peak = 0;
-  layersDone = 0;
+  placed = 0;
 }
 
-function buildVessel(serving, matter) {
-  const kind = VESSELS[serving.vessel] ? serving.vessel : (MATTER_VESSEL[matter] || 'flat_plate');
-  const size = clamp(num(serving.size, 22), 9, 34);
+// 그 자리의 표면 높이 (바닥들 중 가장 높은 것)
+function surfaceAt(x, z) {
+  let y = vessel.y0;
+  const r = Math.hypot(x, z);
+  beds.forEach((b) => { y = Math.max(y, b.y + b.h(r)); });
+  return y;
+}
+
+function buildVessel(serving, types) {
+  const asked = VESSEL_ALIAS[serving.vessel] ?? serving.vessel;
+  const kind = VESSELS[asked] ? asked : (TYPE_VESSEL[types?.[0]] || 'rimmed_plate');
+  const size = clamp(num(serving.size, 22), 8, 34);
   vessel = VESSELS[kind](size, serving.color);
   vessel.kind = kind;
   vessel.size = size;
@@ -686,17 +862,17 @@ function buildVessel(serving, matter) {
   leftovers = new THREE.Group();
   table.add(leftovers);
 
-  // 국물·소스는 그릇 안에 차오르고, 음식은 그 위에서 시작합니다.
+  // 그릇을 채운 국물. 음식은 그 위에서 시작합니다.
   const liquid = serving.liquid;
-  if (liquid && isHex(liquid.color) && vessel.depth > 0.5) {
+  if (liquid && isHex(liquid.color) && vessel.depth > 2) {
     const level = clamp(num(liquid.level, 0.5), 0.1, 0.95);
     const y = vessel.depth * level;
     const rr = (size / 2) * Math.sqrt(Math.max(0.05, 1 - Math.pow(1 - level, 2))) * 0.96;
     const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(rr, rr * 0.34, Math.max(y, 0.4), 44),
+      new THREE.CylinderGeometry(rr, rr * 0.34, Math.max(y, 0.4), 40),
       new THREE.MeshStandardMaterial({
         color: safeColor(liquid.color), roughness: 0.22, metalness: 0,
-        transparent: vessel.kind === 'glass', opacity: vessel.kind === 'glass' ? 0.9 : 1
+        transparent: kind === 'glass', opacity: kind === 'glass' ? 0.9 : 1
       })
     );
     body.position.y = y / 2;
@@ -706,8 +882,8 @@ function buildVessel(serving, matter) {
     log(`국물 ${Math.round(level * 100)}%`, liquid.color);
   }
 
-  // 오목한 그릇은 음식이 놓이는 높이에서의 넓이를 씁니다.
-  if (vessel.depth > 0.5) {
+  // 오목한 그릇은 음식이 놓이는 높이에서의 넓이를 씁니다. (테두리 접시·쟁반은 해당 없음)
+  if (vessel.depth > 2) {
     const t = clamp(1 - vessel.y0 / vessel.depth, -1, 1);
     vessel.rim = (size / 2) * Math.sqrt(Math.max(0.05, 1 - t * t));
     vessel.rx = vessel.rz = vessel.rim * 0.8;
@@ -715,8 +891,6 @@ function buildVessel(serving, matter) {
     vessel.rim = Math.max(vessel.rx, vessel.rz) + 1.4;
   }
 
-  deck = vessel.y0;
-  peak = vessel.y0;
   frustum = size * 1.45 + vessel.depth * 0.45;
   camTarget.set(0, vessel.depth * 0.34, 0);
   ORBIT.azim = Math.PI / 4;
@@ -727,98 +901,116 @@ function buildVessel(serving, matter) {
   log(`${VESSEL_LABEL[kind] ?? kind} ${Math.round(size)}cm`, serving.color);
 }
 
-// 층 하나를 바닥 위에 올립니다.
-function addLayer(layer) {
-  const role = ROLE_LABEL[layer.role] ? layer.role : 'top';
-  const form = PIECES[layer.form] || layer.form === 'grains' || layer.form === 'crumb'
-    ? layer.form : 'round';
-  const pattern = PATTERNS[layer.pattern] ? layer.pattern : (role === 'base' ? 'fill' : 'scatter');
-  const color = pick(layer.color, '#D8B490');
-  const top = isHex(layer.top_color) ? layer.top_color : null;
-  const name = String(layer.name ?? ROLE_LABEL[role]).slice(0, 14);
+// 구성요소 하나를 접시에 올립니다.
+function addComponent(comp) {
+  const rawForm = String(comp.form ?? 'ellipsoid');
+  const food = String(comp.food ?? '').slice(0, 14);
+  const color = pick(comp.color, '#D8B490');
+  const top = isHex(comp.top_color) ? comp.top_color : null;
+  const pattern = arrangeOf(String(comp.arrangement ?? 'scatter'));
+  const isBed = BED_FORMS.includes(rawForm);
+  const count = clamp(Math.round(num(comp.count, isBed ? 1 : 6)), 1, 24);
+  const mods = Array.isArray(comp.modifiers) ? comp.modifiers : [];
+  let w = clamp(num(comp.size, isBed ? vessel.rim * 1.4 : 3), 0.3, vessel.rim * 2.2);
 
-  const [smin, smax] = SIZE_RANGE[role];
-  const [cmin, cmax] = COUNT_RANGE[role];
-  let w = clamp(num(layer.size, DEFAULT_SIZE[role]), smin, Math.min(smax, vessel.rim * 2));
-  let count = clamp(Math.round(num(layer.count, DEFAULT_COUNT[role])), cmin, cmax);
-  const y = role === 'accent' ? peak : deck;
+  const note = (extra) => {
+    log(`${food || rawForm} · ${rawForm} ${ARRANGE_LABEL[pattern] ?? pattern}${extra}`, color);
+    placed += 1;
+  };
 
-  // 알갱이(밥·간 얼음)는 한 덩어리의 무리로
-  if (form === 'grains') {
-    const R = Math.min(vessel.rim * 0.94, Math.max(w / 2, 3));
-    const H = clamp(vessel.depth > 0.5 ? vessel.depth * 0.4 : R * 0.28, 1.2, 6);
+  // ── 바닥이 되는 것들 ───────────────────────────────
+  if (rawForm === 'grain' || rawForm === 'particle') {
+    const R = clamp(w / 2, 2, vessel.rim * 0.94);
+    const H = clamp(vessel.depth > 2 ? vessel.depth * 0.4 : R * 0.3, 1.2, 6);
     const n = clamp(Math.round(R * R * 4.2), 90, 460);
     const c3 = new THREE.Color(pick(color));
-    const mound = grainMound(c3.b > c3.r + 0.02 ? 'ice' : 'grains', color, R, H, n);
+    const y = surfaceAt(0, 0);
+    const mound = grainMound(c3.b > c3.r + 0.02 ? 'ice' : 'grain', color, R, H, n);
     mound.position.y = y;
-    leftovers.add(mound);
-    growing.push({ mesh: mound, t: 0, to: new THREE.Vector3(1, 1, 1) });
-    deck = y + H * 0.72;
-    peak = Math.max(peak, y + H);
+    leftovers.add(popIn(mound));
+    beds.push({ y, h: (r) => (r > R ? 0 : H * Math.sqrt(Math.max(0, 1 - (r / R) ** 2))) });
     vessel.rx = vessel.rz = Math.max(vessel.rx, R * 0.66);
-    log(`${ROLE_LABEL[role]} · ${name} 알갱이 ${n}`, color);
-    layersDone += 1;
-    return;
+    return note(` ${n}알`);
   }
 
-  // 자리부터 잡고, 겹치면 조각을 줄입니다.
-  const rx = role === 'accent' ? vessel.rx * 1.05 : vessel.rx;
-  const rz = role === 'accent' ? vessel.rz * 1.05 : vessel.rz;
-  const spots = (PATTERNS[pattern] || PATTERNS.scatter)(count, rx, rz);
-  if (pattern !== 'fill') w *= fitScale(spots, w, pattern);
-  if (pattern === 'fill') w = Math.min(w, vessel.rim * 2 * 0.94);
+  if (rawForm === 'pool' || rawForm === 'smear' || rawForm === 'layer') {
+    const spots = ARRANGE[pattern](count, vessel.rx, vessel.rz);
+    const g = new THREE.Group();
+    const thick = rawForm === 'layer' ? w * 0.16 : 0.34;
+    spots.forEach((s, i) => {
+      const m = part('cylinder', color, [w, thick, w * (rawForm === 'smear' ? 0.42 : 1)],
+        [num(s.x, 0), thick / 2, num(s.z, 0)], [0, i * 34, 0]);
+      if (rawForm === 'smear') m.scale.x *= 1.5;
+      g.add(m);
+    });
+    const y = surfaceAt(0, 0);
+    g.position.y = y;
+    leftovers.add(popIn(g));
+    const R = w * (rawForm === 'smear' ? 0.9 : 0.55);
+    beds.push({ y, h: (r) => (r > R ? 0 : thick) });
+    return note(` ${count}개 ${w.toFixed(1)}cm`);
+  }
 
-  // 고명·부스러기는 낱개로 그리지 않고 한 번에 뿌립니다.
-  if (form === 'crumb' || role === 'accent') {
-    const geoKey = form === 'leaf' ? 'leaf' : (form === 'round' ? 'round' : 'crumb');
+  // ── 고명·부스러기: 낱개로 그리지 않고 한 번에 ─────────
+  if (rawForm === 'crumb' || (count > 12 && w < 1.6)) {
+    const spots = ARRANGE[pattern](count, vessel.rx * 1.02, vessel.rz * 1.02);
     const pts = spots.map((s, i) => ({
-      x: s.x, z: s.z,
-      y: y + 0.12 + Math.abs(Math.sin(i * 3.3)) * 0.2 + num(s.y, 0)
+      x: s.x, z: s.z, y: surfaceAt(s.x, s.z) + w * 0.4 + Math.abs(wobble(i)) * 0.2
     }));
-    const mesh = sprinkle(geoKey, color, pts, w);
-    leftovers.add(mesh);
-    growing.push({ mesh, t: 0, to: new THREE.Vector3(1, 1, 1) });
-    peak = Math.max(peak, y + w);
-    log(`${ROLE_LABEL[role]} · ${name} ${count}개 ${w.toFixed(1)}cm`, color);
-    layersDone += 1;
-    return;
+    const mesh = sprinkle(rawForm === 'flake' ? 'flake' : 'crumb', color, pts, w);
+    leftovers.add(popIn(new THREE.Group().add(mesh)));
+    return note(` ${count}개 ${w.toFixed(1)}cm`);
   }
 
-  const h = (PIECE_H[form] ?? 0.5) * w;
+  // ── 집어 먹는 조각들 ──────────────────────────────
+  const bed = BED_FORMS.includes(rawForm) || (count === 1 && w > vessel.rim * 1.2);
+  const spots = ARRANGE[pattern](count, vessel.rx, vessel.rz);
+  if (count > 1) w *= fitScale(spots, w, pattern);
+
+  // 포개는 것은 제 두께만큼 올라가야 합니다
+  const pieceH = (FORM_H[FORMS[rawForm] ? rawForm : FORM_ALIAS[rawForm]] ?? 0.5) * w;
+  if (pattern === 'stack') spots.forEach((s, i) => { s.y = i * pieceH * 0.86; });
+
   spots.forEach((s, i) => {
-    const g = buildPiece(form, w, color, top);
-    g.position.set(num(s.x, 0), y + num(s.y, 0), num(s.z, 0));
-    g.rotation.y = num(s.ry, 0) + Math.sin(i * 2.3) * 0.25;
-    if (role === 'base') {
-      leftovers.add(g);                    // 바닥은 집어 먹지 않습니다
+    const g = buildPiece(rawForm, w, color, top, mods);
+    const x = num(s.x, 0), z = num(s.z, 0);
+    g.position.set(x, surfaceAt(x, z) + num(s.y, 0), z);
+    g.rotation.y = num(s.ry, 0) + wobble(i) * 0.3;
+    popIn(g);
+    if (bed) {
+      leftovers.add(g);
     } else {
-      g.userData = { home: g.position.clone(), name };
+      g.userData.home = g.position.clone();
+      g.userData.food = food;
       table.add(g);
       bites.push(g);
     }
   });
 
-  peak = Math.max(peak, y + h + (pattern === 'mound' ? 1.8 : 0));
-  deck = y + h * (role === 'base' ? 1 : 0.5);
-  layersDone += 1;
-  log(`${ROLE_LABEL[role]} · ${name} ${form} ${count}개 ${w.toFixed(1)}cm`, color);
+  // 이 위에 다음 것이 올라갈 수 있게 높이를 기록
+  const h = pattern === 'stack' ? pieceH * count * 0.86 : pieceH;
+  if (bed || count === 1) {
+    const y = surfaceAt(0, 0);
+    const R = count === 1 ? w * 0.55 : vessel.rx;
+    beds.push({ y, h: (r) => (r > R ? 0 : h * 0.9) });
+  }
+  return note(` ${count}개 ${w.toFixed(1)}cm`);
 }
 
-// 반쯤 온 spec 을 화면에 반영. final 이면 마지막 층까지.
 function grow(spec, final) {
   if (!spec) return;
   const sv = spec.serving;
-  const ready = sv && typeof sv.vessel === 'string' && typeof sv.size === 'number'
-    && typeof sv.color === 'string';
-  if (!vessel && (ready || (final && sv))) buildVessel(sv, spec.matter);
+  const ready = sv && typeof sv.vessel === 'string' && typeof sv.size === 'number' && typeof sv.color === 'string';
+  if (!vessel && (ready || (final && sv))) buildVessel(sv, spec.type);
   if (!vessel) return;
 
-  const list = Array.isArray(spec.layers) ? spec.layers : [];
-  list.forEach((layer, i) => {
-    if (i < layersDone) return;
-    if (!final && i === list.length - 1) return;    // 아직 쓰는 중일 수 있음
-    if (!layer || typeof layer.form !== 'string' || typeof layer.pattern !== 'string') return;
-    addLayer(layer);
+  const list = Array.isArray(spec.components) ? spec.components : [];
+  list.forEach((comp, i) => {
+    if (i < placed) return;
+    if (!final && i === list.length - 1) return;      // 아직 쓰는 중일 수 있음
+    if (!comp || typeof comp.form !== 'string' || typeof comp.arrangement !== 'string'
+      || typeof comp.size !== 'number') return;
+    addComponent(comp);
   });
 }
 
@@ -849,10 +1041,7 @@ let servedTotal = 0;
 
 function drawPips(total, left) {
   el.pips.innerHTML = '';
-  if (total > 14) {
-    el.pips.textContent = `${left} / ${total}`;
-    return;
-  }
+  if (total > 14) { el.pips.textContent = `${left} / ${total}`; return; }
   for (let i = 0; i < total; i++) {
     const s = document.createElement('i');
     s.className = 'pip' + (i < total - left ? ' gone' : '');
@@ -864,12 +1053,12 @@ function eat(group) {
   const i = bites.indexOf(group);
   if (i < 0) return;
   bites.splice(i, 1);
+  group.userData.home = group.userData.home ?? group.position.clone();
   eating.push({ g: group, t: 0 });
   drawPips(servedTotal, bites.length);
   if (bites.length === 0) setTimeout(clearPlate, 500);
 }
 
-// 집어 먹을 것이 없으면 바닥까지 함께 비웁니다.
 function clearPlate() {
   if (leftovers && leftovers.children.length) {
     leftovers.userData = { home: leftovers.position.clone() };
@@ -931,18 +1120,10 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 });
 
 /* ══════════════════════════════════════════════════════════
-   10. 생각하는 과정
+   10. 해석 과정 — 지우지 않고 그대로 남깁니다
    ══════════════════════════════════════════════════════════ */
 
-const LOG_MAX = 80;
-
-const MATTER_LABEL = { drink: '음료', soup: '국물', grain: '알갱이', noodle: '면', object: '덩어리' };
-const VESSEL_LABEL = {
-  flat_plate: '평접시', rimmed_plate: '테두리 접시', bowl: '사발', deep_bowl: '깊은 면기',
-  stone_pot: '돌솥', board: '나무 도마', basket: '바구니', glass: '유리잔'
-};
-// 형상이 정해지면 그릇도 대개 정해집니다 (모델이 그릇을 빠뜨렸을 때)
-const MATTER_VESSEL = { drink: 'glass', soup: 'deep_bowl', grain: 'bowl', noodle: 'deep_bowl', object: 'flat_plate' };
+const LOG_MAX = 120;
 
 function setStep(n, head, tail) {
   const box = el['step' + n];
@@ -957,7 +1138,7 @@ function clearProcess() {
     el['step' + n].classList.remove('on');
   });
   el.logBox.innerHTML = '';
-  el.process.classList.remove('on', 'done');
+  el.process.classList.remove('on');
 }
 
 function log(text, color) {
@@ -998,7 +1179,7 @@ function closeUp(src) {
 }
 
 function parsePartial(raw) {
-  const text = raw.replace(/^[^[{]*/, '');     // ```json 울타리가 붙어 와도
+  const text = raw.replace(/^[^[{]*/, '');
   for (let end = text.length; end > 0; end--) {
     const c = text[end - 1];
     if (c !== '}' && c !== ']' && c !== '"' && !/[0-9a-z]/.test(c)) continue;
@@ -1009,7 +1190,7 @@ function parsePartial(raw) {
   return null;
 }
 
-// 아직 닫히지 않은 문장도 쓰이는 대로 보여 줍니다.
+// 아직 닫히지 않은 문장도 쓰이는 대로
 function peekString(text, key) {
   const at = text.indexOf('"' + key + '"');
   if (at < 0) return '';
@@ -1056,7 +1237,6 @@ async function askKitchen(order, onText) {
     throw new Error(body?.error || `주방에서 응답이 없습니다 (${res.status})`);
   }
 
-  // 함수가 한 번에 보내는 방식이면 받은 JSON 을 그대로 씁니다.
   if (!(res.headers.get('content-type') || '').includes('text/event-stream')) {
     const whole = await res.text();
     if (!whole.trim()) throw new Error('접시가 비어 돌아왔습니다. 다시 주문해 주세요');
@@ -1101,7 +1281,7 @@ async function order(text) {
   clearProcess();
   resetPlate();
 
-  // 글자가 올 때마다: 생각은 세 단계로, 음식은 바닥부터 한 층씩
+  // 글자가 올 때마다: 해석은 세 단계로, 음식은 바닥부터
   const onText = (all) => {
     el.plating.classList.remove('on');
     el.process.classList.add('on');
@@ -1111,31 +1291,33 @@ async function order(text) {
       el.dishName.textContent = spec.dish;
       el.osinagaki.classList.add('on');
     }
-    if (spec?.matter) setStep(1, MATTER_LABEL[spec.matter] ?? spec.matter, peekString(all, 'matter_why'));
+    if (Array.isArray(spec?.type) && spec.type.length) {
+      setStep(1, spec.type.map((t) => TYPE_LABEL[t] ?? t).join(' + '), peekString(all, 'read'));
+    }
     if (spec?.serving?.vessel) {
-      setStep(2, VESSEL_LABEL[spec.serving.vessel] ?? spec.serving.vessel, peekString(all, 'vessel_why'));
+      setStep(2, VESSEL_LABEL[VESSEL_ALIAS[spec.serving.vessel] ?? spec.serving.vessel] ?? spec.serving.vessel,
+        peekString(all, 'vessel_why'));
     }
     grow(spec, false);
-    if (layersDone) setStep(3, `${layersDone}층째`);
+    if (placed) setStep(3, `${placed}번째`);
   };
 
   try {
     const raw = await askKitchen(q, onText);
     const spec = parsePartial(raw);
     grow(spec, true);
-    if (!vessel || !layersDone) throw new Error('이 주문은 담아내지 못했습니다. 다르게 말씀해 주세요');
+    if (!vessel || !placed) throw new Error('이 주문은 담아내지 못했습니다. 다르게 말씀해 주세요');
 
     if (!bites.length && leftovers) {
       leftovers.userData = { home: leftovers.position.clone() };
       bites.push(leftovers);
       leftovers = null;
     }
-    setStep(3, `${layersDone}층`, `${bites.length}점`);
+    setStep(3, `${placed}가지`, `${bites.length}점`);
     servedTotal = bites.length;
     el.dishName.textContent = spec.dish || q;
     drawPips(servedTotal, servedTotal);
     el.osinagaki.classList.add('on');
-    setTimeout(() => el.process.classList.add('done'), 1600);
   } catch (err) {
     resetPlate();
     clearProcess();
@@ -1175,21 +1357,20 @@ function tick() {
     orbit();
   }
 
-  // 막 놓인 것: 작은 점에서 제 크기로
   for (let i = growing.length - 1; i >= 0; i--) {
     const g = growing[i];
-    g.t += dt / 0.26;
-    const k = Math.min(1, g.t);
+    const p = g.userData.pop;
+    p.t += dt / 0.26;
+    const k = Math.min(1, p.t);
     const ease = 1 - Math.pow(1 - k, 3);
-    g.mesh.scale.set(
-      Math.max(0.001, g.to.x * ease),
-      Math.max(0.001, g.to.y * ease),
-      Math.max(0.001, g.to.z * ease)
+    g.scale.set(
+      Math.max(0.001, p.to.x * ease),
+      Math.max(0.001, p.to.y * ease),
+      Math.max(0.001, p.to.z * ease)
     );
     if (k >= 1) growing.splice(i, 1);
   }
 
-  // 먹히는 것: 살짝 떠올랐다가 작아지며 사라집니다.
   for (let i = eating.length - 1; i >= 0; i--) {
     const e = eating[i];
     e.t += dt / 0.42;
