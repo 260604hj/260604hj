@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>오마카세</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@200;300;400&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:      #EFEAE1;   /* 종이 흰색 */
+    --ink-dim:  #8C867C;   /* 흐린 글씨 */
+    --ink-faint:#4A463F;
+    --bg:       #000000;
+    --line:     #2A2722;
+    --pad-top:   env(safe-area-inset-top, 0px);
+    --pad-bot:   env(safe-area-inset-bottom, 0px);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; background:var(--bg); }
+  body{
+    font-family:"IBM Plex Sans KR", system-ui, sans-serif;
+    color:var(--ink);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  canvas{ display:block; touch-action:none; }
+
+  /* ── 오시나가키: 왼쪽 위 차림표 ───────────────────────── */
+  .osinagaki{
+    position:fixed; z-index:5;
+    top:calc(var(--pad-top) + 22px); left:22px;
+    max-width:min(60vw, 320px);
+    pointer-events:none;
+    opacity:0; transition:opacity .5s ease;
+  }
+  .osinagaki.on{ opacity:1; }
+  .osinagaki .dish{
+    font-family:"Gowun Batang", serif;
+    font-size:19px; line-height:1.35; letter-spacing:.02em;
+    margin:0;
+  }
+  .osinagaki .left{
+    display:flex; gap:6px; align-items:center;
+    margin-top:11px; height:8px;
+  }
+  .pip{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--ink); opacity:.85;
+    transition:transform .3s ease, opacity .3s ease, background .3s ease;
+  }
+  .pip.gone{
+    background:transparent;
+    box-shadow:inset 0 0 0 1px var(--ink-faint);
+    transform:scale(.72);
+  }
+
+  /* ── 아래쪽 주문 ────────────────────────────────────── */
+  .composer{
+    position:fixed; z-index:5;
+    left:50%; transform:translateX(-50%);
+    bottom:calc(var(--pad-bot) + 30px);
+    width:min(540px, 84vw);
+    text-align:center;
+    transition:opacity .45s ease;
+  }
+  .composer.hidden{ opacity:0; pointer-events:none; }
+  .composer .ask{
+    font-family:"Gowun Batang", serif;
+    font-size:15px; color:var(--ink-dim);
+    margin:0 0 14px;
+  }
+  .composer input{
+    width:100%; background:transparent; border:0;
+    border-bottom:1px solid var(--line);
+    padding:9px 2px; text-align:center;
+    font-family:"IBM Plex Sans KR", sans-serif;
+    font-size:17px; font-weight:300; color:var(--ink);
+    outline:none; transition:border-color .25s ease;
+  }
+  .composer input:focus{ border-bottom-color:var(--ink-dim); }
+  .composer input::placeholder{ color:var(--ink-faint); font-weight:200; }
+  .composer .hint{
+    margin:12px 0 0; font-size:12px; font-weight:200; color:var(--ink-faint);
+    min-height:16px;
+  }
+  .composer .hint.warn{ color:#B9855A; }
+
+  /* ── 준비 중 표시 ───────────────────────────────────── */
+  .plating{
+    position:fixed; inset:0; z-index:4;
+    display:none; place-items:center;
+    font-family:"Gowun Batang", serif; font-size:15px; color:var(--ink-dim);
+    pointer-events:none;
+  }
+  .plating.on{ display:grid; }
+  .plating span{ animation:breathe 1.9s ease-in-out infinite; }
+  @keyframes breathe{ 0%,100%{opacity:.35} 50%{opacity:1} }
+
+  /* ── 뒤로 가기 ─────────────────────────────────────── */
+  .back{
+    position:fixed; z-index:6;
+    top:calc(var(--pad-top) + 22px); right:22px;
+    font-size:13px; color:var(--ink-faint); text-decoration:none;
+  }
+  .back:hover{ color:var(--ink-dim); }
+
+  :focus-visible{ outline:1px solid var(--ink-dim); outline-offset:3px; }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="osinagaki" id="osinagaki">
+  <p class="dish" id="dishName"></p>
+  <div class="left" id="pips"></div>
+</div>
+
+<a class="back" href="../visitor.html">←</a>
+
+<div class="plating" id="plating"><span>준비하고 있습니다</span></div>
+
+<div class="composer" id="composer">
+  <p class="ask" id="ask">오늘은 무엇을 드시겠습니까</p>
+  <input id="orderInput" type="text" autocomplete="off" placeholder="예: 연어 초밥, 마르게리타 피자, 딸기 빙수" />
+  <p class="hint" id="hint">입력하고 엔터</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ══════════════════════════════════════════════════════════
+   1. 서버 연결
+   ══════════════════════════════════════════════════════════ */
+
+// Supabase 대시보드 > Connect 에서 복사
+// KEY 는 Publishable key (sb_publishable_...). Secret key 는 절대 넣지 말 것.
+const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
+const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
+
+// Gemini 키는 Edge Function(omakase) 안에만 있고, 브라우저에는 오지 않습니다.
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ══════════════════════════════════════════════════════════
+   3. 화면 준비
+   ══════════════════════════════════════════════════════════ */
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+
+// 접시와 음식이 모두 들어가는 묶음. 드래그하면 이것만 돈다.
+const table = new THREE.Group();
+scene.add(table);
+
+let frustum = 30;
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
+camera.position.set(60, 52, 60);
+camera.lookAt(0, 0, 0);
+resizeCamera();
+
+const key = new THREE.DirectionalLight(0xffffff, 2.1);
+key.position.set(34, 56, 26);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -26;
+key.shadow.camera.right = 26;
+key.shadow.camera.top = 26;
+key.shadow.camera.bottom = -26;
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 160;
+key.shadow.bias = -0.0009;
+key.shadow.radius = 3;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xdfe6ef, 0.5);
+fill.position.set(-30, 22, -18);
+scene.add(fill);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x1a1a1a, 0.7));
+
+/* ── 모양 만들기 ──────────────────────────────────────── */
+
+const UNIT = {
+  box:      new THREE.BoxGeometry(1, 1, 1),
+  sphere:   new THREE.SphereGeometry(0.5, 28, 18),
+  cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 30),
+  cone:     new THREE.ConeGeometry(0.5, 1, 26),
+  capsule:  new THREE.CapsuleGeometry(0.3, 0.4, 6, 18),
+  torus:    new THREE.TorusGeometry(0.35, 0.15, 14, 34)
+};
+// 캡슐과 도넛은 쓰기 편한 방향으로 미리 돌려 둡니다.
+UNIT.capsule.computeBoundingBox();
+(() => {
+  const b = UNIT.capsule.boundingBox, s = new THREE.Vector3();
+  b.getSize(s);
+  UNIT.capsule.scale(1 / s.x, 1 / s.y, 1 / s.z);   // 1×1×1 로 정규화
+})();
+UNIT.torus.rotateX(-Math.PI / 2);                   // 접시에 눕힌 고리
+
+const toRad = (d) => (d || 0) * Math.PI / 180;
+const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+
+function safeColor(hex, fallback = '#CCCCCC') {
+  try { return new THREE.Color(hex); } catch { return new THREE.Color(fallback); }
+}
+
+function buildPart(p) {
+  const geo = UNIT[p.shape] || UNIT.box;
+  const mat = new THREE.MeshStandardMaterial({
+    color: safeColor(p.color),
+    roughness: 0.78,
+    metalness: 0.0
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+
+  const s = Array.isArray(p.size) ? p.size : [1, 1, 1];
+  mesh.scale.set(
+    Math.max(0.05, num(s[0], 1)),
+    Math.max(0.05, num(s[1], 1)),
+    Math.max(0.05, num(s[2], 1))
+  );
+
+  const q = Array.isArray(p.pos) ? p.pos : [0, 0, 0];
+  mesh.position.set(num(q[0], 0), num(q[1], 0), num(q[2], 0));
+
+  const r = Array.isArray(p.rot) ? p.rot : [0, 0, 0];
+  mesh.rotation.set(toRad(r[0]), toRad(r[1]), toRad(r[2]));
+
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+let plateMesh = null;
+const bites = [];   // 아직 남은 음식 묶음
+
+function buildScene(spec) {
+  clearTable();
+
+  const w = Math.min(40, Math.max(10, num(spec.plate?.width, 20)));
+  const d = spec.plate?.shape === 'circle'
+    ? w
+    : Math.min(40, Math.max(10, num(spec.plate?.depth, w)));
+
+  const plateGeo = spec.plate?.shape === 'square'
+    ? new THREE.BoxGeometry(1, 1, 1)
+    : new THREE.CylinderGeometry(0.5, 0.46, 1, 72);
+  plateMesh = new THREE.Mesh(plateGeo, new THREE.MeshStandardMaterial({
+    color: safeColor(spec.plate?.color, '#F2F0EC'),
+    roughness: 0.62,
+    metalness: 0.0
+  }));
+  plateMesh.scale.set(w, 0.9, d);
+  plateMesh.position.y = -0.45;      // 윗면이 정확히 y = 0
+  plateMesh.receiveShadow = true;
+  plateMesh.castShadow = true;
+  table.add(plateMesh);
+
+  (spec.items || []).forEach((item, i) => {
+    const g = new THREE.Group();
+    (item.parts || []).forEach((p) => g.add(buildPart(p)));
+    if (!g.children.length) return;
+
+    // 묶음의 원점을 음식이 놓인 자리로 옮깁니다.
+    // 이렇게 해야 먹을 때 접시 가운데로 빨려가지 않고 제자리에서 사라집니다.
+    const box = new THREE.Box3().setFromObject(g);
+    const c = box.getCenter(new THREE.Vector3());
+    g.children.forEach((m) => { m.position.x -= c.x; m.position.z -= c.z; });
+    g.position.set(c.x, 0, c.z);
+
+    g.userData = { name: item.name || '한 점', index: i, home: g.position.clone() };
+    table.add(g);
+    bites.push(g);
+  });
+
+  // 접시 크기에 맞춰 화면을 맞춥니다.
+  frustum = Math.max(w, d) * 1.5;
+  resizeCamera();
+  table.rotation.y = 0;
+}
+
+function disposeDeep(obj) {
+  obj.traverse((o) => { if (o.isMesh) o.material?.dispose(); });
+}
+
+function clearTable() {
+  [...table.children].forEach((c) => { disposeDeep(c); table.remove(c); });
+  bites.length = 0;
+  plateMesh = null;
+}
+
+function resizeCamera() {
+  const a = innerWidth / innerHeight;
+  const h = frustum / 2;
+  const wHalf = a >= 1 ? h * a : h;          // 세로 화면에서도 접시가 안 잘리게
+  const vHalf = a >= 1 ? h : h / a;
+  camera.left = -wHalf; camera.right = wHalf;
+  camera.top = vHalf;  camera.bottom = -vHalf;
+  camera.updateProjectionMatrix();
+}
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  resizeCamera();
+});
+
+/* ══════════════════════════════════════════════════════════
+   4. 먹기
+   ══════════════════════════════════════════════════════════ */
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const eating = [];          // 사라지는 중인 묶음
+
+const el = {
+  osinagaki: document.getElementById('osinagaki'),
+  dishName:  document.getElementById('dishName'),
+  pips:      document.getElementById('pips'),
+  composer:  document.getElementById('composer'),
+  ask:       document.getElementById('ask'),
+  input:     document.getElementById('orderInput'),
+  hint:      document.getElementById('hint'),
+  plating:   document.getElementById('plating')
+};
+
+function drawPips(total, left) {
+  el.pips.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const s = document.createElement('i');
+    s.className = 'pip' + (i < total - left ? ' gone' : '');
+    el.pips.appendChild(s);
+  }
+}
+
+let servedTotal = 0;
+
+function eat(group) {
+  const i = bites.indexOf(group);
+  if (i < 0) return;
+  bites.splice(i, 1);
+
+  eating.push({ g: group, t: 0 });
+  drawPips(servedTotal, bites.length);
+
+  if (bites.length === 0) {
+    setTimeout(finishCourse, 620);
+  }
+}
+
+function finishCourse() {
+  el.dishName.textContent = '잘 드셨습니다';
+  el.ask.textContent = '다음은 무엇으로 하시겠습니까';
+  el.input.value = '';
+  el.hint.textContent = '입력하고 엔터';
+  el.hint.classList.remove('warn');
+  el.composer.classList.remove('hidden');
+}
+
+/* 드래그는 회전, 짧게 누르면 먹기 */
+let dragging = false, moved = 0, lastX = 0, spin = 0;
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  dragging = true; moved = 0; lastX = e.clientX; spin = 0;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  const dx = e.clientX - lastX;
+  lastX = e.clientX;
+  moved += Math.abs(dx);
+  spin = dx * 0.006;
+  table.rotation.y += spin;
+});
+
+renderer.domElement.addEventListener('pointerup', (e) => {
+  dragging = false;
+  if (moved > 8) return;                 // 돌린 것이지 누른 것이 아님
+  pointer.x =  (e.clientX / innerWidth)  * 2 - 1;
+  pointer.y = -(e.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(bites, true);
+  if (!hits.length) return;
+  let o = hits[0].object;
+  while (o.parent && o.parent !== table) o = o.parent;
+  eat(o);
+});
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (dragging) return;
+  pointer.x =  (e.clientX / innerWidth)  * 2 - 1;
+  pointer.y = -(e.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  renderer.domElement.style.cursor =
+    raycaster.intersectObjects(bites, true).length ? 'pointer' : 'default';
+});
+
+/* ══════════════════════════════════════════════════════════
+   5. 주문 → Gemini → 접시
+   ══════════════════════════════════════════════════════════ */
+
+async function askKitchen(order) {
+  const { data, error } = await db.functions.invoke('omakase', { body: { order } });
+  if (error) {
+    const body = await error.context?.json?.().catch(() => null);
+    throw new Error(body?.error || '주방에서 응답이 없습니다');
+  }
+  if (data?.error) throw new Error(data.error);
+  if (!Array.isArray(data?.items) || !data.items.length) {
+    throw new Error('이 주문은 담아내지 못했습니다. 다르게 말씀해 주세요');
+  }
+  return data;
+}
+
+let busy = false;
+
+async function order(text) {
+  if (busy) return;
+  const q = text.trim();
+  if (!q) return;
+  busy = true;
+  el.composer.classList.add('hidden');
+  el.osinagaki.classList.remove('on');
+  el.plating.classList.add('on');
+  clearTable();
+
+  try {
+    const spec = await askKitchen(q);
+    buildScene(spec);
+    servedTotal = bites.length;
+    el.dishName.textContent = spec.dish || q;
+    drawPips(servedTotal, servedTotal);
+    el.osinagaki.classList.add('on');
+  } catch (err) {
+    el.hint.textContent = err.message || '무언가 잘못되었습니다';
+    el.hint.classList.add('warn');
+    el.composer.classList.remove('hidden');
+    el.input.focus();
+  } finally {
+    el.plating.classList.remove('on');
+    busy = false;
+  }
+}
+
+el.input.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  el.hint.textContent = '입력하고 엔터';
+  el.hint.classList.remove('warn');
+  order(el.input.value);
+});
+
+el.input.focus();
+
+/* ══════════════════════════════════════════════════════════
+   6. 그리기
+   ══════════════════════════════════════════════════════════ */
+
+const clock = new THREE.Clock();
+
+function tick() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  // 손을 뗀 뒤 남은 회전이 천천히 멎습니다.
+  if (!dragging && Math.abs(spin) > 0.00002) {
+    table.rotation.y += spin;
+    spin *= 0.92;
+  }
+
+  // 먹히는 중인 음식: 살짝 떠올랐다가 작아지며 사라집니다.
+  for (let i = eating.length - 1; i >= 0; i--) {
+    const e = eating[i];
+    e.t += dt / 0.42;
+    const k = Math.min(1, e.t);
+    const ease = 1 - Math.pow(1 - k, 3);
+    e.g.position.y = e.g.userData.home.y + ease * 5.5;
+    e.g.rotation.y = ease * 1.2;
+    const s = Math.max(0.001, 1 - ease);
+    e.g.scale.setScalar(s);
+    if (k >= 1) {
+      disposeDeep(e.g);
+      table.remove(e.g);
+      eating.splice(i, 1);
+    }
+  }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>
