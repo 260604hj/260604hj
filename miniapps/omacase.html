@@ -881,7 +881,9 @@ function closeUp(src) {
 }
 
 // 지금까지 온 만큼만 읽어 낸 객체 (뒤에서부터 잘라 가며 말이 되는 지점을 찾음)
-function parsePartial(text) {
+function parsePartial(raw) {
+  // 스키마 없이 받은 경우 ```json 울타리가 붙어 올 수 있습니다.
+  const text = raw.replace(/^[^[{]*/, '');
   for (let end = text.length; end > 0; end--) {
     const c = text[end - 1];
     if (c !== '}' && c !== ']' && c !== '"' && !/[0-9a-z]/.test(c)) continue;

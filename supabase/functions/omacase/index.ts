@@ -90,9 +90,12 @@ BITES — each one is a single mouthful, in the order they sit
   (box, sphere, cylinder, cone, capsule, torus) with color and size [x,y,z] in cm, around 3-5 cm per bite.
   The renderer places the bite; parts are positioned relative to the bite's own centre, y = 0 at its bottom.
 
-OUTPUT
-- dish: short Korean name matching the order.
-- Return the JSON object only.`;
+OUTPUT — return exactly this JSON object, nothing else, no code fence
+{"dish":"돈코츠 라멘","matter":"noodle","matter_why":"...","serving":{"vessel":"deep_bowl",
+"vessel_why":"...","size":22,"color":"#39463F","liquid":{"color":"#E8D9B5","level":0.6},
+"arrangement":"submerged","count":6},"bites":[{"name":"면 한 젓가락","form":"noodle_nest",
+"base_color":"#F2E3B8","top_color":"#E8D9B5","scale":1,"toppings":[{"kind":"flake","color":"#4C8A3F"}]}]}
+- dish: short Korean name matching the order. liquid may be omitted when the dish is dry.`;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
@@ -179,7 +182,27 @@ function reply(body: Record<string, unknown>, status = 200) {
   return Response.json(body, { status, headers: corsHeaders });
 }
 
-function askGemini(model: string, apiKey: string, order: string) {
+// 스키마를 거절당하면(400) 한 단계씩 단순하게 물러섭니다.
+// Gemini 쪽에서 지원하지 않는 항목이 있어도 앱이 멈추지 않게 하려는 것.
+function without(schema: unknown, keys: string[]) {
+  return JSON.parse(JSON.stringify(schema), (k, v) => (keys.includes(k) ? undefined : v));
+}
+
+const SCHEMA_STEPS: (Record<string, unknown> | null)[] = [
+  RESPONSE_SCHEMA,
+  without(RESPONSE_SCHEMA, ["propertyOrdering"]),
+  without(RESPONSE_SCHEMA, ["propertyOrdering", "nullable", "minItems", "maxItems"]),
+  without(RESPONSE_SCHEMA, ["propertyOrdering", "nullable", "minItems", "maxItems", "enum"]),
+  null,   // 스키마 없이, 프롬프트의 모양 설명만 믿고
+];
+
+function askGemini(model: string, apiKey: string, order: string, schema: Record<string, unknown> | null) {
+  const generationConfig: Record<string, unknown> = {
+    responseMimeType: "application/json",
+    temperature: 0.7,
+  };
+  if (schema) generationConfig.responseSchema = schema;
+
   return fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`,
     {
@@ -188,14 +211,20 @@ function askGemini(model: string, apiKey: string, order: string) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents: [{ role: "user", parts: [{ text: `손님의 주문: <order>${order}</order>` }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-          temperature: 0.7,
-        },
+        generationConfig,
       }),
     },
   );
+}
+
+// Gemini 가 보낸 잘못 설명을 한 줄로
+function geminiMessage(body: string) {
+  try {
+    const j = JSON.parse(body);
+    return String(j.error?.message ?? "").replace(/\s+/g, " ").slice(0, 300);
+  } catch {
+    return body.replace(/\s+/g, " ").slice(0, 300);
+  }
 }
 
 // Gemini 의 SSE 를 읽어서, 글자 조각만 다시 SSE 로 내보냄
@@ -267,24 +296,40 @@ Deno.serve(async (req) => {
     if (!order) return reply({ error: "무엇을 드실지 적어주세요." }, 400);
     if (order.length > MAX_ORDER) return reply({ error: `주문은 ${MAX_ORDER}자 이내로 적어주세요.` }, 400);
 
-    // 붐비는 모델은 건너뛰고, 글자가 나오기 시작한 모델로 이어붙임
+    // 붐비는 모델(429·503)은 건너뛰고, 스키마를 거절당하면(400) 더 단순한 스키마로
     let res: Response | undefined;
+    let detail = "";
+    let step = 0;
+
+    search:
     for (const model of GEMINI_MODELS) {
-      res = await askGemini(model, apiKey, order);
-      if (res.ok || !TRY_NEXT.includes(res.status)) break;
-      console.warn(`${model} ${res.status}`);
-      await res.body?.cancel();
+      while (step < SCHEMA_STEPS.length) {
+        res = await askGemini(model, apiKey, order, SCHEMA_STEPS[step]);
+        if (res.ok) break search;
+
+        const status = res.status;
+        detail = geminiMessage(await res.text().catch(() => ""));
+        if (status === 400) {
+          console.warn(`${model} 400 (스키마 ${step}): ${detail}`);
+          step += 1;                      // 같은 모델에 더 단순한 스키마로 다시
+          continue;
+        }
+        console.warn(`${model} ${status}: ${detail}`);
+        if (TRY_NEXT.includes(status)) break;   // 다음 모델로
+        break search;
+      }
+      if (step >= SCHEMA_STEPS.length) break;
     }
 
     if (!res!.ok || !res!.body) {
-      const detail = await res!.text().catch(() => "");
       const status = res!.status;
-      console.error(`gemini ${status}: ${detail.slice(0, 300)}`);
+      console.error(`gemini ${status}: ${detail}`);
       if (TRY_NEXT.includes(status)) {
         return reply({ error: `주방이 붐빕니다. 잠시 후 다시 주문해 주세요. (${status})` }, 503);
       }
-      return reply({ error: `Gemini 오류 ${status}` }, 502);
+      return reply({ error: `Gemini 오류 ${status}: ${detail}` }, 502);
     }
+    if (step > 0) console.log(`스키마 ${step} 단계로 통과`);
 
     return new Response(relay(res!.body), {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
