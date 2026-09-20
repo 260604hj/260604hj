@@ -281,7 +281,8 @@ const UNIT = {
   torus:    new THREE.TorusGeometry(0.35, 0.15, 12, 28),
   tube:     new THREE.CylinderGeometry(0.5, 0.5, 1, 20, 1, true),
   wedge:    new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0, Math.PI / 2.6),
-  rock:     new THREE.DodecahedronGeometry(0.5, 0)
+  rock:     new THREE.DodecahedronGeometry(0.5, 0),
+  half:     new THREE.SphereGeometry(0.5, 26, 12, 0, Math.PI * 2, 0, Math.PI / 2)
 };
 UNIT.capsule.computeBoundingBox();
 (() => {
@@ -497,13 +498,21 @@ function grainMound(geoKey, color, R, H, count) {
   const g = new THREE.Group();
   const base = foodColor(color);
 
-  const dome = new THREE.Mesh(UNIT.sphere, new THREE.MeshStandardMaterial({
+  // 위쪽 반구만 씁니다. 공을 쓰면 아래 절반이 그릇 벽을 뚫고 나옵니다.
+  const dome = new THREE.Mesh(UNIT.half, new THREE.MeshStandardMaterial({
     color: base.clone().multiplyScalar(0.88), roughness: 0.9, metalness: 0
   }));
-  dome.scale.set(R * 2, H * 1.9, R * 2);
-  dome.position.y = -H * 0.02;
+  dome.scale.set(R * 2, H, R * 2);
   dome.castShadow = true; dome.receiveShadow = true;
   g.add(dome);
+
+  const floor = new THREE.Mesh(UNIT.cylinder, new THREE.MeshStandardMaterial({
+    color: base.clone().multiplyScalar(0.8), roughness: 0.95, metalness: 0
+  }));
+  floor.scale.set(R * 2, 0.3, R * 2);
+  floor.position.y = 0.14;
+  floor.receiveShadow = true;
+  g.add(floor);
 
   const grains = new THREE.InstancedMesh(
     GRAIN_GEO[geoKey] || GRAIN_GEO.grain,
@@ -852,6 +861,7 @@ const TYPE_VESSEL = {
 };
 
 let vessel = null;
+let cover = 0;         // 지금까지 놓인 것 중 가장 넓은 폭 (나중 것이 이걸 덮지 않게)
 let taken = [];        // 이미 무엇이 놓인 자리 { x, z, r }
 let beds = [];         // { h(r) } 높이를 돌려주는 바닥들
 let placed = 0;        // 몇 번째 구성요소까지 놓았는지
@@ -866,6 +876,7 @@ function resetPlate() {
   growing.length = 0;
   beds = [];
   taken = [];
+  cover = 0;
   vessel = null;
   leftovers = null;
   placed = 0;
@@ -946,6 +957,17 @@ function addComponent(comp) {
   const lim = Math.min(vessel.limX ?? 10, vessel.limZ ?? 10);
   let w = clamp(num(comp.size, isBed ? lim * 1.4 : 3), 0.3, lim * 1.9);
 
+  // 나중에 오는 것은 이미 놓인 것을 덮지 않아야 합니다.
+  // 소스·고명은 더 작게, 그리고 바닥(밥·면·도우) 위에 올라가는 것은 그 바닥 안에서.
+  const structural = ['grain', 'particle', 'nest', 'noodle', 'strand'].includes(rawForm);
+  if (placed > 0 && !structural) {
+    const sauce = rawForm === 'pool' || rawForm === 'smear' || rawForm === 'layer'
+      || rawForm === 'crumb' || rawForm === 'flake';
+    w = Math.min(w, lim * (sauce ? 0.6 : 0.8));
+    // 바닥 위에 올라가는 것만 그 바닥보다 작게. 나란히 놓는 것끼리는 줄이지 않습니다.
+    if (cover > 0 && beds.length) w = Math.min(w, cover * (sauce ? 0.55 : 0.75));
+  }
+
   const note = (extra) => {
     log(`${food || rawForm} · ${rawForm} ${ARRANGE_LABEL[pattern] ?? pattern}${extra}`, color);
     placed += 1;
@@ -963,6 +985,7 @@ function addComponent(comp) {
     leftovers.add(popIn(mound));
     beds.push({ y, h: (r) => (r > R ? 0 : H * Math.sqrt(Math.max(0, 1 - (r / R) ** 2))) });
     vessel.rx = vessel.rz = Math.max(vessel.rx, R * 0.66);
+    cover = Math.max(cover, R * 2);
     return note(` ${n}알`);
   }
 
@@ -983,11 +1006,13 @@ function addComponent(comp) {
     leftovers.add(popIn(g));
     const R = w * (rawForm === 'smear' ? 0.9 : 0.55);
     beds.push({ y, h: (r) => (r > R ? 0 : thick) });
+    cover = Math.max(cover, w);
     return note(` ${count}개 ${w.toFixed(1)}cm`);
   }
 
   // ── 고명·부스러기: 낱개로 그리지 않고 한 번에 ─────────
   if (rawForm === 'crumb' || (count > 12 && w < 1.6)) {
+    w = Math.min(w, count >= 8 ? 1.2 : 1.8);        // 뿌리는 것은 고명 크기까지만
     const spots = ARRANGE[pattern](count, vessel.rx * 1.02, vessel.rz * 1.02);
     const pts = spots.map((s, i) => {
       const put = fitInside(s.x, s.z, w);
@@ -1027,8 +1052,11 @@ function addComponent(comp) {
   });
 
   // 이 위에 다음 것이 올라갈 수 있게 높이를 기록
+  if (rawForm !== 'crumb') cover = Math.max(cover, count === 1 ? w : w * 1.6);
   const h = pattern === 'stack' ? pieceH * count * 0.86 : pieceH;
-  if (bed || count === 1) {
+  // 접시를 넓게 차지한 한 덩어리만 "그 위에 올릴 수 있는 바닥"이 됩니다.
+  // (한 점짜리 초밥까지 바닥으로 보면, 뒤에 오는 초밥들이 공연히 작아집니다)
+  if (bed || pattern === 'stack' || (count === 1 && w > lim * 0.8)) {
     const y = surfaceAt(0, 0);
     const R = count === 1 ? w * 0.55 : vessel.rx;
     beds.push({ y, h: (r) => (r > R ? 0 : h * 0.9) });
