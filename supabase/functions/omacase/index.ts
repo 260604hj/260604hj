@@ -78,7 +78,8 @@ NAME + BIRTHDAY → FORTUNE → DISH → TYPE → VESSEL → COMPONENTS → 3D
 
 STEP 0 — fortune, in Korean. Read the day in three parts.
 - luck: today's fortune in one short line, at most 14 characters. No punctuation at the end.
-- overall (총운): 2 sentences on the shape of the day. Call the guest by name once, warmly.
+- overall (총운): 2 sentences on the shape of the day. Call the guest once by the exact name given
+  inside <name></name>, warmly — copy it letter for letter and never invent or swap in another name.
 - inner (내면운): 2 sentences on their own mind today — what steadies them, what to let go of.
 - relation (관계운): 2 sentences on people — a conversation, a message, someone to be patient with.
 Draw lightly on the birthday — the zodiac animal, the season they were born in, the year's element —
@@ -364,7 +365,9 @@ Deno.serve(async (req) => {
       if (!name) return reply({ error: "이름을 적어주세요." }, 400);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return reply({ error: "생년월일을 골라주세요." }, 400);
       if (name.length > MAX_NAME) return reply({ error: `이름은 ${MAX_NAME}자 이내로 적어주세요.` }, 400);
-      ask = `손님: <name>${name}</name> <birthday>${birth}</birthday> <today>${today}</today>`;
+      ask = `손님: <name>${name}</name> <birthday>${birth}</birthday> <today>${today}</today>
+`
+        + `이 손님의 이름은 "${name}" 입니다. 다른 이름을 지어내지 말고 "${name} 님" 이라고 부르세요.`;
     } else if (order) {
       if (order.length > MAX_ORDER) return reply({ error: `주문은 ${MAX_ORDER}자 이내로 적어주세요.` }, 400);
       ask = `손님의 주문: <order>${order}</order> 운세는 이 음식에 어울리는 짧은 덕담으로 씁니다.`;

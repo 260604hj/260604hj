@@ -51,7 +51,8 @@ NAME + BIRTHDAY → FORTUNE → PLACE → ROOM → WINDOWS → OUTSIDE → FURNI
 
 STEP 1 — fortune, in Korean, in three parts
 - luck: today in one short line, at most 14 characters, no ending punctuation.
-- overall (총운): 2 sentences on the shape of the day. Call the guest by name once, warmly.
+- overall (총운): 2 sentences on the shape of the day. Call the guest once by the exact name given
+  inside <name></name>, warmly — copy it letter for letter and never invent or swap in another name.
 - inner (내면운): 2 sentences on their own mind today.
 - relation (관계운): 2 sentences on people.
 Draw lightly on the birthday — zodiac animal, the season they were born in, the year's element — and
@@ -319,7 +320,9 @@ Deno.serve(async (req) => {
     if (name.length > MAX_NAME) return reply({ error: `이름은 ${MAX_NAME}자 이내로 적어주세요.` }, 400);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return reply({ error: "생년월일을 골라주세요." }, 400);
 
-    const ask = `손님: <name>${name}</name> <birthday>${birth}</birthday> <today>${today}</today>`;
+    const ask = `손님: <name>${name}</name> <birthday>${birth}</birthday> <today>${today}</today>
+`
+      + `이 손님의 이름은 "${name}" 입니다. 다른 이름을 지어내지 말고 "${name} 님" 이라고 부르세요.`;
 
     // 붐비는 모델(429·503)은 건너뛰고, 스키마를 거절당하면(400) 더 단순한 스키마로
     let res: Response | undefined;
