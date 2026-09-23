@@ -66,6 +66,8 @@ kind: cafe, library, bookshop, record_shop, bathhouse, tea_house, bar, greenhous
 laundromat, barbershop, gallery, pavilion, community_hall, sauna, diner.
 - A day that needs quiet gets a library or a tea house; a day that needs people gets a diner or a bar;
   a day that needs to start over gets a bathhouse or a laundromat; a day that needs making gets a studio.
+- Each request names a short list of places that are open today. Choose from that list only, and choose
+  the one that truly fits — never fall back on the same kind out of habit.
 - name: a short symbolic Korean name for the room, 4-12 characters. Name the feeling of being there,
   never the trade: say 「오래 머무는 공간」, 「소리가 낮게 깔리는 자리」, 「물소리가 도는 방」,
   「해가 길게 드는 구석」. Never 「○○ 카페」, 「○○ 서점」, 「○○ 목욕탕」 — no shop, no signboard,
@@ -73,7 +75,7 @@ laundromat, barbershop, gallery, pavilion, community_hall, sauna, diner.
 - why: one short Korean sentence tying the room to the fortune.
 
 STEP 3 — the room
-w, d, h in metres, each between 3 and 6, and they are a proportion, not a size:
+w, d, h in metres, each between 3 and 6, to one decimal, and the three are never all the same:
 a day that needs shelter is narrow and low (3-4 m), a day that needs air is wide and tall (5-6 m).
 wall_color, floor_color, accent_color: from the palette. light: warm, neutral or cool.
 The room is a box with exactly one side open, towards the viewer. Do not describe that side.
@@ -205,6 +207,16 @@ const RESPONSE_SCHEMA = {
   propertyOrdering: ["fortune", "place", "room", "windows", "outside", "furniture"],
 };
 
+// 같은 자리만 반복해서 나오지 않게, 요청마다 고를 수 있는 것을 무작위로 좁혀서 보냅니다.
+function sample<T>(arr: readonly T[], n: number): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, n);
+}
+
 function reply(body: Record<string, unknown>, status = 200) {
   return Response.json(body, { status, headers: corsHeaders });
 }
@@ -225,7 +237,8 @@ const SCHEMA_STEPS: (Record<string, unknown> | null)[] = [
 function askGemini(model: string, apiKey: string, ask: string, schema: Record<string, unknown> | null) {
   const generationConfig: Record<string, unknown> = {
     responseMimeType: "application/json",
-    temperature: 0.9,
+    temperature: 1.15,
+    topP: 0.97,
   };
   if (schema) generationConfig.responseSchema = schema;
 
@@ -323,9 +336,21 @@ Deno.serve(async (req) => {
     if (name.length > MAX_NAME) return reply({ error: `이름은 ${MAX_NAME}자 이내로 적어주세요.` }, 400);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return reply({ error: "생년월일을 골라주세요." }, 400);
 
-    const ask = `손님: <name>${name}</name> <birthday>${birth}</birthday> <today>${today}</today>
-`
-      + `이 손님의 이름은 "${name}" 입니다. 다른 이름을 지어내지 말고 "${name} 님" 이라고 부르세요.`;
+    // 오늘 문을 연 자리 6곳, 시간대 2개만 후보로 (매번 달라집니다)
+    const openToday = sample(PLACES, 6);
+    const hours = sample(TIMES, 2);
+    const outsides = Math.random() < 0.5 ? OUTSIDES : [...OUTSIDES].reverse();
+    const seed = Math.random().toString(36).slice(2, 10);
+
+    const ask = [
+      `손님: <name>${name}</name> <birthday>${birth}</birthday> <today>${today}</today>`,
+      `이 손님의 이름은 "${name}" 입니다. 다른 이름을 지어내지 말고 "${name} 님" 이라고 부르세요.`,
+      `오늘 문을 연 자리: ${openToday.join(", ")} — 이 여섯 중에서만 고르세요.`,
+      `바깥은 ${outsides.join(" 또는 ")}, 시간대는 ${hours.join(" 또는 ")} 중에서 고르세요.`,
+      `방 치수는 3.0~6.0 m 사이에서 소수 첫째 자리까지, 세 값이 서로 다르게 정하세요.`,
+      `가구는 ${3 + Math.floor(Math.random() * 6)}가지로, 결(style)을 적어도 세 가지 섞으세요.`,
+      `임의 씨앗: ${seed}`,
+    ].join("\n");
 
     // 붐비는 모델(429·503)은 건너뛰고, 스키마를 거절당하면(400) 더 단순한 스키마로
     let res: Response | undefined;
