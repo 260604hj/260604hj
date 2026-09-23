@@ -76,18 +76,21 @@ fixed vocabularies. The renderer owns every shape, position and height.
 
 NAME + BIRTHDAY → FORTUNE → DISH → TYPE → VESSEL → COMPONENTS → 3D
 
-STEP 0 — fortune, in Korean
+STEP 0 — fortune, in Korean. Read the day in three parts.
 - luck: today's fortune in one short line, at most 14 characters. No punctuation at the end.
-- reading: 2-3 short sentences. Call the guest by name once, warmly. Draw lightly on the birthday —
-  the zodiac animal, the season they were born in, the year's element — and on today's date. Be specific
-  and concrete about the day ahead: a small thing to watch for, a small thing to enjoy.
+- overall (총운): 2 sentences on the shape of the day. Call the guest by name once, warmly.
+- inner (내면운): 2 sentences on their own mind today — what steadies them, what to let go of.
+- relation (관계운): 2 sentences on people — a conversation, a message, someone to be patient with.
+Draw lightly on the birthday — the zodiac animal, the season they were born in, the year's element —
+and on today's date. Be specific and concrete, never generic. Each part stands on its own; do not repeat
+the same idea three times.
 - Keep it playful and kind. Never predict illness, death, money loss or anything alarming, and never
   give medical, legal or financial advice. No fear, no flattery, no fortune-cookie clichés.
 - color: one colour from the palette below that suits the fortune.
 
 STEP 0.5 — the dish that answers it
-Choose one real dish that fits the reading — a warming bowl for a cold-footed day, something sharp and
-bright for a day that needs waking up, something to share when the reading is about people.
+Choose one real dish that fits the three readings — a warming bowl for a cold-footed day, something sharp
+and bright for a day that needs waking up, something to share when the day is about people.
 - dish: its short Korean name. dish_why: one short Korean sentence tying the dish to the fortune.
 
 STEP 1 — type
@@ -162,7 +165,10 @@ COLOURS — this kitchen's palette (every channel a multiple of 18). Stay near t
 #7E9036 #5A9036 #6C9048 #489048 #367E36 #90486C
 
 OUTPUT — this exact JSON object, nothing else, no code fence
-{"fortune":{"luck":"작은 인연이 닿는 날","reading":"희진 님, 봄에 태어난 사람은 오늘처럼 서늘한 날 오히려 기운이 붑니다. 오후에 짧은 연락 하나가 반갑겠습니다. 서두르지 않으면 다 닿습니다.","color":"#EAB45A"},
+{"fortune":{"luck":"작은 인연이 닿는 날",
+"overall":"희진 님, 봄에 태어난 사람은 오늘처럼 서늘한 날 오히려 기운이 붑니다. 오전에 미뤄 둔 것 하나를 먼저 끝내면 하루가 가볍습니다.",
+"inner":"마음이 조금 앞서 달릴 수 있습니다. 한 박자 늦추면 판단이 또렷해집니다.",
+"relation":"오후에 짧은 연락 하나가 반갑겠습니다. 서두르지 않으면 다 닿습니다.","color":"#EAB45A"},
 "dish":"연어 초밥","dish_why":"반가운 연락을 기다리는 날에는 한 점씩 천천히 집어 먹는 것이 좋습니다.","type":["piece"],"read":"밥 위에 생선을 얹어 한 점씩 집어 먹는 덩어리 음식이다.",
 "serving":{"vessel":"rimmed_plate","vessel_why":"초밥은 한 점씩 놓는 테두리 접시에 낸다.","size":24,
 "color":"#FCFCEA","liquid":null},
@@ -179,11 +185,13 @@ const RESPONSE_SCHEMA = {
       type: "OBJECT",
       properties: {
         luck: { type: "STRING" },
-        reading: { type: "STRING" },
+        overall: { type: "STRING" },
+        inner: { type: "STRING" },
+        relation: { type: "STRING" },
         color: { type: "STRING" },
       },
-      required: ["luck", "reading"],
-      propertyOrdering: ["luck", "reading", "color"],
+      required: ["luck", "overall", "inner", "relation"],
+      propertyOrdering: ["luck", "overall", "inner", "relation", "color"],
     },
     dish: { type: "STRING" },
     dish_why: { type: "STRING" },
