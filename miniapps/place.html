@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>A Place for Today</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@200;300;400&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:      #EFEAE1;
+    --ink-dim:  #8C867C;
+    --ink-faint:#4A463F;
+    --bg:       #000000;
+    --line:     #2A2722;
+    --pad-top:   env(safe-area-inset-top, 0px);
+    --pad-bot:   env(safe-area-inset-bottom, 0px);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; background:var(--bg); }
+  body{
+    font-family:"IBM Plex Sans KR", system-ui, sans-serif;
+    color:var(--ink);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  canvas{ display:block; touch-action:none; }
+
+  /* ── 왼쪽 위 간판 ──────────────────────────────────── */
+  .sign{
+    position:fixed; z-index:5;
+    top:calc(var(--pad-top) + 22px); left:22px;
+    max-width:min(60vw, 340px);
+    pointer-events:none;
+    opacity:0; transition:opacity .5s ease;
+  }
+  .sign.on{ opacity:1; }
+  .sign .luck{
+    font-family:"Gowun Batang", serif;
+    font-size:13px; letter-spacing:.04em; color:var(--ink-dim);
+    margin:0 0 4px;
+  }
+  .sign .luck:empty{ display:none; }
+  .sign .name{
+    font-family:"Gowun Batang", serif;
+    font-size:19px; line-height:1.35; letter-spacing:-0.02em;
+    margin:0;
+  }
+  .sign .meta{
+    margin-top:8px; font-size:11px; letter-spacing:.06em; color:var(--ink-faint);
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ── 아래쪽 입력 ───────────────────────────────────── */
+  .composer{
+    position:fixed; z-index:5;
+    left:50%; transform:translateX(-50%);
+    bottom:calc(var(--pad-bot) + 30px);
+    width:min(540px, 84vw);
+    text-align:center;
+    transition:opacity .45s ease;
+  }
+  .composer.hidden{ opacity:0; pointer-events:none; }
+  .composer .ask{
+    font-family:"Gowun Batang", serif;
+    font-size:15px; color:var(--ink-dim);
+    margin:0 0 14px;
+  }
+  .composer .fields{ display:flex; gap:14px; }
+  .composer input{
+    flex:1 1 0; min-width:0;
+    background:transparent; border:0;
+    border-bottom:1px solid var(--line);
+    padding:10px 2px; text-align:center;
+    font-family:"IBM Plex Sans KR", sans-serif;
+    font-size:16px; font-weight:300; color:var(--ink);
+    outline:none; transition:border-color .25s ease;
+    color-scheme:dark;
+  }
+  .composer input:focus{ border-bottom-color:var(--ink-dim); }
+  .composer input::placeholder{ color:var(--ink-faint); font-weight:200; }
+  .composer input[type=date]{ font-variant-numeric:tabular-nums; }
+  .composer input[type=date]::-webkit-calendar-picker-indicator{ filter:invert(.55); }
+  .composer button{
+    display:block; margin:18px auto 0;
+    min-width:104px; min-height:44px; padding:0 22px;
+    background:transparent; color:var(--ink);
+    border:1px solid var(--line);
+    font-family:"Gowun Batang", serif; font-size:15px;
+    cursor:pointer; transition:border-color .2s ease, color .2s ease;
+  }
+  .composer button:hover{ border-color:var(--ink-dim); }
+  .composer button:disabled{ color:var(--ink-faint); cursor:default; }
+  .composer .hint{
+    margin:12px 0 0; font-size:12px; font-weight:200; color:var(--ink-faint);
+    min-height:16px;
+  }
+  .composer .hint.warn{ color:#B9855A; }
+
+  /* ── 기다림 ────────────────────────────────────────── */
+  .waiting{
+    position:fixed; inset:0; z-index:4;
+    display:none; place-items:center;
+    font-family:"Gowun Batang", serif; font-size:15px; color:var(--ink-dim);
+    pointer-events:none;
+  }
+  .waiting.on{ display:grid; }
+  .waiting span{ animation:breathe 1.9s ease-in-out infinite; }
+  @keyframes breathe{ 0%,100%{opacity:.35} 50%{opacity:1} }
+
+  /* ── 운세 ──────────────────────────────────────────── */
+  .fortune{
+    position:fixed; inset:0; z-index:8;
+    display:none; align-items:center; justify-content:center;
+    padding:calc(var(--pad-top) + 28px) 22px calc(var(--pad-bot) + 24px);
+    background:rgba(0,0,0,.94);
+    overflow-y:auto; overscroll-behavior:contain;
+  }
+  .fortune.on{ display:flex; }
+  .fortune .card{ width:min(440px, 100%); margin:auto 0; }
+  .fortune .who{ font-size:11px; letter-spacing:.14em; color:var(--ink-faint); margin:0 0 8px; }
+  .fortune h2{
+    font-family:"Gowun Batang", serif; font-weight:400;
+    font-size:26px; line-height:1.3; letter-spacing:-0.01em;
+    margin:0 0 26px;
+  }
+  .fortune section{ margin-bottom:20px; }
+  .fortune h3{
+    font-size:11px; letter-spacing:.14em; font-weight:400;
+    color:var(--ink-faint); margin:0 0 7px;
+  }
+  .fortune section p{
+    font-family:"Gowun Batang", serif;
+    font-size:14px; line-height:1.8; color:var(--ink-dim);
+    margin:0; word-break:keep-all;
+  }
+  .fortune button{
+    display:block; width:100%; min-height:48px; margin-top:28px;
+    background:transparent; color:var(--ink);
+    border:1px solid var(--line);
+    font-family:"Gowun Batang", serif; font-size:15px;
+    cursor:pointer; transition:border-color .2s ease, color .2s ease;
+  }
+  .fortune button:enabled:hover{ border-color:var(--ink-dim); }
+  .fortune button:disabled{ color:var(--ink-faint); cursor:default; }
+
+  /* ── 짓는 과정 ─────────────────────────────────────── */
+  .process{
+    position:fixed; z-index:5;
+    left:22px; bottom:calc(var(--pad-bot) + 26px);
+    width:min(56vw, 380px);
+    pointer-events:none;
+    opacity:0; transition:opacity .6s ease;
+  }
+  .process.on{ opacity:1; }
+  .process .steps{ margin-bottom:13px; }
+  .process .step{
+    display:flex; gap:10px; align-items:baseline;
+    font-size:13px; line-height:1.55; margin-bottom:3px;
+    color:var(--ink-faint);
+    opacity:.45; transition:opacity .4s ease, color .4s ease;
+  }
+  .process .step.on{ opacity:1; color:var(--ink-dim); }
+  .process .step b{
+    flex:none; width:34px;
+    font-weight:400; font-size:11px; letter-spacing:.08em;
+    color:var(--ink-faint);
+  }
+  .process .step.on b{ color:var(--ink-dim); }
+  .process .step span{ font-family:"Gowun Batang", serif; }
+  .process .log{
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:11px; line-height:1.85; color:var(--ink-faint);
+    white-space:pre;
+    max-height:32vh; overflow-y:auto; scrollbar-width:none;
+  }
+  .process .log::-webkit-scrollbar{ display:none; }
+  .process .log div{ display:flex; gap:7px; align-items:center; }
+  .process .swatch{ display:inline-block; width:7px; height:7px; flex:none; border-radius:1px; }
+
+  .back{
+    position:fixed; z-index:6;
+    top:calc(var(--pad-top) + 22px); right:22px;
+    font-size:13px; color:var(--ink-faint); text-decoration:none;
+  }
+  .back:hover{ color:var(--ink-dim); }
+
+  @media (max-width: 560px){
+    .fortune{ padding:calc(var(--pad-top) + 22px) 18px calc(var(--pad-bot) + 20px); }
+    .fortune h2{ font-size:22px; margin-bottom:20px; }
+    .fortune section{ margin-bottom:16px; }
+    .fortune section p{ font-size:13.5px; line-height:1.75; }
+    .sign{ left:16px; right:16px; max-width:none; top:calc(var(--pad-top) + 16px); }
+    .sign .name{ font-size:17px; }
+    .back{ top:calc(var(--pad-top) + 10px); right:10px; padding:10px 12px; }
+    .composer{ width:calc(100% - 32px); bottom:calc(var(--pad-bot) + 22px); }
+    .composer .ask{ font-size:14px; }
+    .composer .fields{ gap:10px; }
+    .process{ left:16px; right:16px; width:auto; bottom:calc(var(--pad-bot) + 18px); }
+    .process .step{ font-size:12px; line-height:1.45; }
+    .process .step b{ width:28px; font-size:10px; }
+    .process .log{ font-size:10px; line-height:1.7; max-height:22vh; }
+  }
+  @media (max-height: 560px){ .process .log{ max-height:16vh; } }
+
+  :focus-visible{ outline:1px solid var(--ink-dim); outline-offset:3px; }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sign" id="sign">
+  <p class="luck" id="luck"></p>
+  <p class="name" id="placeName"></p>
+  <p class="meta" id="meta"></p>
+</div>
+
+<a class="back" href="../visitor.html">←</a>
+
+<div class="waiting" id="waiting"><span>오늘의 자리를 찾고 있습니다</span></div>
+
+<div class="fortune" id="fortune">
+  <div class="card">
+    <p class="who" id="fWho"></p>
+    <h2 id="fLuck"></h2>
+    <section><h3>총운</h3><p id="fOverall"></p></section>
+    <section><h3>내면운</h3><p id="fInner"></p></section>
+    <section><h3>관계운</h3><p id="fRelation"></p></section>
+    <button type="button" id="fGo" disabled>자리를 보는 중</button>
+  </div>
+</div>
+
+<div class="composer" id="composer">
+  <p class="ask">오늘 머물 자리를 내어 드립니다</p>
+  <div class="fields">
+    <input id="nameInput" type="text" autocomplete="name" enterkeyhint="next" placeholder="이름" maxlength="20" />
+    <input id="birthInput" type="date" autocomplete="bday" enterkeyhint="go" />
+  </div>
+  <button type="button" id="goBtn">받기</button>
+  <p class="hint" id="hint">이름과 생년월일</p>
+</div>
+
+<div class="process" id="process">
+  <div class="steps">
+    <div class="step" id="step1"><b>운세</b><span>…</span></div>
+    <div class="step" id="step2"><b>장소</b><span>…</span></div>
+    <div class="step" id="step3"><b>방</b><span>…</span></div>
+  </div>
+  <div class="log" id="log"></div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ══════════════════════════════════════════════════════════
+   1. 서버 연결
+
+   이름 + 생년월일 → 운세 → 제3의 장소 → 방 → 창 → 바깥 → 가구
+   서버는 어휘에서 고르기만 하고, 치수·좌표·모양은 여기서 만듭니다.
+   길이 단위는 미터.
+   ══════════════════════════════════════════════════════════ */
+
+const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
+const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
+const DESK = `${SUPABASE_URL}/functions/v1/place`;
+
+/* ══════════════════════════════════════════════════════════
+   2. 화면
+   ══════════════════════════════════════════════════════════ */
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a0c);
+
+const world = new THREE.Group();     // 방과 바깥 전부
+scene.add(world);
+
+let frustum = 12;
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 500);
+
+// 열린 면(+z)이 늘 이쪽을 보도록 각도를 묶어 둡니다.
+const ORBIT = { dist: 90, azim: Math.PI / 2 + 0.5, polar: 1.12, min: 0.55, max: 1.45, span: 0.85 };
+const camTarget = new THREE.Vector3(0, 1.4, 0);
+
+function orbit() {
+  const { dist, azim, polar } = ORBIT;
+  camera.position.set(
+    camTarget.x + dist * Math.sin(polar) * Math.cos(azim),
+    camTarget.y + dist * Math.cos(polar),
+    camTarget.z + dist * Math.sin(polar) * Math.sin(azim)
+  );
+  camera.lookAt(camTarget);
+}
+
+function resizeCamera() {
+  const a = innerWidth / innerHeight;
+  const h = frustum / 2;
+  camera.left = -(a >= 1 ? h * a : h);
+  camera.right = (a >= 1 ? h * a : h);
+  camera.top = (a >= 1 ? h : h / a);
+  camera.bottom = -(a >= 1 ? h : h / a);
+  camera.updateProjectionMatrix();
+}
+orbit();
+resizeCamera();
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(9, 16, 12);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -9;
+sun.shadow.camera.right = 9;
+sun.shadow.camera.top = 9;
+sun.shadow.camera.bottom = -9;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 60;
+sun.shadow.bias = -0.0012;
+sun.shadow.radius = 3;
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0xdfe6ef, 0.45);
+fill.position.set(-8, 7, -6);
+scene.add(fill);
+
+const sky = new THREE.HemisphereLight(0xffffff, 0x3a3a3a, 0.75);
+scene.add(sky);
+
+const roomLight = new THREE.PointLight(0xffd9a8, 0, 14, 2);   // 방 안 등, 아래에서 켭니다
+scene.add(roomLight);
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  resizeCamera();
+});
+
+/* ══════════════════════════════════════════════════════════
+   3. 기본 도형
+   ══════════════════════════════════════════════════════════ */
+
+const UNIT = {
+  box:      new THREE.BoxGeometry(1, 1, 1),
+  sphere:   new THREE.SphereGeometry(0.5, 20, 12),
+  cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 20),
+  cone:     new THREE.ConeGeometry(0.5, 1, 18),
+  torus:    new THREE.TorusGeometry(0.35, 0.15, 10, 22)
+};
+UNIT.torus.rotateX(-Math.PI / 2);
+
+const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const toRad = (d) => (d || 0) * Math.PI / 180;
+const isHex = (c) => /^#[0-9a-fA-F]{6}$/.test(String(c ?? '').trim());
+const pick = (...c) => c.find(isHex) ?? '#D8B490';
+const wobble = (i) => Math.sin(i * 12.9898) * 0.5 + Math.sin(i * 78.233) * 0.5;
+
+// 팔레트의 채널은 18의 배수입니다. 어떤 색이 와도 같은 결로 맞춥니다.
+function snap18(hex) {
+  const v = parseInt(String(hex).slice(1), 16);
+  const q = (x) => clamp(Math.round(x / 18) * 18, 0, 252);
+  return (q((v >> 16) & 255) << 16) | (q((v >> 8) & 255) << 8) | q(v & 255);
+}
+const tone = (hex, fb) => new THREE.Color(snap18(pick(hex, fb)));
+const shade = (hex, k, fb) => tone(hex, fb).multiplyScalar(k);
+
+function mat(color, opts = {}) {
+  return new THREE.MeshStandardMaterial({
+    color: color instanceof THREE.Color ? color : tone(color),
+    roughness: 0.82, metalness: 0, ...opts
+  });
+}
+
+function box(color, size, pos, rot) {
+  const m = new THREE.Mesh(UNIT.box, mat(color));
+  m.scale.set(Math.max(0.004, size[0]), Math.max(0.004, size[1]), Math.max(0.004, size[2]));
+  m.position.set(pos[0], pos[1], pos[2]);
+  if (rot) m.rotation.set(toRad(rot[0]), toRad(rot[1]), toRad(rot[2]));
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+
+function shape(kind, color, size, pos, rot) {
+  const m = new THREE.Mesh(UNIT[kind] || UNIT.box, mat(color));
+  m.scale.set(Math.max(0.004, size[0]), Math.max(0.004, size[1]), Math.max(0.004, size[2]));
+  m.position.set(pos[0], pos[1], pos[2]);
+  if (rot) m.rotation.set(toRad(rot[0]), toRad(rot[1]), toRad(rot[2]));
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+
+const growing = [];
+
+function popIn(g, from = 0.001) {
+  g.userData.pop = { t: 0, to: g.scale.clone() };
+  g.scale.multiplyScalar(from);
+  growing.push(g);
+  return g;
+}
+
+function disposeDeep(obj) {
+  obj.traverse((o) => { if (o.isMesh) o.material?.dispose(); });
+}
+
+/* ══════════════════════════════════════════════════════════
+   4. 방 — 한 면만 열린 상자
+   ══════════════════════════════════════════════════════════ */
+
+const WALL_T = 0.12;     // 벽 두께
+let room = null;         // { w, d, h, walls, colors }
+let shell = null;        // 방 묶음
+
+// 벽에서 창을 도려냅니다. 사각형을 나눠 가며 구멍을 피해 조각을 만듭니다.
+function cutHoles(rects, hole) {
+  const out = [];
+  for (const r of rects) {
+    const ox = Math.max(r.x0, hole.x0), ox2 = Math.min(r.x1, hole.x1);
+    const oy = Math.max(r.y0, hole.y0), oy2 = Math.min(r.y1, hole.y1);
+    if (ox >= ox2 || oy >= oy2) { out.push(r); continue; }          // 안 겹침
+    if (r.y0 < oy) out.push({ x0: r.x0, x1: r.x1, y0: r.y0, y1: oy });      // 아래
+    if (oy2 < r.y1) out.push({ x0: r.x0, x1: r.x1, y0: oy2, y1: r.y1 });    // 위
+    if (r.x0 < ox) out.push({ x0: r.x0, x1: ox, y0: oy, y1: oy2 });         // 왼
+    if (ox2 < r.x1) out.push({ x0: ox2, x1: r.x1, y0: oy, y1: oy2 });       // 오른
+  }
+  return out;
+}
+
+// side: 'back' | 'left' | 'right'
+function buildWall(side, windows, colors) {
+  const { w, d, h } = room;
+  const span = side === 'back' ? w : d;
+  let rects = [{ x0: -span / 2, x1: span / 2, y0: 0, y1: h }];
+
+  const holes = [];
+  const mine = windows.filter((win) => win.wall === side);
+  mine.forEach((win, i) => {
+    const ww = clamp(num(win.width, 1.4), 0.5, span - 0.6);
+    const wh = clamp(num(win.height, 1.2), 0.5, h - 0.5);
+    const sill = clamp(num(win.sill, 0.9), 0.05, h - wh - 0.2);
+    // 한 벽에 여럿이면 나란히 벌려 놓습니다
+    const slot = mine.length === 1 ? 0 : (i - (mine.length - 1) / 2) * (span / (mine.length + 0.6));
+    const cx = clamp(slot, -(span - ww) / 2 + 0.2, (span - ww) / 2 - 0.2);
+    const hole = { x0: cx - ww / 2, x1: cx + ww / 2, y0: sill, y1: sill + wh };
+    rects = cutHoles(rects, hole);
+    holes.push(hole);
+  });
+
+  const g = new THREE.Group();
+  rects.forEach((r) => {
+    const bw = r.x1 - r.x0, bh = r.y1 - r.y0;
+    if (bw < 0.01 || bh < 0.01) return;
+    g.add(box(colors.wall, [bw, bh, WALL_T], [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, 0]));
+  });
+  // 창틀
+  holes.forEach((hole) => {
+    const bw = hole.x1 - hole.x0, bh = hole.y1 - hole.y0;
+    const cx = (hole.x0 + hole.x1) / 2, cy = (hole.y0 + hole.y1) / 2;
+    const t = 0.06;
+    g.add(box(colors.accent, [bw + t * 2, t, WALL_T * 1.3], [cx, hole.y0 - t / 2, 0]));
+    g.add(box(colors.accent, [bw + t * 2, t, WALL_T * 1.3], [cx, hole.y1 + t / 2, 0]));
+    g.add(box(colors.accent, [t, bh, WALL_T * 1.3], [hole.x0 - t / 2, cy, 0]));
+    g.add(box(colors.accent, [t, bh, WALL_T * 1.3], [hole.x1 + t / 2, cy, 0]));
+  });
+
+  if (side === 'back') g.position.set(0, 0, -d / 2);
+  if (side === 'left') { g.position.set(-w / 2, 0, 0); g.rotation.y = Math.PI / 2; }
+  if (side === 'right') { g.position.set(w / 2, 0, 0); g.rotation.y = -Math.PI / 2; }
+  return g;
+}
+
+function buildRoom(spec, windows) {
+  const w = clamp(num(spec.w, 4.5), 3, 6);
+  const d = clamp(num(spec.d, 4.5), 3, 6);
+  const h = clamp(num(spec.h, 3.2), 3, 6);
+  const colors = {
+    wall: pick(spec.wall_color, '#EAD8C6'),
+    floor: pick(spec.floor_color, '#B47E48'),
+    accent: pick(spec.accent_color, spec.wall_color, '#7E5A36')
+  };
+  room = { w, d, h, colors, light: spec.light };
+
+  shell = new THREE.Group();
+  world.add(shell);
+
+  const floor = box(colors.floor, [w, 0.12, d], [0, -0.06, 0]);
+  floor.castShadow = false;
+  shell.add(floor);
+  shell.add(box(shade(colors.wall, 1.02), [w, 0.1, d], [0, h + 0.05, 0]));      // 천장
+  ['back', 'left', 'right'].forEach((side) => shell.add(buildWall(side, windows, colors)));
+
+  // 열린 면 쪽 바닥 턱만 살짝 (방의 경계가 보이게)
+  shell.add(box(shade(colors.floor, 0.9), [w, 0.1, 0.1], [0, 0.05, d / 2]));
+
+  frustum = Math.max(w, d, h) * 1.85 + 1.5;
+  camTarget.set(0, h * 0.45, 0);
+  ORBIT.azim = Math.PI / 2 + 0.5;
+  ORBIT.polar = 1.12;
+  orbit();
+  resizeCamera();
+
+  const warm = spec.light === 'cool' ? 0xbfd6ff : spec.light === 'neutral' ? 0xffffff : 0xffd9a8;
+  roomLight.color.setHex(warm);
+  roomLight.intensity = (spec.light === 'warm' ? 34 : 22) * Math.max(w, d);
+  roomLight.distance = Math.max(w, d) * 3;
+  roomLight.position.set(0, h * 0.82, -d * 0.1);
+
+  popIn(shell, 0.6);
+  return room;
+}
+
+/* ══════════════════════════════════════════════════════════
+   5. 바깥 — 창밖의 도시 또는 숲
+   ══════════════════════════════════════════════════════════ */
+
+const SKY = {
+  morning: { bg: 0xC6D8D8, sun: 0xffe8cc, i: 1.5, amb: 0.7 },
+  day:     { bg: 0xA8B4C6, sun: 0xffffff, i: 1.8, amb: 0.75 },
+  dusk:    { bg: 0xD8905A, sun: 0xffc48c, i: 1.1, amb: 0.5 },
+  night:   { bg: 0x242430, sun: 0x9aa8c6, i: 0.35, amb: 0.25 }
+};
+
+let outside = null;
+
+function buildOutside(spec) {
+  const kind = spec?.kind === 'forest' ? 'forest' : 'city';
+  const time = SKY[spec?.time] ? spec.time : 'day';
+  const s = SKY[time];
+
+  scene.background = new THREE.Color(s.bg);
+  sun.color.setHex(s.sun);
+  sun.intensity = s.i;
+  sky.intensity = s.amb;
+
+  outside = new THREE.Group();
+  world.add(outside);
+
+  const ground = box(kind === 'forest' ? '#5A9036' : '#7E7E7E', [80, 0.2, 80], [0, -0.16, 0]);
+  ground.castShadow = false;
+  outside.add(ground);
+
+  const { w, d } = room;
+  const near = Math.max(w, d) / 2 + 2.5;
+  const lit = time === 'dusk' || time === 'night';
+
+  // 방 뒤와 양옆에만 세웁니다 (열린 앞쪽은 비워 둡니다)
+  const n = kind === 'city' ? 22 : 30;
+  for (let i = 0; i < n; i++) {
+    const a = (-0.12 + 1.24 * (i / (n - 1))) * Math.PI;     // 오른쪽 → 뒤 → 왼쪽
+    const dist = near + 6 + Math.abs(wobble(i)) * 22;
+    const x = Math.cos(a) * dist;
+    const z = -Math.sin(a) * dist - d * 0.1;                 // 뒤(-z)와 양옆에만
+    if (z > near * 0.4) continue;                            // 열린 앞쪽은 비워 둡니다
+
+    if (kind === 'city') {
+      const bw = 1.6 + Math.abs(wobble(i + 2)) * 3.4;
+      const bh = 2.5 + Math.abs(wobble(i * 3)) * 9 + Math.max(0, dist - near - 12) * 0.35;
+      const grey = ['#6C7E90', '#90A8B4', '#7E7E7E', '#5A5A5A', '#A8B4C6'][i % 5];
+      const b = box(grey, [bw, bh, bw * 0.9], [x, bh / 2, z]);
+      outside.add(b);
+      if (lit) {                                             // 창 불빛 몇 개
+        const rows = Math.min(5, Math.floor(bh / 2.4));
+        for (let r = 0; r < rows; r++) {
+          const m = new THREE.Mesh(UNIT.box, new THREE.MeshBasicMaterial({ color: 0xFCD86C }));
+          m.scale.set(bw * 0.5, 0.26, 0.05);
+          m.position.set(x + (wobble(i + r) * bw * 0.2), 1.2 + r * 2.2, z + bw * 0.46);
+          outside.add(m);
+        }
+      }
+    } else {
+      const th = 2.4 + Math.abs(wobble(i * 5)) * 4;
+      const green = ['#367E36', '#489048', '#5A9036', '#6C9048', '#7E9036'][i % 5];
+      outside.add(shape('cylinder', '#7E5A36', [0.24, th * 0.55, 0.24], [x, th * 0.28, z]));
+      for (let k = 0; k < 3; k++) {
+        const r = (1.5 - k * 0.32) * (0.8 + Math.abs(wobble(i + k)) * 0.5);
+        outside.add(shape('cone', green, [r, th * 0.5, r], [x, th * 0.45 + k * th * 0.22, z]));
+      }
+    }
+  }
+  popIn(outside, 0.8);
+  return { kind, time };
+}
+
+/* ══════════════════════════════════════════════════════════
+   6. 가구 — 이름과 결만 오면 모양은 여기서
+   ══════════════════════════════════════════════════════════ */
+
+// 결(style)에 따라 다리 굵기·앉는 면 두께·다리 색이 달라집니다.
+const STYLE = {
+  minimal:    { leg: 0.045, seat: 0.09, soft: 0, legColor: null, round: false },
+  plush:      { leg: 0.09,  seat: 0.3,  soft: 1, legColor: null, round: true },
+  wooden:     { leg: 0.09,  seat: 0.13, soft: 0.2, legColor: '#7E5A36', round: false },
+  industrial: { leg: 0.05,  seat: 0.1,  soft: 0, legColor: '#242424', round: false },
+  vintage:    { leg: 0.06,  seat: 0.15, soft: 0.5, legColor: '#5A3624', round: true },
+  woven:      { leg: 0.07,  seat: 0.11, soft: 0.3, legColor: '#D8C690', round: false }
+};
+
+function legsFor(g, st, color, w, d, top, inset = 0.12) {
+  const c = st.legColor ?? shade(color, 0.72);
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+    g.add(box(c, [st.leg, top, st.leg],
+      [sx * (w / 2 - inset), top / 2, sz * (d / 2 - inset)]));
+  });
+}
+
+// 각 가구: 폭 w, 깊이 d, 높이 h 와 만드는 법. +z 를 향해 앉습니다.
+const FURNITURE = {
+  sofa: { w: 2.0, d: 0.9, build: (g, c, st) => {
+    const seatY = 0.34 + st.seat * 0.3;
+    g.add(box(c, [2.0, st.seat, 0.9], [0, seatY, 0.02]));
+    g.add(box(shade(c, 0.94), [2.0, 0.62, 0.2], [0, seatY + 0.3, -0.35]));
+    g.add(box(shade(c, 0.9), [0.2, 0.42, 0.86], [-0.9, seatY + 0.16, 0]));
+    g.add(box(shade(c, 0.9), [0.2, 0.42, 0.86], [0.9, seatY + 0.16, 0]));
+    if (st.soft) {
+      for (let i = -1; i <= 1; i += 2) {
+        g.add(shape('sphere', shade(c, 1.06), [0.7, 0.26, 0.7], [i * 0.42, seatY + st.seat * 0.6, 0.02]));
+      }
+    }
+    legsFor(g, st, c, 2.0, 0.9, 0.34, 0.16);
+  } },
+  armchair: { w: 0.95, d: 0.9, build: (g, c, st) => {
+    const seatY = 0.34 + st.seat * 0.3;
+    g.add(box(c, [0.95, st.seat, 0.85], [0, seatY, 0.02]));
+    g.add(box(shade(c, 0.94), [0.95, 0.6, 0.18], [0, seatY + 0.3, -0.33]));
+    g.add(box(shade(c, 0.9), [0.16, 0.36, 0.8], [-0.44, seatY + 0.14, 0]));
+    g.add(box(shade(c, 0.9), [0.16, 0.36, 0.8], [0.44, seatY + 0.14, 0]));
+    if (st.soft) g.add(shape('sphere', shade(c, 1.06), [0.62, 0.24, 0.62], [0, seatY + st.seat * 0.6, 0.02]));
+    legsFor(g, st, c, 0.95, 0.85, 0.34, 0.14);
+  } },
+  chair: { w: 0.5, d: 0.52, build: (g, c, st) => {
+    g.add(box(c, [0.5, st.seat, 0.5], [0, 0.45, 0]));
+    g.add(box(shade(c, 0.95), [0.46, 0.5, 0.06], [0, 0.72, -0.22], st.round ? [-8, 0, 0] : null));
+    legsFor(g, st, c, 0.5, 0.5, 0.45, 0.08);
+  } },
+  stool: { w: 0.42, d: 0.42, build: (g, c, st) => {
+    g.add(shape('cylinder', c, [0.42, st.seat, 0.42], [0, 0.46, 0]));
+    legsFor(g, st, c, 0.38, 0.38, 0.46, 0.06);
+  } },
+  bar_stool: { w: 0.4, d: 0.4, build: (g, c, st) => {
+    g.add(shape('cylinder', c, [0.4, st.seat, 0.4], [0, 0.74, 0]));
+    legsFor(g, st, c, 0.36, 0.36, 0.74, 0.05);
+    g.add(box(st.legColor ?? shade(c, 0.72), [0.34, 0.04, 0.04], [0, 0.22, 0.14]));
+  } },
+  bench: { w: 1.6, d: 0.45, build: (g, c, st) => {
+    g.add(box(c, [1.6, st.seat + 0.02, 0.45], [0, 0.44, 0]));
+    legsFor(g, st, c, 1.6, 0.45, 0.44, 0.12);
+  } },
+  table: { w: 1.3, d: 0.85, build: (g, c, st) => {
+    g.add(box(c, [1.3, Math.max(0.05, st.seat * 0.6), 0.85], [0, 0.74, 0]));
+    legsFor(g, st, c, 1.3, 0.85, 0.74, 0.12);
+  } },
+  coffee_table: { w: 0.95, d: 0.6, build: (g, c, st) => {
+    g.add(box(c, [0.95, Math.max(0.05, st.seat * 0.5), 0.6], [0, 0.4, 0]));
+    legsFor(g, st, c, 0.95, 0.6, 0.4, 0.1);
+  } },
+  side_table: { w: 0.45, d: 0.45, build: (g, c, st) => {
+    g.add(shape('cylinder', c, [0.45, 0.06, 0.45], [0, 0.55, 0]));
+    g.add(shape('cylinder', st.legColor ?? shade(c, 0.72), [0.08, 0.55, 0.08], [0, 0.28, 0]));
+    g.add(shape('cylinder', st.legColor ?? shade(c, 0.72), [0.34, 0.04, 0.34], [0, 0.03, 0]));
+  } },
+  counter: { w: 2.1, d: 0.65, build: (g, c, st) => {
+    g.add(box(c, [2.1, 1.0, 0.65], [0, 0.5, 0]));
+    g.add(box(shade(c, 0.8), [2.24, 0.07, 0.75], [0, 1.03, 0.02]));
+    g.add(box(shade(c, 1.08), [2.0, 0.12, 0.02], [0, 0.72, 0.33]));
+  } },
+  shelf: { w: 1.3, d: 0.3, build: (g, c, st) => {
+    [0, 1, 2].forEach((i) => g.add(box(c, [1.3, 0.05, 0.3], [0, 1.0 + i * 0.42, 0])));
+    g.add(box(shade(c, 0.8), [0.05, 0.9, 0.3], [-0.62, 1.4, 0]));
+    g.add(box(shade(c, 0.8), [0.05, 0.9, 0.3], [0.62, 1.4, 0]));
+    for (let i = 0; i < 7; i++) {
+      const bc = ['#C64836', '#EAB448', '#6C9048', '#6C7E90', '#D8905A'][i % 5];
+      g.add(box(bc, [0.07, 0.24, 0.2], [-0.5 + i * 0.16, 1.15, 0.02]));
+    }
+  } },
+  bookshelf: { w: 1.1, d: 0.34, build: (g, c, st) => {
+    g.add(box(shade(c, 0.9), [0.06, 1.9, 0.34], [-0.52, 0.95, 0]));
+    g.add(box(shade(c, 0.9), [0.06, 1.9, 0.34], [0.52, 0.95, 0]));
+    g.add(box(shade(c, 0.85), [1.1, 0.05, 0.34], [0, 1.9, 0]));
+    [0.35, 0.78, 1.21, 1.64].forEach((y) => g.add(box(c, [1.0, 0.05, 0.34], [0, y, 0])));
+    for (let i = 0; i < 22; i++) {
+      const row = Math.floor(i / 6);
+      const bc = ['#C64836', '#EAB448', '#6C9048', '#6C7E90', '#D8905A', '#90486C'][i % 6];
+      const bh = 0.24 + Math.abs(wobble(i)) * 0.08;
+      g.add(box(bc, [0.07, bh, 0.24], [-0.42 + (i % 6) * 0.15, 0.4 + row * 0.43 + bh / 2 - 0.02, 0.02]));
+    }
+  } },
+  rug: { w: 2.4, d: 1.7, flat: true, build: (g, c, st) => {
+    g.add(box(c, [2.4, 0.03, 1.7], [0, 0.015, 0]));
+    g.add(box(shade(c, 0.86), [2.1, 0.035, 1.4], [0, 0.02, 0]));
+  } },
+  plant: { w: 0.62, d: 0.62, build: (g, c, st) => {
+    g.add(shape('cylinder', st.legColor ?? '#C69036', [0.42, 0.4, 0.42], [0, 0.2, 0]));
+    g.add(shape('cylinder', '#7E5A36', [0.06, 0.6, 0.06], [0, 0.6, 0]));
+    for (let i = 0; i < 5; i++) {
+      const a = i * 1.257;
+      g.add(shape('sphere', shade(c, 0.9 + i * 0.05, '#5A9036'), [0.5, 0.2, 0.34],
+        [Math.cos(a) * 0.18, 0.86 + i * 0.12, Math.sin(a) * 0.18], [0, a * 57, 18]));
+    }
+  } },
+  floor_lamp: { w: 0.42, d: 0.42, build: (g, c, st) => {
+    g.add(shape('cylinder', st.legColor ?? '#242424', [0.34, 0.04, 0.34], [0, 0.02, 0]));
+    g.add(shape('cylinder', st.legColor ?? '#242424', [0.05, 1.5, 0.05], [0, 0.77, 0]));
+    const m = new THREE.Mesh(UNIT.cone, new THREE.MeshStandardMaterial({
+      color: tone(c, '#FCEAC6'), roughness: 0.6, emissive: tone(c, '#FCEAC6'), emissiveIntensity: 0.35
+    }));
+    m.scale.set(0.46, 0.34, 0.46);
+    m.position.set(0, 1.66, 0);
+    m.rotation.x = Math.PI;
+    m.castShadow = true;
+    g.add(m);
+  } },
+  pendant: { w: 0.5, d: 0.5, hang: true, build: (g, c, st) => {
+    g.add(box(st.legColor ?? '#242424', [0.02, 0.9, 0.02], [0, 0.45, 0]));
+    const m = new THREE.Mesh(UNIT.cone, new THREE.MeshStandardMaterial({
+      color: tone(c, '#242424'), roughness: 0.5, side: THREE.DoubleSide,
+      emissive: tone('#FCD86C'), emissiveIntensity: 0.25
+    }));
+    m.scale.set(0.5, 0.34, 0.5);
+    m.position.set(0, 0.17, 0);
+    m.rotation.x = Math.PI;
+    m.castShadow = true;
+    g.add(m);
+  } },
+  cushion: { w: 0.55, d: 0.55, build: (g, c, st) => {
+    g.add(shape('sphere', c, [0.55, 0.22, 0.55], [0, 0.11, 0], [0, 20, 0]));
+  } },
+  tub: { w: 1.7, d: 0.85, build: (g, c, st) => {
+    g.add(box(c, [1.7, 0.62, 0.85], [0, 0.31, 0]));
+    g.add(box(shade(c, 0.82), [1.5, 0.5, 0.67], [0, 0.4, 0]));
+    const water = new THREE.Mesh(UNIT.box, new THREE.MeshStandardMaterial({
+      color: 0xC6D8D8, roughness: 0.15, transparent: true, opacity: 0.85
+    }));
+    water.scale.set(1.48, 0.04, 0.65);
+    water.position.set(0, 0.54, 0);
+    water.receiveShadow = true;
+    g.add(water);
+  } }
+};
+
+/* ══════════════════════════════════════════════════════════
+   7. 자리 잡기 — 벽을 따라, 서로 겹치지 않게
+   ══════════════════════════════════════════════════════════ */
+
+let taken = [];          // { x, z, r }
+let cursor = {};         // 벽마다 다음 자리
+
+function freeSpot(x, z, r) {
+  return taken.every((t) => Math.hypot(x - t.x, z - t.z) >= (t.r + r) * 0.92);
+}
+
+// 방 안으로 당기고, 빈 자리를 찾아 조금씩 옮깁니다.
+function findSpot(spot, fw, fd, windows, occupy = true) {
+  const { w, d } = room;
+  const r = Math.max(fw, fd) / 2;
+  const m = 0.28;
+  let x = 0, z = 0, ry = 0;
+
+  const wall = (side) => {
+    const n = cursor[side] = (cursor[side] ?? 0) + 1;
+    const step = (n % 2 ? 1 : -1) * Math.ceil(n / 2) * (fw * 0.72 + 0.35);
+    if (side === 'back') { x = step; z = -d / 2 + fd / 2 + m; ry = 0; }
+    if (side === 'left') { x = -w / 2 + fd / 2 + m; z = step; ry = 90; }
+    if (side === 'right') { x = w / 2 - fd / 2 - m; z = step; ry = -90; }
+    if (side === 'front') { x = step; z = d / 2 - fd / 2 - m; ry = 180; }
+  };
+
+  if (spot === 'back' || spot === 'left' || spot === 'right' || spot === 'front') wall(spot);
+  else if (spot === 'corner') {
+    const n = cursor.corner = (cursor.corner ?? 0) + 1;
+    const sx = n % 2 ? -1 : 1;
+    x = sx * (w / 2 - fw / 2 - m);
+    z = -d / 2 + fd / 2 + m + (n > 2 ? d * 0.4 : 0);
+    ry = sx * 35;
+  } else if (spot === 'window') {
+    const win = windows[0];
+    const side = win && WALL_SIDE[win.wall] ? win.wall : 'back';
+    wall(side);
+  } else {
+    const n = cursor.center = (cursor.center ?? 0) + 1;
+    const a = n * 2.2;
+    const k = n === 1 ? 0 : 0.5 + n * 0.16;
+    x = Math.cos(a) * w * 0.18 * k;
+    z = Math.sin(a) * d * 0.18 * k + d * 0.05;
+    ry = wobble(n) * 18;
+  }
+
+  // 방 안으로
+  x = clamp(x, -w / 2 + fw / 2 + 0.1, w / 2 - fw / 2 - 0.1);
+  z = clamp(z, -d / 2 + fd / 2 + 0.1, d / 2 - fd / 2 - 0.1);
+
+  // 빈 자리 찾기
+  if (occupy && !freeSpot(x, z, r)) {
+    for (let step = 1; step <= 40; step++) {
+      const a = step * 0.9;
+      const rad = r * 0.6 * Math.ceil(step / 6);
+      const px = clamp(x + Math.cos(a) * rad, -w / 2 + fw / 2 + 0.1, w / 2 - fw / 2 - 0.1);
+      const pz = clamp(z + Math.sin(a) * rad, -d / 2 + fd / 2 + 0.1, d / 2 - fd / 2 - 0.1);
+      if (freeSpot(px, pz, r)) { x = px; z = pz; break; }
+    }
+  }
+  if (occupy) taken.push({ x, z, r });
+  return { x, z, ry };
+}
+
+const WALL_SIDE = { back: 1, left: 1, right: 1 };
+
+/* ══════════════════════════════════════════════════════════
+   8. 짓기
+   ══════════════════════════════════════════════════════════ */
+
+let placed = 0;          // 몇 번째 가구까지 놓았는지
+let built = { room: false, outside: false };
+let windowsSpec = [];
+
+function resetWorld() {
+  [...world.children].forEach((c) => { disposeDeep(c); world.remove(c); });
+  growing.length = 0;
+  taken = [];
+  cursor = {};
+  placed = 0;
+  built = { room: false, outside: false };
+  windowsSpec = [];
+  room = null;
+  shell = null;
+  outside = null;
+  roomLight.intensity = 0;
+  scene.background = new THREE.Color(0x0a0a0c);
+}
+
+function addFurniture(f) {
+  const name = String(f.item ?? '');
+  const def = FURNITURE[name];
+  if (!def) return;
+  const st = STYLE[f.style] ?? STYLE.minimal;
+  const color = pick(f.color, room.colors.accent);
+  const g = new THREE.Group();
+  def.build(g, color, st);
+
+  const loose = !!(def.flat || def.hang);            // 러그와 등은 다른 가구와 겹쳐도 됩니다
+  const spot = findSpot(loose ? 'center' : String(f.place ?? 'center'), def.w, def.d, windowsSpec, !loose);
+  g.position.set(spot.x, def.hang ? room.h - 0.95 : 0, spot.z);
+  g.rotation.y = toRad(spot.ry);
+  world.add(popIn(g));
+  placed += 1;
+  log(`${KO[name] ?? name} · ${KO[f.style] ?? f.style} · ${KO[f.place] ?? f.place ?? ''}`.trim(), color);
+}
+
+function grow(spec, final) {
+  if (!spec) return;
+
+  if (!built.room && spec.room && typeof spec.room.w === 'number' && typeof spec.room.h === 'number'
+    && typeof spec.room.light === 'string' && Array.isArray(spec.windows)) {
+    windowsSpec = spec.windows.filter((win) => win && typeof win.wall === 'string' && typeof win.sill === 'number');
+    if (windowsSpec.length || final) {
+      const r = buildRoom(spec.room, windowsSpec);
+      built.room = true;
+      log(`방 ${r.w.toFixed(1)} × ${r.d.toFixed(1)} × ${r.h.toFixed(1)} m`, r.colors.wall);
+      log(`바닥 · 벽 · 빛 ${KO[spec.room.light] ?? spec.room.light}`, r.colors.floor);
+      windowsSpec.forEach((win) => {
+        log(`창 · ${KO[win.wall] ?? win.wall} ${num(win.width, 1).toFixed(1)}×${num(win.height, 1).toFixed(1)}m`, r.colors.accent);
+      });
+    }
+  }
+  if (!built.room) return;
+
+  if (!built.outside && spec.outside && typeof spec.outside.kind === 'string' && typeof spec.outside.time === 'string') {
+    const o = buildOutside(spec.outside);
+    built.outside = true;
+    log(`바깥 · ${KO[o.kind]} · ${KO[o.time]}`);
+  }
+
+  const list = Array.isArray(spec.furniture) ? spec.furniture : [];
+  list.forEach((f, i) => {
+    if (i < placed) return;
+    if (!final && i === list.length - 1) return;
+    if (!f || typeof f.item !== 'string' || typeof f.place !== 'string') return;
+    addFurniture(f);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   9. 말 이름표
+   ══════════════════════════════════════════════════════════ */
+
+const KO = {
+  cafe: '카페', library: '도서관', bookshop: '서점', record_shop: '음반가게', bathhouse: '목욕탕',
+  tea_house: '찻집', bar: '술집', greenhouse: '온실', studio: '작업실', laundromat: '빨래방',
+  barbershop: '이발소', gallery: '갤러리', pavilion: '정자', community_hall: '마을회관',
+  sauna: '사우나', diner: '식당',
+  warm: '따뜻하게', neutral: '고르게', cool: '서늘하게',
+  left: '왼쪽 벽', right: '오른쪽 벽', back: '안쪽 벽', front: '열린 쪽',
+  city: '도시', forest: '숲',
+  morning: '아침', day: '한낮', dusk: '해질녘', night: '밤',
+  sofa: '소파', armchair: '안락의자', chair: '의자', stool: '스툴', bench: '벤치', table: '테이블',
+  coffee_table: '낮은 탁자', counter: '카운터', shelf: '선반', bookshelf: '책장', rug: '러그',
+  plant: '화분', floor_lamp: '스탠드', pendant: '펜던트 등', cushion: '쿠션', tub: '욕조',
+  bar_stool: '바 스툴', side_table: '사이드 테이블',
+  minimal: '미니멀', plush: '푹신한', wooden: '나무', industrial: '철제', vintage: '빈티지', woven: '라탄',
+  center: '가운데', corner: '모서리', window: '창가'
+};
+
+/* ══════════════════════════════════════════════════════════
+   10. 화면 글자
+   ══════════════════════════════════════════════════════════ */
+
+const el = {
+  sign:      document.getElementById('sign'),
+  luck:      document.getElementById('luck'),
+  placeName: document.getElementById('placeName'),
+  meta:      document.getElementById('meta'),
+  composer:  document.getElementById('composer'),
+  name:      document.getElementById('nameInput'),
+  birth:     document.getElementById('birthInput'),
+  go:        document.getElementById('goBtn'),
+  hint:      document.getElementById('hint'),
+  waiting:   document.getElementById('waiting'),
+  fortune:   document.getElementById('fortune'),
+  fWho:      document.getElementById('fWho'),
+  fLuck:     document.getElementById('fLuck'),
+  fOverall:  document.getElementById('fOverall'),
+  fInner:    document.getElementById('fInner'),
+  fRelation: document.getElementById('fRelation'),
+  fGo:       document.getElementById('fGo'),
+  process:   document.getElementById('process'),
+  step1:     document.getElementById('step1'),
+  step2:     document.getElementById('step2'),
+  step3:     document.getElementById('step3'),
+  logBox:    document.getElementById('log')
+};
+
+const LOG_MAX = 80;
+
+function setStep(n, head, tail) {
+  const b = el['step' + n];
+  if (!b) return;
+  b.querySelector('span').textContent = head + (tail ? ` · ${tail}` : '');
+  b.classList.add('on');
+}
+
+function clearProcess() {
+  [1, 2, 3].forEach((n) => {
+    el['step' + n].querySelector('span').textContent = '…';
+    el['step' + n].classList.remove('on');
+  });
+  el.logBox.innerHTML = '';
+  el.process.classList.remove('on');
+}
+
+function log(text, color) {
+  const line = document.createElement('div');
+  if (isHex(color)) {
+    const dot = document.createElement('span');
+    dot.className = 'swatch';
+    dot.style.background = color;
+    line.appendChild(dot);
+  }
+  line.appendChild(document.createTextNode(text));
+  el.logBox.appendChild(line);
+  while (el.logBox.children.length > LOG_MAX) el.logBox.firstChild.remove();
+  el.logBox.scrollTop = el.logBox.scrollHeight;
+}
+
+/* ══════════════════════════════════════════════════════════
+   11. 반쯤 온 JSON 읽기
+   ══════════════════════════════════════════════════════════ */
+
+function closeUp(src) {
+  const stack = [];
+  let inStr = false, esc = false;
+  for (const c of src) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if (c === '}' || c === ']') stack.pop();
+  }
+  if (inStr) return null;
+  return src + stack.reverse().join('');
+}
+
+function parsePartial(raw) {
+  const text = raw.replace(/^[^[{]*/, '');
+  for (let end = text.length; end > 0; end--) {
+    const c = text[end - 1];
+    if (c !== '}' && c !== ']' && c !== '"' && !/[0-9a-z]/.test(c)) continue;
+    const cand = closeUp(text.slice(0, end));
+    if (cand === null) continue;
+    try { return JSON.parse(cand); } catch { /* 더 앞으로 */ }
+  }
+  return null;
+}
+
+function peekString(text, key) {
+  const at = text.indexOf('"' + key + '"');
+  if (at < 0) return '';
+  const colon = text.indexOf(':', at);
+  const open = text.indexOf('"', colon + 1);
+  if (colon < 0 || open < 0) return '';
+  let out = '';
+  for (let i = open + 1; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') break;
+    if (c !== '\\') { out += c; continue; }
+    const n = text[i + 1];
+    if (n === undefined) break;
+    if (n === 'u') {
+      const hex = text.slice(i + 2, i + 6);
+      if (hex.length < 4) break;
+      out += String.fromCharCode(parseInt(hex, 16));
+      i += 5;
+      continue;
+    }
+    out += ({ n: '\n', t: '\t', r: '' })[n] ?? n;
+    i += 1;
+  }
+  return out;
+}
+
+/* ══════════════════════════════════════════════════════════
+   12. 받기
+   ══════════════════════════════════════════════════════════ */
+
+async function ask(guest, onText) {
+  const res = await fetch(DESK, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    },
+    body: JSON.stringify(guest)
+  });
+
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `자리에서 응답이 없습니다 (${res.status})`);
+  }
+  if (!(res.headers.get('content-type') || '').includes('text/event-stream')) {
+    const whole = await res.text();
+    if (!whole.trim()) throw new Error('빈 방이 돌아왔습니다. 다시 받아 주세요');
+    onText(whole);
+    return whole;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '', text = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      let msg;
+      try { msg = JSON.parse(line.slice(5)); } catch { continue; }
+      if (msg.error) throw new Error(msg.error);
+      if (msg.t) { text += msg.t; onText(text); }
+    }
+  }
+  if (!text.trim()) throw new Error('빈 방이 돌아왔습니다. 다시 받아 주세요');
+  return text;
+}
+
+let busy = false;
+
+function showFortune(f, name) {
+  if (!f) return;
+  el.fWho.textContent = name ? `${name} 님의 오늘` : '오늘';
+  el.fLuck.textContent = f.luck ?? '';
+  el.fOverall.textContent = f.overall ?? '';
+  el.fInner.textContent = f.inner ?? '';
+  el.fRelation.textContent = f.relation ?? '';
+  el.fortune.classList.add('on');
+}
+
+function showRoom() {
+  el.fortune.classList.remove('on');
+  el.sign.classList.add('on');
+  el.process.classList.add('on');
+}
+
+function warn(text) {
+  el.hint.textContent = text;
+  el.hint.classList.add('warn');
+}
+
+async function receive() {
+  if (busy) return;
+  const name = el.name.value.trim();
+  const birth = el.birth.value;
+  if (!name) { warn('이름을 적어 주세요'); el.name.focus(); return; }
+  if (!birth) { warn('생년월일을 골라 주세요'); el.birth.focus(); return; }
+
+  busy = true;
+  el.go.disabled = true;
+  el.fGo.disabled = true;
+  el.fGo.textContent = '자리를 보는 중';
+  el.composer.classList.add('hidden');
+  el.sign.classList.remove('on');
+  el.process.classList.remove('on');
+  el.waiting.classList.add('on');
+  el.luck.textContent = '';
+  el.meta.textContent = '';
+  clearProcess();
+  resetWorld();
+
+  const today = new Date().toISOString().slice(0, 10);
+  let shownLuck = '';
+
+  const onText = (all) => {
+    el.waiting.classList.remove('on');
+
+    const spec = parsePartial(all);
+    const f = spec?.fortune;
+    const luck = f?.luck || peekString(all, 'luck');
+    if (luck) {
+      showFortune({
+        luck,
+        overall: f?.overall || peekString(all, 'overall'),
+        inner: f?.inner || peekString(all, 'inner'),
+        relation: f?.relation || peekString(all, 'relation')
+      }, name);
+      if (luck !== shownLuck) { shownLuck = luck; el.luck.textContent = luck; setStep(1, luck); }
+    }
+    if (spec?.place?.name) {
+      el.placeName.textContent = spec.place.name;
+      setStep(2, `${spec.place.name}${spec.place.kind ? ` · ${KO[spec.place.kind] ?? spec.place.kind}` : ''}`,
+        peekString(all, 'why'));
+    }
+    if (spec?.room && typeof spec.room.w === 'number') {
+      setStep(3, `${num(spec.room.w, 4).toFixed(1)} × ${num(spec.room.d, 4).toFixed(1)} × ${num(spec.room.h, 3).toFixed(1)} m`,
+        KO[spec.room.light] ?? '');
+    }
+    grow(spec, false);
+  };
+
+  try {
+    const raw = await ask({ name, birth, today }, onText);
+    const spec = parsePartial(raw);
+    grow(spec, true);
+    if (!built.room) throw new Error('오늘은 자리를 내어 드리지 못했습니다. 다시 받아 주세요');
+
+    if (spec?.fortune) {
+      showFortune(spec.fortune, name);
+      el.luck.textContent = spec.fortune.luck ?? '';
+      setStep(1, spec.fortune.luck ?? '오늘', spec.fortune.overall ?? '');
+    }
+    el.placeName.textContent = spec?.place?.name ?? '오늘의 자리';
+    el.meta.textContent = [
+      KO[spec?.place?.kind] ?? '',
+      room ? `${room.w.toFixed(1)}×${room.d.toFixed(1)}×${room.h.toFixed(1)}m` : '',
+      `가구 ${placed}`
+    ].filter(Boolean).join('   ');
+    el.fGo.textContent = `${spec?.place?.name ?? '오늘의 자리'} 들어가기`;
+    el.fGo.disabled = false;
+    if (!el.fortune.classList.contains('on')) showRoom();
+  } catch (err) {
+    resetWorld();
+    clearProcess();
+    el.fortune.classList.remove('on');
+    el.sign.classList.remove('on');
+    el.placeName.textContent = '';
+    el.luck.textContent = '';
+    warn(err.message || '무언가 잘못되었습니다');
+    el.composer.classList.remove('hidden');
+  } finally {
+    el.waiting.classList.remove('on');
+    el.go.disabled = false;
+    busy = false;
+  }
+}
+
+el.fGo.addEventListener('click', () => { if (!el.fGo.disabled) showRoom(); });
+el.go.addEventListener('click', receive);
+[el.name, el.birth].forEach((input) => {
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (input === el.name && !el.birth.value) { el.birth.focus(); return; }
+    receive();
+  });
+  input.addEventListener('input', () => {
+    el.hint.textContent = '이름과 생년월일';
+    el.hint.classList.remove('warn');
+  });
+});
+
+if (!matchMedia('(pointer: coarse)').matches) el.name.focus();
+
+/* ══════════════════════════════════════════════════════════
+   13. 돌려 보기
+   ══════════════════════════════════════════════════════════ */
+
+let dragging = false, lastX = 0, lastY = 0, spin = 0;
+const HOME = Math.PI / 2 + 0.5;
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  dragging = true; lastX = e.clientX; lastY = e.clientY; spin = 0;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  spin = -dx * 0.005;
+  ORBIT.azim = clamp(ORBIT.azim + spin, HOME - ORBIT.span, HOME + ORBIT.span);   // 열린 면이 늘 보이게
+  ORBIT.polar = clamp(ORBIT.polar + dy * 0.004, ORBIT.min, ORBIT.max);
+  orbit();
+});
+
+renderer.domElement.addEventListener('pointerup', () => { dragging = false; });
+
+/* ══════════════════════════════════════════════════════════
+   14. 그리기
+   ══════════════════════════════════════════════════════════ */
+
+const clock = new THREE.Clock();
+
+function tick() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if (!dragging && Math.abs(spin) > 0.00002) {
+    ORBIT.azim = clamp(ORBIT.azim + spin, HOME - ORBIT.span, HOME + ORBIT.span);
+    spin *= 0.9;
+    orbit();
+  }
+
+  for (let i = growing.length - 1; i >= 0; i--) {
+    const g = growing[i];
+    const p = g.userData.pop;
+    p.t += dt / 0.32;
+    const k = Math.min(1, p.t);
+    const ease = 1 - Math.pow(1 - k, 3);
+    g.scale.set(
+      Math.max(0.001, p.to.x * ease),
+      Math.max(0.001, p.to.y * ease),
+      Math.max(0.001, p.to.z * ease)
+    );
+    if (k >= 1) growing.splice(i, 1);
+  }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>
