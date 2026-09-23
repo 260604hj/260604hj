@@ -1288,9 +1288,10 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
   lastX = e.clientX; lastY = e.clientY;
   moved += Math.abs(dx) + Math.abs(dy);
-  spin = -dx * 0.006;
+  // 끄는 쪽으로 카메라가 따라갑니다
+  spin = dx * 0.006;
   ORBIT.azim += spin;
-  ORBIT.polar = clamp(ORBIT.polar + dy * 0.0045, ORBIT.min, ORBIT.max);
+  ORBIT.polar = clamp(ORBIT.polar - dy * 0.0045, ORBIT.min, ORBIT.max);
   orbit();
 });
 

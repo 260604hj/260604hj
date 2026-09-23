@@ -66,8 +66,11 @@ kind: cafe, library, bookshop, record_shop, bathhouse, tea_house, bar, greenhous
 laundromat, barbershop, gallery, pavilion, community_hall, sauna, diner.
 - A day that needs quiet gets a library or a tea house; a day that needs people gets a diner or a bar;
   a day that needs to start over gets a bathhouse or a laundromat; a day that needs making gets a studio.
-- name: a short Korean name for this particular place, like a sign over the door (예: 오후 세 시 서점).
-- why: one short Korean sentence tying the place to the fortune.
+- name: a short symbolic Korean name for the room, 4-12 characters. Name the feeling of being there,
+  never the trade: say 「오래 머무는 공간」, 「소리가 낮게 깔리는 자리」, 「물소리가 도는 방」,
+  「해가 길게 드는 구석」. Never 「○○ 카페」, 「○○ 서점」, 「○○ 목욕탕」 — no shop, no signboard,
+  no brand, no place-of-business word at all. It ends in 공간 · 자리 · 방 · 구석 · 곳 or the like.
+- why: one short Korean sentence tying the room to the fortune.
 
 STEP 3 — the room
 w, d, h in metres, each between 3 and 6, and they are a proportion, not a size:
@@ -104,7 +107,7 @@ OUTPUT — this exact JSON object, nothing else, no code fence
 "overall":"희진 님, 봄에 태어난 사람은 오늘처럼 흐린 날 오히려 차분해집니다. 오전에 하나만 끝내고 나머지는 오후로 미뤄도 좋습니다.",
 "inner":"생각이 앞서 달립니다. 손을 잠깐 멈추면 순서가 보입니다.",
 "relation":"먼저 연락하기 좋은 날입니다. 짧은 인사 하나면 충분합니다.","color":"#90A8B4"},
-"place":{"kind":"cafe","name":"오후 세 시 카페","why":"한 박자 쉬어 가려면 남의 거실 같은 자리가 필요합니다."},
+"place":{"kind":"cafe","name":"오후가 느리게 가는 자리","why":"한 박자 쉬어 가려면 남의 거실 같은 곳이 필요합니다."},
 "room":{"w":5,"d":4.5,"h":3.4,"wall_color":"#EAD8C6","floor_color":"#B47E48","accent_color":"#5A9036","light":"warm"},
 "windows":[{"wall":"back","width":2.6,"height":1.6,"sill":0.9},{"wall":"left","width":1.0,"height":1.0,"sill":1.4}],
 "outside":{"kind":"city","time":"dusk"},

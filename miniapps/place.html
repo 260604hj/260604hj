@@ -325,7 +325,7 @@ let frustum = 12;
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 500);
 
 // 열린 면(+z)이 늘 이쪽을 보도록 각도를 묶어 둡니다.
-const ORBIT = { dist: 90, azim: Math.PI / 2 + 0.5, polar: 1.12, min: 0.55, max: 1.45, span: 0.85 };
+const ORBIT = { dist: 90, azim: Math.PI / 2, polar: 1.34, min: 0.55, max: 1.46, span: 0.85 };
 const camTarget = new THREE.Vector3(0, 1.4, 0);
 
 function orbit() {
@@ -544,8 +544,8 @@ function buildRoom(spec, windows) {
 
   frustum = Math.max(w, d, h) * 1.85 + 1.5;
   camTarget.set(0, h * 0.45, 0);
-  ORBIT.azim = Math.PI / 2 + 0.5;
-  ORBIT.polar = 1.12;
+  ORBIT.azim = Math.PI / 2;      // 열린 면을 정면으로
+  ORBIT.polar = 1.34;
   orbit();
   resizeCamera();
 
@@ -927,6 +927,7 @@ function grow(spec, final) {
     const o = buildOutside(spec.outside);
     built.outside = true;
     log(`바깥 · ${KO[o.kind]} · ${KO[o.time]}`);
+    if (spec.place?.kind) log(`성격 · ${KO[spec.place.kind] ?? spec.place.kind}`);
   }
 
   const list = Array.isArray(spec.furniture) ? spec.furniture : [];
@@ -1195,8 +1196,7 @@ async function receive() {
     }
     if (spec?.place?.name) {
       el.placeName.textContent = spec.place.name;
-      setStep(2, `${spec.place.name}${spec.place.kind ? ` · ${KO[spec.place.kind] ?? spec.place.kind}` : ''}`,
-        peekString(all, 'why'));
+      setStep(2, spec.place.name, peekString(all, 'why'));
     }
     if (spec?.room && typeof spec.room.w === 'number') {
       setStep(3, `${num(spec.room.w, 4).toFixed(1)} × ${num(spec.room.d, 4).toFixed(1)} × ${num(spec.room.h, 3).toFixed(1)} m`,
@@ -1218,8 +1218,7 @@ async function receive() {
     }
     el.placeName.textContent = spec?.place?.name ?? '오늘의 자리';
     el.meta.textContent = [
-      KO[spec?.place?.kind] ?? '',
-      room ? `${room.w.toFixed(1)}×${room.d.toFixed(1)}×${room.h.toFixed(1)}m` : '',
+      room ? `${room.w.toFixed(1)} × ${room.d.toFixed(1)} × ${room.h.toFixed(1)} m` : '',
       `가구 ${placed}`
     ].filter(Boolean).join('   ');
     el.fGo.textContent = `${spec?.place?.name ?? '오늘의 자리'} 들어가기`;
@@ -1268,7 +1267,7 @@ if (!matchMedia('(pointer: coarse)').matches) el.name.focus();
    ══════════════════════════════════════════════════════════ */
 
 let dragging = false, lastX = 0, lastY = 0, spin = 0;
-const HOME = Math.PI / 2 + 0.5;
+const HOME = Math.PI / 2;
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
   dragging = true; lastX = e.clientX; lastY = e.clientY; spin = 0;
@@ -1279,9 +1278,10 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   if (!dragging) return;
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
   lastX = e.clientX; lastY = e.clientY;
-  spin = -dx * 0.005;
+  // 끄는 쪽으로 카메라가 따라갑니다
+  spin = dx * 0.005;
   ORBIT.azim = clamp(ORBIT.azim + spin, HOME - ORBIT.span, HOME + ORBIT.span);   // 열린 면이 늘 보이게
-  ORBIT.polar = clamp(ORBIT.polar + dy * 0.004, ORBIT.min, ORBIT.max);
+  ORBIT.polar = clamp(ORBIT.polar - dy * 0.004, ORBIT.min, ORBIT.max);
   orbit();
 });
 
