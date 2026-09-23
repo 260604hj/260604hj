@@ -3,7 +3,7 @@
 // Gemini API 키는 다른 함수와 같은 GEMINI_API_KEY (Edge Function Secrets, 프로젝트 전체 공용)
 // 이 함수만 로그인 없이 누구나 부를 수 있습니다 (Visitor 용). Verify JWT 를 꺼 두세요.
 //
-// FOOD FORM SYSTEM
+// 이름과 생년월일 → 오늘의 운세 → 그 운세에 어울리는 음식 → FOOD FORM SYSTEM
 //   음식 이름 → 유형(type) → 그릇(vessel) → 구성요소(form + arrangement + modifiers) → 3D
 // 음식 이름을 그대로 모델링하지 않고, 다시 쓸 수 있는 형태로 옮깁니다.
 // 실제 모양·좌표·높이는 브라우저(omacase.html)가 만듭니다.
@@ -11,6 +11,7 @@
 const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"];
 const TRY_NEXT = [404, 429, 500, 503];
 
+const MAX_NAME = 20;
 const MAX_ORDER = 60;
 
 const corsHeaders = {
@@ -68,11 +69,26 @@ const MODIFIERS = [
   "grilled", "fried", "baked", "charred",
 ];
 
-const SYSTEM_PROMPT = `You read a food name and resolve it into a plate composition. You never draw, never
-give coordinates, never invent a new shape. You choose from fixed vocabularies. The renderer owns every
-shape, position and height.
+const SYSTEM_PROMPT = `You keep the counter at a small omakase bar, and you read fortunes. A guest gives
+their name and birthday. You read their day, then serve the one dish that answers it, resolved into a
+plate composition. You never draw, never give coordinates, never invent a new shape. You choose from
+fixed vocabularies. The renderer owns every shape, position and height.
 
-FOOD NAME → TYPE → VESSEL → COMPONENTS → 3D
+NAME + BIRTHDAY → FORTUNE → DISH → TYPE → VESSEL → COMPONENTS → 3D
+
+STEP 0 — fortune, in Korean
+- luck: today's fortune in one short line, at most 14 characters. No punctuation at the end.
+- reading: 2-3 short sentences. Call the guest by name once, warmly. Draw lightly on the birthday —
+  the zodiac animal, the season they were born in, the year's element — and on today's date. Be specific
+  and concrete about the day ahead: a small thing to watch for, a small thing to enjoy.
+- Keep it playful and kind. Never predict illness, death, money loss or anything alarming, and never
+  give medical, legal or financial advice. No fear, no flattery, no fortune-cookie clichés.
+- color: one colour from the palette below that suits the fortune.
+
+STEP 0.5 — the dish that answers it
+Choose one real dish that fits the reading — a warming bowl for a cold-footed day, something sharp and
+bright for a day that needs waking up, something to share when the reading is about people.
+- dish: its short Korean name. dish_why: one short Korean sentence tying the dish to the fortune.
 
 STEP 1 — type
 The dish's dominant physical form, 1 or 2 of:
@@ -146,7 +162,8 @@ COLOURS — this kitchen's palette (every channel a multiple of 18). Stay near t
 #7E9036 #5A9036 #6C9048 #489048 #367E36 #90486C
 
 OUTPUT — this exact JSON object, nothing else, no code fence
-{"dish":"연어 초밥","type":["piece"],"read":"밥 위에 생선을 얹어 한 점씩 집어 먹는 덩어리 음식이다.",
+{"fortune":{"luck":"작은 인연이 닿는 날","reading":"희진 님, 봄에 태어난 사람은 오늘처럼 서늘한 날 오히려 기운이 붑니다. 오후에 짧은 연락 하나가 반갑겠습니다. 서두르지 않으면 다 닿습니다.","color":"#EAB45A"},
+"dish":"연어 초밥","dish_why":"반가운 연락을 기다리는 날에는 한 점씩 천천히 집어 먹는 것이 좋습니다.","type":["piece"],"read":"밥 위에 생선을 얹어 한 점씩 집어 먹는 덩어리 음식이다.",
 "serving":{"vessel":"rimmed_plate","vessel_why":"초밥은 한 점씩 놓는 테두리 접시에 낸다.","size":24,
 "color":"#FCFCEA","liquid":null},
 "components":[
@@ -158,7 +175,18 @@ OUTPUT — this exact JSON object, nothing else, no code fence
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
+    fortune: {
+      type: "OBJECT",
+      properties: {
+        luck: { type: "STRING" },
+        reading: { type: "STRING" },
+        color: { type: "STRING" },
+      },
+      required: ["luck", "reading"],
+      propertyOrdering: ["luck", "reading", "color"],
+    },
     dish: { type: "STRING" },
+    dish_why: { type: "STRING" },
     type: { type: "ARRAY", minItems: 1, maxItems: 2, items: { type: "STRING", enum: FOOD_TYPES } },
     read: { type: "STRING" },
     serving: {
@@ -200,9 +228,9 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["dish", "type", "read", "serving", "components"],
-  // 스트리밍으로 이 순서대로 옵니다: 이름 → 유형 → 그릇 → 구성요소(바닥부터)
-  propertyOrdering: ["dish", "type", "read", "serving", "components"],
+  required: ["fortune", "dish", "dish_why", "type", "read", "serving", "components"],
+  // 스트리밍으로 이 순서대로: 운세 → 음식 → 유형 → 그릇 → 구성요소(바닥부터)
+  propertyOrdering: ["fortune", "dish", "dish_why", "type", "read", "serving", "components"],
 };
 
 function reply(body: Record<string, unknown>, status = 200) {
@@ -222,7 +250,7 @@ const SCHEMA_STEPS: (Record<string, unknown> | null)[] = [
   null,   // 스키마 없이, 프롬프트의 모양 설명만 믿고
 ];
 
-function askGemini(model: string, apiKey: string, order: string, schema: Record<string, unknown> | null) {
+function askGemini(model: string, apiKey: string, ask: string, schema: Record<string, unknown> | null) {
   const generationConfig: Record<string, unknown> = {
     responseMimeType: "application/json",
     temperature: 0.7,
@@ -236,7 +264,7 @@ function askGemini(model: string, apiKey: string, order: string, schema: Record<
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: "user", parts: [{ text: `손님의 주문: <order>${order}</order>` }] }],
+        contents: [{ role: "user", parts: [{ text: ask }] }],
         generationConfig,
       }),
     },
@@ -316,11 +344,25 @@ Deno.serve(async (req) => {
   if (!apiKey) return reply({ error: "GEMINI_API_KEY 미설정 (Edge Function Secrets)" }, 500);
 
   try {
-    // 주문 확인 (로그인은 필요 없음)
+    // 손님 확인 (로그인은 필요 없음)
     const body = await req.json().catch(() => ({}));
-    const order = String(body.order ?? "").trim();
-    if (!order) return reply({ error: "무엇을 드실지 적어주세요." }, 400);
-    if (order.length > MAX_ORDER) return reply({ error: `주문은 ${MAX_ORDER}자 이내로 적어주세요.` }, 400);
+    const name = String(body.name ?? "").trim();
+    const birth = String(body.birth ?? "").trim();
+    const today = String(body.today ?? "").trim().slice(0, 10);
+    const order = String(body.order ?? "").trim();      // 예전 방식(음식 이름)도 받아 둠
+
+    let ask = "";
+    if (name || birth) {
+      if (!name) return reply({ error: "이름을 적어주세요." }, 400);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return reply({ error: "생년월일을 골라주세요." }, 400);
+      if (name.length > MAX_NAME) return reply({ error: `이름은 ${MAX_NAME}자 이내로 적어주세요.` }, 400);
+      ask = `손님: <name>${name}</name> <birthday>${birth}</birthday> <today>${today}</today>`;
+    } else if (order) {
+      if (order.length > MAX_ORDER) return reply({ error: `주문은 ${MAX_ORDER}자 이내로 적어주세요.` }, 400);
+      ask = `손님의 주문: <order>${order}</order> 운세는 이 음식에 어울리는 짧은 덕담으로 씁니다.`;
+    } else {
+      return reply({ error: "이름과 생년월일을 적어주세요." }, 400);
+    }
 
     // 붐비는 모델(429·503)은 건너뛰고, 스키마를 거절당하면(400) 더 단순한 스키마로
     let res: Response | undefined;
@@ -330,7 +372,7 @@ Deno.serve(async (req) => {
     search:
     for (const model of GEMINI_MODELS) {
       while (step < SCHEMA_STEPS.length) {
-        res = await askGemini(model, apiKey, order, SCHEMA_STEPS[step]);
+        res = await askGemini(model, apiKey, ask, SCHEMA_STEPS[step]);
         if (res.ok) break search;
 
         const status = res.status;
