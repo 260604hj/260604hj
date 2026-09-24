@@ -678,12 +678,18 @@ const FORMS = {
     part('sphere', c, [w, w * 0.6, w * 0.5], [0, w * 0.3, 0], [0, 0, 0]),
     t && part('box', t, [w * 0.7, w * 0.16, w * 0.3], [0, w * 0.5, 0])
   ],
-  nest:     (w, c, t) => [
-    part('torus', c, [w, w * 0.3, w], [0, w * 0.15, 0]),
-    part('torus', c, [w * 0.78, w * 0.26, w * 0.78], [w * 0.05, w * 0.3, 0], [0, 34, 0]),
-    part('torus', c, [w * 0.56, w * 0.22, w * 0.56], [-w * 0.04, w * 0.42, w * 0.03], [0, 70, 0]),
-    t && part('sphere', t, [w * 0.34, w * 0.2, w * 0.34], [0, w * 0.5, 0])
-  ],
+  nest:     (w, c, t) => {
+    // 굵은 도넛 하나가 아니라, 가는 면발을 여러 겹 감아 놓은 뭉치
+    const out = [];
+    for (let i = 0; i < 6; i++) {
+      const rr = w * (0.5 + 0.17 * Math.sin(i * 1.7));
+      out.push(part('torus', c, [rr, w * 0.1, rr],
+        [wobble(i) * w * 0.05, w * 0.045 + i * w * 0.038, wobble(i + 3) * w * 0.05],
+        [(i % 3) * 3, i * 37, (i % 2) * 4]));
+    }
+    if (t) out.push(part('sphere', t, [w * 0.3, w * 0.15, w * 0.3], [0, w * 0.3, 0]));
+    return out;
+  },
   ring:     (w, c, t) => [part('torus', c, [w, w * 0.34, w], [0, w * 0.17, 0])],
   scoop:    (w, c, t) => [
     part('sphere', c, [w, w * 0.85, w], [0, w * 0.36, 0]),
@@ -700,7 +706,7 @@ const FORM_H = {
   sphere: 1, ellipsoid: 0.68, cube: 0.86, cuboid: 0.6, cylinder: 0.62, capsule: 0.5,
   cone: 0.9, wedge: 0.35, irregular: 0.62, sheet: 0.1, disc: 0.18, slice: 0.14,
   strip: 0.16, ribbon: 0.3, flake: 0.16, stick: 0.24, tube: 0.5, skewer: 0.45,
-  roll: 0.8, dumpling: 0.64, pocket: 0.6, nest: 0.55, ring: 0.34, scoop: 0.8, heap: 0.85
+  roll: 0.8, dumpling: 0.64, pocket: 0.6, nest: 0.34, ring: 0.34, scoop: 0.8, heap: 0.85
 };
 
 /* ── 수식어: 알아본 형태를 조금 비틀어 그 음식처럼 ───────── */
@@ -938,6 +944,8 @@ function surfaceAt(x, z) {
 // 바닥의 경사와 이미 놓인 조각을 모두 보고, 그중 가장 높은 곳에 얹습니다.
 // (그래야 뜨지도 않고, 아래 것을 파고들지도 않습니다)
 function ground(x, z, r) {
+  // 그릇 밖으로 솟지 않게, 얹힐 수 있는 높이에 천장을 둡니다
+  const ceiling = vessel.y0 + (vessel.depth > 2 ? vessel.depth * 0.95 : Math.max(5, vessel.rim * 0.9));
   let y = surfaceAt(x, z);
   for (let i = 0; i < 4; i++) {
     const a = i * Math.PI / 2;
@@ -946,7 +954,7 @@ function ground(x, z, r) {
   for (const p of solid) {
     if (Math.hypot(x - p.x, z - p.z) < (r + p.r) * 0.86) y = Math.max(y, p.top);
   }
-  return y;
+  return Math.min(y, ceiling);
 }
 
 function buildVessel(serving, types) {
@@ -1005,7 +1013,7 @@ function buildVessel(serving, types) {
 
 // 구성요소 하나를 접시에 올립니다.
 function addComponent(comp) {
-  const rawForm = String(comp.form ?? 'ellipsoid');
+  let rawForm = String(comp.form ?? 'ellipsoid');
   const food = String(comp.food ?? '').slice(0, 14);
   const color = pick(comp.color, '#D8B490');
   const top = isHex(comp.top_color) ? comp.top_color : null;
@@ -1018,6 +1026,12 @@ function addComponent(comp) {
 
   // 나중에 오는 것은 이미 놓인 것을 덮지 않아야 합니다.
   // 소스·고명은 더 작게, 그리고 바닥(밥·면·도우) 위에 올라가는 것은 그 바닥 안에서.
+  // 원뿔·더미는 한 입짜리 작은 무더기입니다. 그릇을 채울 만큼 크게 오면 알갱이 바닥으로 바꿉니다.
+  if (rawForm === 'cone' || rawForm === 'heap') {
+    if (count <= 2 && w > lim * 0.9) rawForm = 'grain';
+    else w = Math.min(w, lim * 0.7);
+  }
+
   const structural = ['grain', 'particle', 'nest', 'noodle', 'strand'].includes(rawForm);
   if (placed > 0 && !structural) {
     const sauce = rawForm === 'pool' || rawForm === 'smear' || rawForm === 'layer'
@@ -1090,8 +1104,13 @@ function addComponent(comp) {
   const spots = ARRANGE[pattern](count, vessel.rx, vessel.rz);
   if (count > 1) w *= fitScale(spots, w, pattern);
 
+  // 한 조각이 그릇보다 높이 솟으면 그만큼 줄입니다
+  const tall = FORM_H[FORMS[rawForm] ? rawForm : FORM_ALIAS[rawForm]] ?? 0.5;
+  const maxH = vessel.depth > 2 ? vessel.depth * 0.85 : Math.max(4, lim * 0.8);
+  if (tall * w > maxH) w = maxH / tall;
+
   // 포개는 것은 제 두께만큼 올라가야 합니다
-  const pieceH = (FORM_H[FORMS[rawForm] ? rawForm : FORM_ALIAS[rawForm]] ?? 0.5) * w;
+  const pieceH = tall * w;
   if (pattern === 'stack') spots.forEach((s, i) => { s.y = i * pieceH * 0.86; });
 
   spots.forEach((s, i) => {

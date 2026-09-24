@@ -106,6 +106,12 @@ that is a component with form "pool".
 
 STEP 3 — components, bottom first
 2 to 6 components. The first ones are what lies on the vessel (밥·면·소스·도우), then what sits on them.
+- 밥·샐러드·포케·면처럼 여러 겹으로 쌓는 음식은 반드시 이 순서로 쓰세요:
+  바닥(밥·야채·면) → 고명(고기·계란·나물·과일) → 소스·가루.
+- 바닥이 밥·간 얼음·알갱이면 form 은 grain, 면이면 nest 입니다.
+  cone 과 heap 은 한 입 크기(2-5cm)의 작은 더미일 뿐, 절대 바닥이 될 수 없습니다.
+  밥 한 그릇을 cone 하나로 만들지 마세요.
+- 바닥은 count 1, size 는 그릇 너비의 0.6~0.9배. 그 위에 올리는 것은 1.5~4cm 로 작게.
 - food: short Korean name. form: one shape from the list. arrangement: how they sit.
 - count: how many pieces. 개별 조각 3-8, 얇은 조각 3-7, 만두 4-8, 초밥 5-8,
   면은 1(한 덩어리로), 밥·알갱이는 1(렌더러가 수백 알로 그림), 샐러드 5-15,
