@@ -78,9 +78,8 @@
     font-size:15px; color:var(--ink-dim);
     margin:0 0 14px;
   }
-  .composer .fields{ display:flex; gap:14px; }
   .composer input{
-    flex:1 1 0; min-width:0;
+    width:100%;
     background:transparent; border:0;
     border-bottom:1px solid var(--line);
     padding:10px 2px; text-align:center;
@@ -119,45 +118,6 @@
   .plating.on{ display:grid; }
   .plating span{ animation:breathe 1.9s ease-in-out infinite; }
   @keyframes breathe{ 0%,100%{opacity:.35} 50%{opacity:1} }
-
-  /* ── 운세 ──────────────────────────────────────────── */
-  .fortune{
-    position:fixed; inset:0; z-index:8;
-    display:none; align-items:center; justify-content:center;
-    padding:calc(var(--pad-top) + 28px) 22px calc(var(--pad-bot) + 24px);
-    background:rgba(0,0,0,.94);
-    overflow-y:auto; overscroll-behavior:contain;
-  }
-  .fortune.on{ display:flex; }
-  .fortune .card{ width:min(440px, 100%); margin:auto 0; }
-  .fortune .who{
-    font-size:11px; letter-spacing:.14em; color:var(--ink-faint);
-    margin:0 0 8px;
-  }
-  .fortune h2{
-    font-family:"Gowun Batang", serif; font-weight:400;
-    font-size:26px; line-height:1.3; letter-spacing:-0.01em;
-    margin:0 0 26px;
-  }
-  .fortune section{ margin-bottom:20px; }
-  .fortune h3{
-    font-size:11px; letter-spacing:.14em; font-weight:400;
-    color:var(--ink-faint); margin:0 0 7px;
-  }
-  .fortune section p{
-    font-family:"Gowun Batang", serif;
-    font-size:14px; line-height:1.8; color:var(--ink-dim);
-    margin:0; word-break:keep-all;
-  }
-  .fortune button{
-    display:block; width:100%; min-height:48px; margin-top:28px;
-    background:transparent; color:var(--ink);
-    border:1px solid var(--line);
-    font-family:"Gowun Batang", serif; font-size:15px;
-    cursor:pointer; transition:border-color .2s ease, color .2s ease;
-  }
-  .fortune button:enabled:hover{ border-color:var(--ink-dim); }
-  .fortune button:disabled{ color:var(--ink-faint); cursor:default; }
 
   /* ── 해석 과정 ──────────────────────────────────────── */
   .process{
@@ -205,16 +165,11 @@
 
   /* ── 좁은 화면 ─────────────────────────────────────── */
   @media (max-width: 560px){
-    .fortune{ padding:calc(var(--pad-top) + 22px) 18px calc(var(--pad-bot) + 20px); }
-    .fortune h2{ font-size:22px; margin-bottom:20px; }
-    .fortune section{ margin-bottom:16px; }
-    .fortune section p{ font-size:13.5px; line-height:1.75; }
     .osinagaki{ left:16px; right:16px; max-width:none; top:calc(var(--pad-top) + 16px); }
     .osinagaki .dish{ font-size:17px; }
     .back{ top:calc(var(--pad-top) + 10px); right:10px; padding:10px 12px; }
     .composer{ width:calc(100% - 32px); bottom:calc(var(--pad-bot) + 22px); }
     .composer .ask{ font-size:14px; }
-    .composer .fields{ gap:10px; }
     .process{ left:16px; right:16px; width:auto; bottom:calc(var(--pad-bot) + 18px); }
     .process .step{ font-size:12px; line-height:1.45; }
     .process .step b{ width:28px; font-size:10px; }
@@ -233,43 +188,29 @@
 <body>
 
 <div class="osinagaki" id="osinagaki">
-  <p class="luck" id="luck"></p>
   <p class="dish" id="dishName"></p>
   <div class="left" id="pips"></div>
 </div>
 
 <a class="back" href="../visitor.html">←</a>
 
-<div class="plating" id="plating"><span>운세를 보고 있습니다</span></div>
+<div class="plating" id="plating"><span>주문을 받았습니다</span></div>
 
-<div class="fortune" id="fortune">
-  <div class="card">
-    <p class="who" id="fWho"></p>
-    <h2 id="fLuck"></h2>
-    <section><h3>총운</h3><p id="fOverall"></p></section>
-    <section><h3>내면운</h3><p id="fInner"></p></section>
-    <section><h3>관계운</h3><p id="fRelation"></p></section>
-    <button type="button" id="fGo" disabled>차리는 중</button>
-  </div>
+<div class="composer" id="composer">
+  <p class="ask" id="ask">오늘은 무엇을 드시겠습니까</p>
+  <input id="orderInput" type="text" autocomplete="off" enterkeyhint="go" maxlength="60"
+         placeholder="예: 연어 초밥, 돈코츠 라멘, 스테이크와 퓌레" />
+  <button type="button" id="goBtn">주문</button>
+  <p class="hint" id="hint">입력하고 엔터</p>
 </div>
 
 <div class="process" id="process">
   <div class="steps">
-    <div class="step" id="step1"><b>운세</b><span>…</span></div>
-    <div class="step" id="step2"><b>음식</b><span>…</span></div>
-    <div class="step" id="step3"><b>그릇</b><span>…</span></div>
+    <div class="step" id="step1"><b>유형</b><span>…</span></div>
+    <div class="step" id="step2"><b>그릇</b><span>…</span></div>
+    <div class="step" id="step3"><b>상차림</b><span>…</span></div>
   </div>
   <div class="log" id="log"></div>
-</div>
-
-<div class="composer" id="composer">
-  <p class="ask" id="ask">오늘의 운세대로 차려 드립니다</p>
-  <div class="fields">
-    <input id="nameInput" type="text" autocomplete="name" enterkeyhint="next" placeholder="이름" maxlength="20" />
-    <input id="birthInput" type="date" autocomplete="bday" enterkeyhint="go" />
-  </div>
-  <button type="button" id="goBtn">받기</button>
-  <p class="hint" id="hint">이름과 생년월일</p>
 </div>
 
 <script type="importmap">
@@ -407,14 +348,16 @@ const safeColor = (hex, fb = '#CCCCCC') => new THREE.Color(isHex(hex) ? hex : fb
 
 const growing = [];   // 방금 놓여서 커지는 중인 것
 
-function part(shape, color, size, pos = [0, 0, 0], rot = [0, 0, 0]) {
+function part(shape, color, size, pos = [0, 0, 0], rot = [0, 0, 0], opts = null) {
   const mesh = new THREE.Mesh(UNIT[shape] || UNIT.box, new THREE.MeshStandardMaterial({
     color: color instanceof THREE.Color ? color : foodColor(color),
     roughness: 0.78, metalness: 0,
-    side: shape === 'tube' ? THREE.DoubleSide : THREE.FrontSide
+    side: shape === 'tube' ? THREE.DoubleSide : THREE.FrontSide,
+    ...(opts || {})
   }));
-  mesh.position.set(num(pos[0], 0), num(pos[1], 0), num(pos[2], 0));
-  mesh.rotation.set(toRad(num(rot[0], 0)), toRad(num(rot[1], 0)), toRad(num(rot[2], 0)));
+  const at = pos || [0, 0, 0], turn = rot || [0, 0, 0];      // null 도 받아 줍니다
+  mesh.position.set(num(at[0], 0), num(at[1], 0), num(at[2], 0));
+  mesh.rotation.set(toRad(num(turn[0], 0)), toRad(num(turn[1], 0)), toRad(num(turn[2], 0)));
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.userData.to = new THREE.Vector3(
@@ -1203,6 +1146,126 @@ function grow(spec, final) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   8-2. 상차림 — 그 음식을 먹는 수저와 곁들이는 음료
+   ══════════════════════════════════════════════════════════ */
+
+const UTENSIL_COLOR = { wood: '#B47E48', steel: '#D8D8D8', black: '#242424', ceramic: '#FCFCEA' };
+const UTENSIL_LABEL = { chopsticks: '젓가락', spoon: '숟가락', fork: '포크', knife: '나이프', teaspoon: '티스푼', ladle: '국자' };
+const MATERIAL_LABEL = { wood: '나무', steel: '쇠', black: '검정', ceramic: '백자' };
+const CUP_LABEL = { glass: '유리잔', tumbler: '긴 잔', cup: '잔', mug: '머그', small_bowl: '사발' };
+const CUP_SIZE = { glass: [7, 12], tumbler: [6.5, 14], cup: [8, 7], mug: [8.5, 9], small_bowl: [10, 5] };
+
+// 손잡이는 앞(+x), 먹는 쪽은 뒤(-x). 눕혀 놓고 나중에 세로로 돌립니다.
+const UTENSIL = {
+  chopsticks: (c, o) => [
+    part('box', c, [21, 0.5, 0.45], [0, 0.25, -0.75], [0, 1.2, 0], o),
+    part('box', c, [21, 0.5, 0.45], [0, 0.25, 0.75], [0, -1.2, 0], o)
+  ],
+  spoon: (c, o) => [
+    part('box', c, [11, 0.36, 0.9], [2.6, 0.3, 0], null, o),
+    part('sphere', c, [5.2, 0.95, 3.3], [-4.2, 0.42, 0], null, o)
+  ],
+  teaspoon: (c, o) => [
+    part('box', c, [7.4, 0.3, 0.7], [1.8, 0.26, 0], null, o),
+    part('sphere', c, [3.6, 0.72, 2.3], [-2.9, 0.34, 0], null, o)
+  ],
+  fork: (c, o) => [
+    part('box', c, [9.6, 0.36, 1.0], [2.9, 0.3, 0], null, o),
+    part('box', c, [2.4, 0.4, 2.3], [-2.9, 0.3, 0], null, o),
+    part('box', c, [3.4, 0.32, 0.45], [-5.6, 0.3, -0.75], null, o),
+    part('box', c, [3.4, 0.32, 0.45], [-5.6, 0.3, 0], null, o),
+    part('box', c, [3.4, 0.32, 0.45], [-5.6, 0.3, 0.75], null, o)
+  ],
+  knife: (c, o) => [
+    part('box', c, [8, 0.62, 1.1], [3.6, 0.32, 0], null, o),
+    part('box', c, [10, 0.28, 1.9], [-3.2, 0.3, 0.1], null, o)
+  ],
+  ladle: (c, o) => [
+    part('box', c, [12, 0.5, 0.9], [3.4, 0.45, 0], null, o),
+    part('sphere', c, [5.6, 3.2, 5.6], [-4, 1.5, 0], null, o)
+  ]
+};
+
+function buildDrink(d) {
+  const kind = CUP_SIZE[d.vessel] ? d.vessel : 'glass';
+  const [dia, hh] = CUP_SIZE[kind];
+  const clear = kind === 'glass' || kind === 'tumbler';
+  const g = new THREE.Group();
+
+  g.add(hollow(dia, hh, clear ? '#CFE0E6' : '#FCFCEA',
+    clear ? { transparent: true, opacity: 0.38, roughness: 0.1 } : { roughness: 0.5 }));
+
+  const level = clamp(num(d.level, 0.7), 0.2, 0.95);
+  const top = hh * level;
+  g.add(part('cylinder', d.color, [dia * 0.86, top, dia * 0.86], [0, top / 2, 0], null,
+    { roughness: 0.2, transparent: clear, opacity: clear ? 0.92 : 1 }));
+
+  if (kind === 'mug') {
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(hh * 0.28, 0.35, 8, 20),
+      new THREE.MeshStandardMaterial({ color: safeColor('#FCFCEA'), roughness: 0.5 }));
+    handle.position.set(dia * 0.52, hh * 0.5, 0);
+    handle.castShadow = true;
+    g.add(handle);
+  }
+  if (d.hot) {                                   // 김
+    for (let i = 0; i < 3; i++) {
+      const m = new THREE.Mesh(UNIT.sphere, new THREE.MeshStandardMaterial({
+        color: 0xffffff, transparent: true, opacity: 0.16, roughness: 1
+      }));
+      m.scale.set(1.6 + i * 0.5, 1.2 + i * 0.4, 1.6 + i * 0.5);
+      m.position.set(wobble(i) * 0.8, top + 1.8 + i * 1.7, wobble(i + 2) * 0.6);
+      g.add(m);
+    }
+  }
+  return { g, r: dia / 2, label: CUP_LABEL[kind] ?? kind };
+}
+
+// 접시 옆에 수저를 놓고, 오른쪽 위에 음료를 둡니다.
+function layTable(setting) {
+  if (!vessel || !setting) return;
+  const R = Math.max(vessel.limX ?? 10, vessel.limZ ?? 10);
+  let right = R + 3.4, left = -R - 3.4;
+
+  const list = (Array.isArray(setting.utensils) ? setting.utensils : []).slice(0, 3);
+  const hasKnife = list.some((u) => u?.kind === 'knife');
+  list.forEach((u) => {
+    const kind = UTENSIL[u?.kind] ? u.kind : 'chopsticks';
+    const color = UTENSIL_COLOR[u?.material] ?? UTENSIL_COLOR.steel;
+    const opts = u?.material === 'steel' ? { metalness: 0.7, roughness: 0.26 }
+      : u?.material === 'ceramic' ? { roughness: 0.45 } : null;
+    const g = new THREE.Group();
+    UTENSIL[kind](color, opts).forEach((m) => g.add(m));
+    g.rotation.y = Math.PI / 2;                        // 접시 옆에 세로로
+    if (kind === 'fork' && hasKnife) { g.position.set(left, 0, 0); left -= 3.6; }
+    else { g.position.set(right, 0, 0); right += 3.6; }
+    table.add(popIn(g));
+    log(`수저 · ${UTENSIL_LABEL[kind]} ${MATERIAL_LABEL[u?.material] ?? ''}`.trim(), color);
+  });
+
+  const d = setting.drink;
+  if (d && typeof d.vessel === 'string') {
+    const { g, r, label } = buildDrink(d);
+    const x = right + r + 1.2;
+    const z = -R * 0.3;
+    g.position.set(x, 0, z);
+    g.userData = { home: g.position.clone(), food: String(d.name ?? '음료') };
+    table.add(popIn(g));
+    bites.push(g);                                     // 마시는 것도 한 입
+    right = x + r;
+    log(`음료 · ${d.name ?? ''} ${label}`.trim(), d.color);
+  }
+
+  // 한 상 전체가 화면에 들어오게
+  const wide = right - left;
+  frustum = Math.max(wide * 1.18, (R * 2 + 6) * 1.2) + 2;
+  camTarget.set((right + left) / 2, (vessel.depth ?? 0) * 0.34, 0);
+  orbit();
+  resizeCamera();
+  setStep(3, `${list.length ? list.map((u) => UTENSIL_LABEL[u?.kind] ?? '').filter(Boolean).join(' · ') : '맨손'}`,
+    d?.name ?? '');
+}
+
+/* ══════════════════════════════════════════════════════════
    9. 먹기
    ══════════════════════════════════════════════════════════ */
 
@@ -1216,18 +1279,10 @@ const el = {
   pips:      document.getElementById('pips'),
   composer:  document.getElementById('composer'),
   ask:       document.getElementById('ask'),
-  name:      document.getElementById('nameInput'),
-  birth:     document.getElementById('birthInput'),
+  input:     document.getElementById('orderInput'),
   go:        document.getElementById('goBtn'),
   hint:      document.getElementById('hint'),
   plating:   document.getElementById('plating'),
-  fortune:   document.getElementById('fortune'),
-  fWho:      document.getElementById('fWho'),
-  fLuck:     document.getElementById('fLuck'),
-  fOverall:  document.getElementById('fOverall'),
-  fInner:    document.getElementById('fInner'),
-  fRelation: document.getElementById('fRelation'),
-  fGo:       document.getElementById('fGo'),
   process:   document.getElementById('process'),
   step1:     document.getElementById('step1'),
   step2:     document.getElementById('step2'),
@@ -1269,8 +1324,9 @@ function clearPlate() {
 function finishCourse() {
   el.dishName.textContent = '잘 드셨습니다';
   el.pips.textContent = '';
-  el.ask.textContent = '다른 분의 운세도 봐 드립니다';
-  el.hint.textContent = '이름과 생년월일';
+  el.ask.textContent = '다음은 무엇으로 하시겠습니까';
+  el.input.value = '';
+  el.hint.textContent = '입력하고 엔터';
   el.hint.classList.remove('warn');
   el.composer.classList.remove('hidden');
 }
@@ -1466,110 +1522,67 @@ async function askKitchen(guest, onText) {
 
 let busy = false;
 
-// 운세를 먼저 보여 주고, 손님이 누르면 그때 접시를 보여 줍니다.
-function showFortune(f, name) {
-  if (!f) return;
-  el.fWho.textContent = name ? `${name} 님의 오늘` : '오늘';
-  el.fLuck.textContent = f.luck ?? '';
-  el.fOverall.textContent = f.overall ?? '';
-  el.fInner.textContent = f.inner ?? '';
-  el.fRelation.textContent = f.relation ?? '';
-  el.fortune.classList.add('on');
-}
-
-function showPlate() {
-  el.fortune.classList.remove('on');
-  el.osinagaki.classList.add('on');
-  el.process.classList.add('on');
-}
-
-async function order() {
+async function order(text) {
   if (busy) return;
-  const name = el.name.value.trim();
-  const birth = el.birth.value;
-  if (!name) { warn('이름을 적어 주세요'); el.name.focus(); return; }
-  if (!birth) { warn('생년월일을 골라 주세요'); el.birth.focus(); return; }
+  const q = (text ?? '').trim();
+  if (!q) { warn('무엇을 드실지 적어 주세요'); el.input.focus(); return; }
 
   busy = true;
   el.go.disabled = true;
-  el.fGo.disabled = true;
-  el.fGo.textContent = '차리는 중';
   el.composer.classList.add('hidden');
   el.osinagaki.classList.remove('on');
-  el.process.classList.remove('on');
   el.plating.classList.add('on');
   el.pips.textContent = '';
-  el.luck.textContent = '';
   clearProcess();
   resetPlate();
 
-  const today = new Date().toISOString().slice(0, 10);
-  let shownLuck = '', typeLogged = false;
+  let typeLogged = false;
 
-  // 글자가 오는 대로: 운세는 앞 화면에, 접시는 뒤에서 조용히 차려 둡니다.
+  // 글자가 오는 대로: 유형 → 그릇 → 상차림, 음식은 바닥부터
   const onText = (all) => {
     el.plating.classList.remove('on');
+    el.process.classList.add('on');
 
     const spec = parsePartial(all);
-    const f = spec?.fortune;
-    const luck = f?.luck || peekString(all, 'luck');
-    if (luck) {
-      showFortune({
-        luck,
-        overall: f?.overall || peekString(all, 'overall'),
-        inner: f?.inner || peekString(all, 'inner'),
-        relation: f?.relation || peekString(all, 'relation')
-      }, name);
-      if (luck !== shownLuck) {
-        shownLuck = luck;
-        el.luck.textContent = luck;
-        setStep(1, luck);
-      }
+    if (spec?.dish && el.dishName.textContent !== spec.dish) {
+      el.dishName.textContent = spec.dish;
+      el.osinagaki.classList.add('on');
     }
-    if (spec?.dish && el.dishName.textContent !== spec.dish) el.dishName.textContent = spec.dish;
-    if (spec?.dish) setStep(2, spec.dish, peekString(all, 'dish_why'));
+    if (Array.isArray(spec?.type) && spec.type.length) {
+      setStep(1, spec.type.map((t) => TYPE_LABEL[t] ?? t).join(' + '), peekString(all, 'read'));
+      if (!typeLogged) { typeLogged = true; log(`주문 · ${spec.dish ?? q}`); }
+    }
     if (spec?.serving?.vessel) {
-      setStep(3, VESSEL_LABEL[VESSEL_ALIAS[spec.serving.vessel] ?? spec.serving.vessel] ?? spec.serving.vessel,
+      setStep(2, VESSEL_LABEL[VESSEL_ALIAS[spec.serving.vessel] ?? spec.serving.vessel] ?? spec.serving.vessel,
         peekString(all, 'vessel_why'));
-    }
-    if (Array.isArray(spec?.type) && spec.type.length && !typeLogged) {
-      typeLogged = true;
-      log(`유형 · ${spec.type.map((t) => TYPE_LABEL[t] ?? t).join(' + ')}`);
     }
     grow(spec, false);
   };
 
   try {
-    const raw = await askKitchen({ name, birth, today }, onText);
+    const raw = await askKitchen({ order: q }, onText);
     const spec = parsePartial(raw);
     grow(spec, true);
-    if (!vessel || !placed) throw new Error('오늘 운세는 담아내지 못했습니다. 다시 받아 주세요');
+    if (!vessel || !placed) throw new Error('이 주문은 담아내지 못했습니다. 다르게 말씀해 주세요');
 
+    layTable(spec?.setting);                       // 수저와 음료까지 한 상으로
     if (!bites.length && leftovers) {
       leftovers.userData = { home: leftovers.position.clone() };
       bites.push(leftovers);
       leftovers = null;
     }
     servedTotal = bites.length;
-    el.dishName.textContent = spec.dish || '오늘의 한 상';
-    if (spec?.fortune) {
-      showFortune(spec.fortune, name);
-      el.luck.textContent = spec.fortune.luck ?? '';
-      setStep(1, spec.fortune.luck ?? '오늘', spec.fortune.overall ?? '');
-    }
+    el.dishName.textContent = spec.dish || q;
     drawPips(servedTotal, servedTotal);
-    el.fGo.textContent = `${spec?.dish ?? '오늘의 음식'} 보기`;
-    el.fGo.disabled = false;
-    if (!el.fortune.classList.contains('on')) showPlate();     // 운세가 없으면 바로 접시로
+    el.osinagaki.classList.add('on');
   } catch (err) {
     resetPlate();
     clearProcess();
-    el.fortune.classList.remove('on');
     el.osinagaki.classList.remove('on');
     el.dishName.textContent = '';
-    el.luck.textContent = '';
     warn(err.message || '무언가 잘못되었습니다');
     el.composer.classList.remove('hidden');
+    el.input.focus();
   } finally {
     el.plating.classList.remove('on');
     el.go.disabled = false;
@@ -1582,22 +1595,18 @@ function warn(text) {
   el.hint.classList.add('warn');
 }
 
-el.fGo.addEventListener('click', () => { if (!el.fGo.disabled) showPlate(); });
-el.go.addEventListener('click', order);
-[el.name, el.birth].forEach((input) => {
-  input.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    if (input === el.name && !el.birth.value) { el.birth.focus(); return; }
-    order();
-  });
-  input.addEventListener('input', () => {
-    el.hint.textContent = '이름과 생년월일';
-    el.hint.classList.remove('warn');
-  });
+el.go.addEventListener('click', () => order(el.input.value));
+el.input.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  order(el.input.value);
+});
+el.input.addEventListener('input', () => {
+  el.hint.textContent = '입력하고 엔터';
+  el.hint.classList.remove('warn');
 });
 
-if (!matchMedia('(pointer: coarse)').matches) el.name.focus();   // 폰에서는 자판이 바로 올라오지 않게
+if (!matchMedia('(pointer: coarse)').matches) el.input.focus();
 
 /* ══════════════════════════════════════════════════════════
    13. 그리기

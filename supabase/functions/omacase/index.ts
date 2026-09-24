@@ -3,15 +3,14 @@
 // Gemini API 키는 다른 함수와 같은 GEMINI_API_KEY (Edge Function Secrets, 프로젝트 전체 공용)
 // 이 함수만 로그인 없이 누구나 부를 수 있습니다 (Visitor 용). Verify JWT 를 꺼 두세요.
 //
-// 이름과 생년월일 → 오늘의 운세 → 그 운세에 어울리는 음식 → FOOD FORM SYSTEM
-//   음식 이름 → 유형(type) → 그릇(vessel) → 구성요소(form + arrangement + modifiers) → 3D
+// 음식 이름 → FOOD FORM SYSTEM → 3D, 그리고 그 음식에 맞는 수저와 음료까지 한 상으로
+//   음식 이름 → 유형(type) → 그릇(vessel) → 구성요소(form + arrangement + modifiers) → 상차림
 // 음식 이름을 그대로 모델링하지 않고, 다시 쓸 수 있는 형태로 옮깁니다.
 // 실제 모양·좌표·높이는 브라우저(omacase.html)가 만듭니다.
 
 const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"];
 const TRY_NEXT = [404, 429, 500, 503];
 
-const MAX_NAME = 20;
 const MAX_ORDER = 60;
 
 const corsHeaders = {
@@ -59,6 +58,10 @@ const ARRANGEMENTS = [
   "center", "border", "smear", "quadrant", "dot", "overlap", "pile",
 ];
 
+const UTENSILS = ["chopsticks", "spoon", "fork", "knife", "teaspoon", "ladle"];
+const METALS = ["wood", "steel", "black", "ceramic"];
+const CUPS = ["glass", "tumbler", "cup", "mug", "small_bowl"];
+
 const MODIFIERS = [
   "flatten", "elongate", "compress", "taper", "bulge",
   "bend", "curve", "twist", "warp",
@@ -69,30 +72,17 @@ const MODIFIERS = [
   "grilled", "fried", "baked", "charred",
 ];
 
-const SYSTEM_PROMPT = `You keep the counter at a small omakase bar, and you read fortunes. A guest gives
-their name and birthday. You read their day, then serve the one dish that answers it, resolved into a
-plate composition. You never draw, never give coordinates, never invent a new shape. You choose from
-fixed vocabularies. The renderer owns every shape, position and height.
+const SYSTEM_PROMPT = `You keep the counter at a small omakase bar. A guest orders a dish by name and you
+set it down in front of them: the dish itself, the right thing to eat it with, and something to drink.
+You never draw, never give coordinates, never invent a new shape. You choose from fixed vocabularies.
+The renderer owns every shape, position and height.
 
-NAME + BIRTHDAY → FORTUNE → DISH → TYPE → VESSEL → COMPONENTS → 3D
+ORDER → TYPE → VESSEL → COMPONENTS → TABLE SETTING → 3D
 
-STEP 0 — fortune, in Korean. Read the day in three parts.
-- luck: today's fortune in one short line, at most 14 characters. No punctuation at the end.
-- overall (총운): 2 sentences on the shape of the day. Call the guest once by the exact name given
-  inside <name></name>, warmly — copy it letter for letter and never invent or swap in another name.
-- inner (내면운): 2 sentences on their own mind today — what steadies them, what to let go of.
-- relation (관계운): 2 sentences on people — a conversation, a message, someone to be patient with.
-Draw lightly on the birthday — the zodiac animal, the season they were born in, the year's element —
-and on today's date. Be specific and concrete, never generic. Each part stands on its own; do not repeat
-the same idea three times.
-- Keep it playful and kind. Never predict illness, death, money loss or anything alarming, and never
-  give medical, legal or financial advice. No fear, no flattery, no fortune-cookie clichés.
-- color: one colour from the palette below that suits the fortune.
-
-STEP 0.5 — the dish that answers it
-Choose one real dish that fits the three readings — a warming bowl for a cold-footed day, something sharp
-and bright for a day that needs waking up, something to share when the day is about people.
-- dish: its short Korean name. dish_why: one short Korean sentence tying the dish to the fortune.
+STEP 0 — the dish
+Serve exactly what was ordered. Never substitute another dish.
+- dish: its short Korean name, matching the order. If the order is vague ("아무거나", "따뜻한 거"),
+  pick one specific real dish and name it. If it is not food, serve the closest edible thing.
 
 STEP 1 — type
 The dish's dominant physical form, 1 or 2 of:
@@ -123,6 +113,19 @@ STEP 3 — components, bottom first
 - size: the width of ONE piece in cm. 바닥에 까는 것 12-26, 큰 조각 3-7, 작은 조각 1.5-3.5, 고명 0.4-1.
 - color, and top_color for what lies on that piece (생선·소스·치즈).
 - modifiers: only what is needed to recognise the food, 0-3 of them.
+
+STEP 4 — the table setting: what it is eaten with, and what is drunk with it
+- utensils: 1 to 3, the tools this dish is really eaten with.
+  chopsticks (젓가락), spoon (숟가락), fork (포크), knife (나이프), teaspoon (티스푼), ladle (국자).
+  초밥·만두·면 → chopsticks. 국물 있는 밥 → spoon + chopsticks. 스테이크·파스타 → knife + fork.
+  케이크·디저트 → fork or teaspoon. 한 상에 필요 없는 것을 늘어놓지 마세요.
+  material: wood (나무), steel (은빛 쇠), black (검은 칠), ceramic (백자).
+- drink: the one thing served alongside, or null when nothing fits.
+  name: short Korean name (녹차, 생맥주, 보리차, 아이스 아메리카노, 레모네이드, 정종).
+  vessel: glass (유리잔), tumbler (긴 잔), cup (손잡이 없는 잔), mug (머그), small_bowl (사발).
+  color: the drink's own colour. level: how full, 0.3-0.95. hot: true for a hot drink.
+  초밥엔 녹차, 라멘엔 물이나 맥주, 피자엔 탄산, 카레엔 라씨, 케이크엔 커피처럼 그 음식과
+  실제로 함께 나오는 것을 고르세요.
 
 FORMS
 sphere ellipsoid cube cuboid cylinder capsule cone block wedge irregular_piece
@@ -166,36 +169,21 @@ COLOURS — this kitchen's palette (every channel a multiple of 18). Stay near t
 #7E9036 #5A9036 #6C9048 #489048 #367E36 #90486C
 
 OUTPUT — this exact JSON object, nothing else, no code fence
-{"fortune":{"luck":"작은 인연이 닿는 날",
-"overall":"희진 님, 봄에 태어난 사람은 오늘처럼 서늘한 날 오히려 기운이 붑니다. 오전에 미뤄 둔 것 하나를 먼저 끝내면 하루가 가볍습니다.",
-"inner":"마음이 조금 앞서 달릴 수 있습니다. 한 박자 늦추면 판단이 또렷해집니다.",
-"relation":"오후에 짧은 연락 하나가 반갑겠습니다. 서두르지 않으면 다 닿습니다.","color":"#EAB45A"},
-"dish":"연어 초밥","dish_why":"반가운 연락을 기다리는 날에는 한 점씩 천천히 집어 먹는 것이 좋습니다.","type":["piece"],"read":"밥 위에 생선을 얹어 한 점씩 집어 먹는 덩어리 음식이다.",
+{"dish":"연어 초밥","type":["piece"],"read":"밥 위에 생선을 얹어 한 점씩 집어 먹는 덩어리 음식이다.",
 "serving":{"vessel":"rimmed_plate","vessel_why":"초밥은 한 점씩 놓는 테두리 접시에 낸다.","size":24,
 "color":"#FCFCEA","liquid":null},
 "components":[
 {"food":"초밥","form":"capsule","arrangement":"row","count":6,"size":4.2,"color":"#FCFCEA",
 "top_color":"#EA9036","modifiers":["flatten"]},
 {"food":"생강","form":"flake","arrangement":"cluster","count":5,"size":1.4,"color":"#FCEAC6","modifiers":[]},
-{"food":"간장","form":"pool","arrangement":"dot","count":1,"size":3,"color":"#5A3624","modifiers":[]}]}`;
+{"food":"간장","form":"pool","arrangement":"dot","count":1,"size":3,"color":"#5A3624","modifiers":[]}],
+"setting":{"utensils":[{"kind":"chopsticks","material":"wood"}],
+"drink":{"name":"녹차","vessel":"cup","color":"#7E9036","level":0.7,"hot":true}}}`;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
-    fortune: {
-      type: "OBJECT",
-      properties: {
-        luck: { type: "STRING" },
-        overall: { type: "STRING" },
-        inner: { type: "STRING" },
-        relation: { type: "STRING" },
-        color: { type: "STRING" },
-      },
-      required: ["luck", "overall", "inner", "relation"],
-      propertyOrdering: ["luck", "overall", "inner", "relation", "color"],
-    },
     dish: { type: "STRING" },
-    dish_why: { type: "STRING" },
     type: { type: "ARRAY", minItems: 1, maxItems: 2, items: { type: "STRING", enum: FOOD_TYPES } },
     read: { type: "STRING" },
     serving: {
@@ -236,10 +224,44 @@ const RESPONSE_SCHEMA = {
         propertyOrdering: ["food", "form", "arrangement", "count", "size", "color", "top_color", "modifiers"],
       },
     },
+    setting: {
+      type: "OBJECT",
+      properties: {
+        utensils: {
+          type: "ARRAY",
+          minItems: 1,
+          maxItems: 3,
+          items: {
+            type: "OBJECT",
+            properties: {
+              kind: { type: "STRING", enum: UTENSILS },
+              material: { type: "STRING", enum: METALS },
+            },
+            required: ["kind", "material"],
+            propertyOrdering: ["kind", "material"],
+          },
+        },
+        drink: {
+          type: "OBJECT",
+          nullable: true,
+          properties: {
+            name: { type: "STRING" },
+            vessel: { type: "STRING", enum: CUPS },
+            color: { type: "STRING" },
+            level: { type: "NUMBER" },
+            hot: { type: "BOOLEAN" },
+          },
+          required: ["name", "vessel", "color", "level"],
+          propertyOrdering: ["name", "vessel", "color", "level", "hot"],
+        },
+      },
+      required: ["utensils"],
+      propertyOrdering: ["utensils", "drink"],
+    },
   },
-  required: ["fortune", "dish", "dish_why", "type", "read", "serving", "components"],
-  // 스트리밍으로 이 순서대로: 운세 → 음식 → 유형 → 그릇 → 구성요소(바닥부터)
-  propertyOrdering: ["fortune", "dish", "dish_why", "type", "read", "serving", "components"],
+  required: ["dish", "type", "read", "serving", "components", "setting"],
+  // 스트리밍으로 이 순서대로: 음식 → 유형 → 그릇 → 구성요소(바닥부터) → 상차림
+  propertyOrdering: ["dish", "type", "read", "serving", "components", "setting"],
 };
 
 function reply(body: Record<string, unknown>, status = 200) {
@@ -353,27 +375,13 @@ Deno.serve(async (req) => {
   if (!apiKey) return reply({ error: "GEMINI_API_KEY 미설정 (Edge Function Secrets)" }, 500);
 
   try {
-    // 손님 확인 (로그인은 필요 없음)
+    // 주문 확인 (로그인은 필요 없음)
     const body = await req.json().catch(() => ({}));
-    const name = String(body.name ?? "").trim();
-    const birth = String(body.birth ?? "").trim();
-    const today = String(body.today ?? "").trim().slice(0, 10);
-    const order = String(body.order ?? "").trim();      // 예전 방식(음식 이름)도 받아 둠
+    const order = String(body.order ?? body.name ?? "").trim();
+    if (!order) return reply({ error: "무엇을 드실지 적어주세요." }, 400);
+    if (order.length > MAX_ORDER) return reply({ error: `주문은 ${MAX_ORDER}자 이내로 적어주세요.` }, 400);
 
-    let ask = "";
-    if (name || birth) {
-      if (!name) return reply({ error: "이름을 적어주세요." }, 400);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return reply({ error: "생년월일을 골라주세요." }, 400);
-      if (name.length > MAX_NAME) return reply({ error: `이름은 ${MAX_NAME}자 이내로 적어주세요.` }, 400);
-      ask = `손님: <name>${name}</name> <birthday>${birth}</birthday> <today>${today}</today>
-`
-        + `이 손님의 이름은 "${name}" 입니다. 다른 이름을 지어내지 말고 "${name} 님" 이라고 부르세요.`;
-    } else if (order) {
-      if (order.length > MAX_ORDER) return reply({ error: `주문은 ${MAX_ORDER}자 이내로 적어주세요.` }, 400);
-      ask = `손님의 주문: <order>${order}</order> 운세는 이 음식에 어울리는 짧은 덕담으로 씁니다.`;
-    } else {
-      return reply({ error: "이름과 생년월일을 적어주세요." }, 400);
-    }
+    const ask = `손님의 주문: <order>${order}</order>`;
 
     // 붐비는 모델(429·503)은 건너뛰고, 스키마를 거절당하면(400) 더 단순한 스키마로
     let res: Response | undefined;
