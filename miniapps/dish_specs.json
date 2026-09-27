@@ -1,0 +1,296 @@
+{
+  "meta": {
+    "source": "food5_bowls.3dm, layer PolyFood (Rhino 8, Z-up)",
+    "units": "1 unit = 1 cm (visual scale). Rhino doc is set to mm but values were modeled as cm.",
+    "axes": "Rhino Z-up. three.js is Y-up: (x, y, z)_rhino -> (x, z, -y)_three",
+    "frames": "Each setting has its origin at the placemat center. container.center is relative to the mat center. Topping coordinates are relative to container.center (XY) and absolute from mat top z=0 (Z).",
+    "userStrings": "Every Rhino object has dish, role (Mat|Bowl|Base|Topping|Cutlery), ingredient, and optionally piece (shared ID for the parts of one piece)"
+  },
+
+  "shared": {
+    "placemat": { "shape": "roundedSlab", "w": 52, "d": 38, "h": 0.6, "corner": 2.5, "topZ": 0, "color": "#705038", "gloss": 0.25, "name": "walnut_mat" },
+    "brass": { "color": "#C4A462", "gloss": 0.8 },
+    "cutleryLanes": { "note": "Placed on the right side of the mat, long axis along Y, head toward +Y. x is relative to the mat center", "laneA": 16.8, "laneB": 20.3, "chopsticks": 19.0 },
+    "placementDefaults": {
+      "gridCell": 0.15,
+      "triesPerItem": 40,
+      "contactTolerance": 0.01,
+      "baseNestle": "Only the base (rice, sauce, soup) may be embedded: sink 0.06 into solid food, 0.12 into liquid. No other overlap is allowed"
+    }
+  },
+
+  "primitives": {
+    "ellipsoid":     { "params": ["a", "b", "c"], "note": "semi-axes x, y, z" },
+    "roundedBox":    { "params": ["a", "b", "c", "sharpness"], "note": "Rhino used a sphere NURBS with edge weight=s and corner weight=s^2. On the web, approximate with a superellipsoid (exponent ~ 0.35-0.5)" },
+    "clampedBlob":   { "params": ["a", "b", "c", "zMin", "zMax"], "note": "Ellipsoid with z clamped to flatten top/bottom (bun, patty, dollop)" },
+    "leaf":          { "params": ["length", "width", "cup", "bend", "ruffle", "thickness"], "note": "Thin ellipsoid: u=x/a, taper=1-0.35u-0.5u^2 (y*=max(0.12,taper)), z += cup*yn^2 + bend*u^2 + ruffle*sin(3.2*pi*u+phase)*|yn|" },
+    "hemisphere":    { "params": ["r", "zScale"], "note": "Flat face down; flipChance turns the cut face up" },
+    "cylinder":      { "params": ["r", "h"] },
+    "tube":          { "params": ["rOuter", "rInner", "length"], "note": "Lies along the Y axis (rigatoni)" },
+    "vTube":         { "params": ["rOuter", "rInner", "h"], "note": "Standing (maki nori/rice)" },
+    "torus":         { "params": ["R", "r"] },
+    "crescent":      { "params": ["a", "b", "c", "curve"], "note": "Ellipsoid, y += curve*(x/a)^2 (avocado)" },
+    "teardrop":      { "params": ["a", "b", "c"], "note": "y *= (1-0.35*x/a) (pumpkin seed)" },
+    "wavyRibbon":    { "params": ["a", "b", "c", "amp", "freq"], "note": "z += amp*sin(freq*x) (smoked salmon)" },
+    "droopSheet":    { "params": ["a", "b", "c", "droop"], "note": "Square sheet, z -= droop*((x/a)^4+(y/b)^4) (cheddar)" },
+    "ruffledDisk":   { "params": ["R", "c", "amp", "lobes", "dish"], "note": "z += amp*sin(lobes*theta)*(r/R)^2 - dish*(r/R)^2 (burger lettuce)" },
+    "triangleChip":  { "params": ["a", "b", "c"], "note": "y *= max(0.08, 1 - x/a), curl z += 0.12*(y/b)^2" },
+    "spiralPipe":    { "params": ["turns", "r0", "r1", "pipeR"], "note": "Flat spiral pipe (soup cream swirl)" }
+  },
+
+  "ingredients": {
+    "leaf_green":        { "shape": "leaf", "length": [4.2, 6.2], "width": [2.4, 3.6], "cup": [0.25, 0.6], "bend": [0.2, 0.6], "ruffle": [0.05, 0.15], "thickness": 0.07, "colors": ["#60963E", "#8CB460", "#508436", "#B0CE96"], "jitter": 8, "gloss": 0.3, "tiltMax": 45, "tiltJitter": 12 },
+    "leaf_radicchio":    { "shape": "leaf", "length": [3.2, 4.4], "width": [2.2, 3.0], "cup": [0.3, 0.6], "bend": [0.2, 0.5], "ruffle": 0.1, "thickness": 0.07, "colors": ["#965078"], "jitter": 8, "gloss": 0.3, "tiltMax": 45, "tiltJitter": 12 },
+    "butter_lettuce":    { "shape": "leaf", "length": [3.2, 3.8], "width": [2.2, 2.6], "cup": 0.25, "bend": 0.1, "ruffle": 0.12, "thickness": 0.05, "colors": ["#96BE64"], "jitter": 8, "gloss": 0.3, "tiltMax": 20, "tiltJitter": 6 },
+    "basil_leaf":        { "shape": "leaf", "length": [1.6, 2.4], "width": [0.9, 1.3], "cup": 0.22, "bend": 0.14, "ruffle": 0.04, "thickness": 0.05, "colors": ["#428232"], "jitter": 6, "gloss": 0.55, "tiltMax": 40, "tiltJitter": 10 },
+    "dill":              { "shape": "leaf", "length": [0.8, 1.1], "width": 0.18, "cup": 0.02, "bend": 0.05, "ruffle": 0.03, "thickness": 0.025, "colors": ["#467832"], "jitter": 8, "gloss": 0.3, "tiltMax": 30, "tiltJitter": 10 },
+    "cress":             { "shape": "leaf", "length": [0.6, 0.8], "width": [0.35, 0.45], "cup": 0.08, "bend": 0.05, "ruffle": 0.02, "thickness": 0.03, "colors": ["#78AA46"], "jitter": 8, "gloss": 0.3, "tiltMax": 30, "tiltJitter": 12 },
+    "cilantro":          { "shape": "leaf", "length": [0.8, 1.0], "width": [0.55, 0.7], "cup": 0.1, "bend": 0.06, "ruffle": 0.03, "thickness": 0.03, "colors": ["#508C3C"], "jitter": 8, "gloss": 0.4, "tiltMax": 30, "tiltJitter": 10 },
+    "microgreen":        { "shape": "leaf", "length": [0.8, 1.1], "width": [0.4, 0.55], "cup": 0.12, "bend": 0.08, "ruffle": 0.02, "thickness": 0.035, "colors": ["#6EA046"], "jitter": 8, "gloss": 0.4, "tiltMax": 0, "tiltJitter": 15 },
+    "pickled_ginger":    { "shape": "leaf", "length": [1.3, 1.6], "width": [0.9, 1.1], "cup": 0.15, "bend": 0.15, "ruffle": 0.03, "thickness": 0.03, "colors": ["#F2C4BA"], "jitter": 6, "gloss": 0.5, "tiltMax": 30, "tiltJitter": 15 },
+
+    "cherry_tomato_half":{ "shape": "hemisphere", "r": [1.0, 1.25], "zScale": 0.92, "flipChance": 0.5, "colors": ["#C83C32"], "altColors": { "#F4CE50": 0.25 }, "jitter": 6, "gloss": 0.7, "tiltMax": 35, "tiltJitter": 10 },
+    "egg_yolk":          { "shape": "hemisphere", "r": 1.35, "zScale": 0.72, "colors": ["#F29628"], "gloss": 0.8, "tiltMax": 20 },
+    "cucumber_slice":    { "shape": "cylinder", "r": [1.0, 1.2], "h": 0.28, "colors": ["#C8DEAA"], "jitter": 6, "gloss": 0.4, "tiltMax": 40, "tiltJitter": 12 },
+    "cucumber_ribbon":   { "shape": "cylinder", "r": [0.85, 0.95], "h": 0.12, "colors": ["#C8DEAA"], "jitter": 6, "gloss": 0.4, "tiltMax": 20, "tiltJitter": 5 },
+    "radish_slice":      { "shape": "cylinder", "r": [0.55, 0.7], "h": 0.1, "colors": ["#F0D7E1"], "jitter": 6, "gloss": 0.4, "tiltMax": 25, "tiltJitter": 5 },
+    "tomato_slice":      { "shape": "cylinder", "r": 1.9, "h": 0.3, "colors": ["#CE3C2E"], "jitter": 6, "gloss": 0.6, "tiltMax": 5 },
+    "carrot_julienne":   { "shape": "roundedBox", "a": [1.2, 1.6], "b": 0.16, "c": 0.16, "sharpness": 2.0, "bendZ": 0.12, "colors": ["#EE8C32"], "jitter": 8, "gloss": 0.4, "tiltMax": 35, "tiltJitter": 15 },
+    "feta_cube":         { "shape": "roundedBox", "a": [0.45, 0.55], "b": [0.45, 0.55], "c": [0.4, 0.5], "sharpness": 2.5, "colors": ["#F5F0E1"], "jitter": 4, "gloss": 0.2, "tiltMax": 30, "tiltJitter": 10 },
+    "salmon_cube":       { "shape": "roundedBox", "a": [0.6, 0.75], "b": [0.55, 0.7], "c": [0.5, 0.6], "sharpness": 2.2, "colors": ["#F08E5C", "#E88056"], "jitter": 6, "gloss": 0.6, "tiltMax": 30, "tiltJitter": 8 },
+    "tuna_cube":         { "shape": "roundedBox", "a": [0.6, 0.72], "b": [0.55, 0.68], "c": [0.5, 0.6], "sharpness": 2.2, "colors": ["#CA483E", "#BA3A38"], "jitter": 6, "gloss": 0.6, "tiltMax": 30, "tiltJitter": 8 },
+    "cucumber_cube":     { "shape": "roundedBox", "a": 0.4, "b": 0.4, "c": 0.35, "sharpness": 2.2, "colors": ["#B0CE96"], "jitter": 6, "gloss": 0.4, "tiltMax": 30, "tiltJitter": 10 },
+    "corn_kernel":       { "shape": "roundedBox", "a": 0.22, "b": 0.19, "c": 0.15, "sharpness": 1.8, "colors": ["#F4CE50"], "jitter": 8, "gloss": 0.5, "tiltMax": 30, "tiltJitter": 20 },
+    "crouton":           { "shape": "roundedBox", "a": [0.42, 0.5], "b": [0.42, 0.5], "c": [0.4, 0.46], "sharpness": 2.4, "colors": ["#D4AC70"], "jitter": 8, "gloss": 0.3, "tiltMax": 0, "tiltJitter": 12 },
+    "nori_strip":        { "shape": "roundedBox", "a": [1.4, 1.9], "b": 0.22, "c": 0.025, "sharpness": 2.5, "colors": ["#28282D"], "jitter": 4, "gloss": 0.3, "tiltMax": 35, "tiltJitter": 6 },
+    "pico_tomato":       { "shape": "roundedBox", "a": 0.25, "b": 0.25, "c": 0.2, "sharpness": 2.2, "colors": ["#C8382C"], "jitter": 6, "gloss": 0.5, "tiltMax": 30, "tiltJitter": 10 },
+    "pico_onion":        { "shape": "roundedBox", "a": 0.22, "b": 0.22, "c": 0.15, "sharpness": 2.2, "colors": ["#F4F0E8"], "jitter": 4, "gloss": 0.4, "tiltMax": 30, "tiltJitter": 10 },
+    "fries":             { "shape": "roundedBox", "a": [1.6, 2.2], "b": 0.22, "c": 0.22, "sharpness": 2.2, "colors": ["#ECBE5C"], "jitter": 8, "gloss": 0.4, "tiltMax": 35, "tiltJitter": 20 },
+    "parmesan_shaving":  { "shape": "roundedBox", "a": [0.6, 0.8], "b": [0.35, 0.5], "c": 0.035, "sharpness": 2.0, "bendZ": 0.15, "colors": ["#F4EED6"], "jitter": 4, "gloss": 0.3, "tiltMax": 40, "tiltJitter": 15 },
+
+    "edamame":           { "shape": "ellipsoid", "a": 0.42, "b": 0.3, "c": 0.27, "colors": ["#78A252"], "jitter": 8, "gloss": 0.4, "tiltMax": 30, "tiltJitter": 10 },
+    "rice_grain":        { "shape": "ellipsoid", "a": 0.28, "b": 0.12, "c": 0.1, "colors": ["#F8F6EE", "#F2EEE2"], "jitter": 3, "gloss": 0.2, "tiltMax": 35, "tiltJitter": 15, "onlyOnBase": true },
+    "sesame":            { "shape": "ellipsoid", "a": 0.13, "b": 0.07, "c": 0.045, "colors": ["#F0E6C8"], "altColors": { "#28282D": 0.4 }, "jitter": 6, "gloss": 0.3, "tiltMax": 35, "tiltJitter": 15 },
+    "black_sesame":      { "shape": "ellipsoid", "a": 0.13, "b": 0.07, "c": 0.045, "colors": ["#28282D"], "jitter": 4, "gloss": 0.3, "tiltMax": 35, "tiltJitter": 15 },
+    "white_sesame":      { "shape": "ellipsoid", "a": 0.13, "b": 0.07, "c": 0.045, "colors": ["#F0E6C8"], "jitter": 6, "gloss": 0.3, "tiltMax": 35, "tiltJitter": 15 },
+    "black_pepper":      { "shape": "ellipsoid", "a": 0.07, "b": 0.07, "c": 0.06, "colors": ["#322D28"], "jitter": 4, "gloss": 0.2, "tiltMax": 0 },
+    "sea_salt":          { "shape": "ellipsoid", "a": 0.07, "b": 0.06, "c": 0.05, "colors": ["#FAFAFA"], "gloss": 0.3, "tiltMax": 0 },
+    "caper":             { "shape": "ellipsoid", "a": 0.14, "b": 0.14, "c": 0.12, "colors": ["#6E783C"], "jitter": 6, "gloss": 0.5, "tiltMax": 25 },
+    "chili_oil":         { "shape": "ellipsoid", "a": [0.2, 0.35], "b": "a*[0.8,1.0]", "c": 0.03, "colors": ["#C4482A"], "jitter": 6, "gloss": 0.9, "tiltMax": 0 },
+    "olive_oil_drop":    { "shape": "ellipsoid", "a": [0.2, 0.35], "b": "a*0.9", "c": 0.025, "colors": ["#D6B23C"], "jitter": 6, "gloss": 0.9, "tiltMax": 10 },
+    "mozzarella":        { "shape": "ellipsoid", "a": [1.2, 1.7], "b": [1.0, 1.4], "c": [0.16, 0.22], "lobes": 0.12, "colors": ["#F8F4E8"], "altColors": { "#ECD6A0": 0.3 }, "jitter": 4, "gloss": 0.4, "tiltMax": 10, "tiltJitter": 3 },
+
+    "avocado_slice":     { "shape": "crescent", "a": 2.1, "b": 0.6, "c": 0.32, "curve": 0.55, "colors": ["#84B250", "#96BE5A"], "jitter": 6, "gloss": 0.5, "tiltMax": 30, "tiltJitter": 6 },
+    "pumpkin_seed":      { "shape": "teardrop", "a": 0.32, "b": 0.16, "c": 0.07, "colors": ["#468237"], "jitter": 6, "gloss": 0.4, "tiltMax": 0, "tiltJitter": 8 },
+    "smoked_salmon":     { "shape": "wavyRibbon", "a": [1.5, 1.8], "b": [0.9, 1.1], "c": 0.1, "amp": 0.35, "freq": 2.4, "colors": ["#F08C6E"], "jitter": 8, "gloss": 0.6, "tiltMax": 25, "tiltJitter": 5 },
+    "tortilla_chip":     { "shape": "triangleChip", "a": 1.3, "b": 1.1, "c": 0.06, "colors": ["#E8BE6E"], "jitter": 8, "gloss": 0.4, "tiltMax": 30, "tiltJitter": 12 },
+    "scallion_ring":     { "shape": "torus", "R": 0.32, "r": 0.08, "colors": ["#78A850"], "jitter": 8, "gloss": 0.4, "tiltMax": 30, "tiltJitter": 15 },
+    "red_onion_ring":    { "shape": "torus", "R": [0.45, 0.6], "r": 0.06, "colors": ["#AA5A96"], "jitter": 8, "gloss": 0.5, "tiltMax": 25, "tiltJitter": 5 },
+    "rigatoni":          { "shape": "tube", "rOuter": [0.5, 0.58], "rInner": 0.38, "length": [2.2, 2.8], "colors": ["#F0D078"], "altColors": { "#DE965A": 0.3 }, "jitter": 6, "gloss": 0.4, "tiltMax": 35, "tiltJitter": 15 },
+    "cream_swirl":       { "shape": "spiralPipe", "turns": 1.5, "r0": 0.8, "r1": 4.4, "pipeR": 0.13, "colors": ["#F5EEDC"], "gloss": 0.5, "tiltMax": 0 },
+    "guacamole":         { "shape": "clampedBlob", "a": 1.6, "b": 1.4, "c": 0.75, "zMin": -0.5, "lobes": 0.08, "colors": ["#96B450"], "gloss": 0.4 },
+    "sour_cream":        { "shape": "clampedBlob", "a": 1.0, "b": 1.0, "c": 0.5, "zMin": -0.3, "colors": ["#F8F6EE"], "gloss": 0.5 },
+    "ketchup":           { "shape": "clampedBlob", "a": 1.0, "b": 0.9, "c": 0.4, "zMin": -0.25, "colors": ["#B01E1C"], "gloss": 0.8 },
+    "wasabi":            { "shape": "clampedBlob", "a": 0.75, "b": 0.55, "c": 0.45, "zMin": -0.35, "shearX": 0.15, "colors": ["#96B450"], "gloss": 0.3 },
+    "lime_wedge":        { "shape": "clampedBlob", "a": 1.3, "b": 0.55, "c": 0.6, "zMin": -0.15, "colors": ["#8CBE3C"], "jitter": 6, "gloss": 0.5, "tiltMax": 10 },
+
+    "egg_slice":         { "composite": [ { "shape": "cylinder", "r": [1.0, 1.15], "h": 0.3, "color": "#F8F6F0" }, { "shape": "cylinder", "r": [0.5, 0.58], "h": 0.08, "offsetZ": 0.19, "color": "#F4AA28" } ], "gloss": 0.4, "tiltMax": 20, "tiltJitter": 3 },
+    "maki":              { "composite": [ { "shape": "vTube", "rOuter": 1.2, "rInner": 1.08, "h": 1.8, "color": "#222A24", "name": "nori" }, { "shape": "vTube", "rOuter": 1.08, "rInner": 0.4, "h": 1.8, "color": "#F8F6EE", "name": "rice" }, { "shape": "cylinder", "r": 0.4, "h": 1.8, "color": "$filling", "name": "filling" } ], "fillings": { "salmon": "#F08E5C", "cucumber": "#84B250", "tuna": "#BE3438", "avocado": "#96BE5A" }, "gloss": 0.3 },
+    "nigiri":            { "composite": [ { "shape": "clampedBlob", "a": 1.0, "b": 1.85, "c": 0.6, "zMin": -0.45, "roundedBoxSharpness": 1.7, "color": "#F8F6EE", "name": "rice" }, { "shape": "droopSheet", "a": 1.2, "b": 2.3, "c": 0.2, "droopY": 0.38, "droopX": 0.18, "color": "$fish", "name": "fish", "placement": "dropOnPrevious" } ], "fish": { "salmon": "#F08E5C", "tuna": "#BE3438", "yellowtail": "#F0D8BE", "shrimp": "#EE9268" }, "gloss": 0.7, "note": "Rice first, then the fish dropped at the same slot (±0.05) so it drapes over the rice" },
+    "burrito_half":      { "composite": [ { "shape": "revolvedShell", "rOuter": 2.5, "rInner": 2.38, "length": 6.5, "domeHeight": 1.3, "color": "#ECD6AA", "name": "tortilla" }, { "shape": "cylinder", "r": 2.38, "h": 6.5, "color": "#96603E", "name": "filling" } ], "orientation": "Axis horizontal, cut face toward the viewer (-Y)", "gloss": 0.3 },
+
+    "burger_stack": {
+      "note": "Ordered stack. Each layer is dropped at the burger center ±0.15 onto the layer below",
+      "layers": [
+        { "id": "bottom_bun",    "shape": "clampedBlob", "a": 4.2, "b": 4.2, "c": 0.75, "zMin": -0.55, "zMax": 0.5, "color": "#CE9048" },
+        { "id": "lettuce",       "shape": "ruffledDisk", "R": 4.7, "c": 0.08, "amp": 0.28, "lobes": 7, "dish": 0.25, "color": "#82B650" },
+        { "id": "beef_patty",    "shape": "clampedBlob", "a": 4.35, "b": 4.3, "c": 0.6, "zMin": -0.48, "zMax": 0.48, "edgeWobble": 0.03, "color": "#583828" },
+        { "id": "cheddar",       "shape": "droopSheet", "a": 3.9, "b": 3.9, "c": 0.05, "droop": 0.45, "color": "#F4B03C" },
+        { "id": "tomato_slice",  "count": 2, "spread": 1.4 },
+        { "id": "red_onion_ring","count": 2, "shape": "torus", "R": [1.5, 1.8], "r": 0.14, "color": "#C896BE", "spread": 0.8 },
+        { "id": "top_bun",       "shape": "hemisphere", "r": 4.3, "zScale": 0.55, "color": "#C8803A" },
+        { "id": "sesame",        "count": 26, "region": { "type": "disk", "r": 3.4 }, "tiltMax": 45 }
+      ]
+    }
+  },
+
+  "containers": {
+    "revolvedBowl": {
+      "note": "innerProfile = (r, z) points on the inner wall, starting at the floor edge (horizontal tangent), then a cubic interpolation. The outer wall is the inner wall offset by wall along its normal; the rim is a semicircular arc. Foot: from the outer floor (rf, footH) -> (footR, footH) -> (footR-0.15, 0) -> (footR-0.15-footW, 0) -> (footR-0.3-footW, recess=min(0.25, footH/2)) -> axis. Revolve 360 degrees. The inner wall is the heightmap's initial floor: zIn(r)."
+    },
+    "roundedSlab": { "note": "Rounded rectangle extrusion. Top z = h. The heightmap is |x|<w/2-0.4 && |y|<d/2-0.4 -> h" }
+  },
+
+  "dishes": [
+    {
+      "id": "Salad", "settingX": 0,
+      "container": { "type": "revolvedBowl", "center": [-3, 0], "innerProfile": [[5.5,1.05],[9.0,1.4],[11.4,2.35],[12.7,3.7],[13.3,5.0]], "wall": 0.45, "footH": 0.6, "footR": 5.0, "footW": 0.5, "color": "#EAE6DC", "gloss": 0.35, "style": "Ivory matte stoneware coupe" },
+      "base": null,
+      "floorRule": "zIn(r) for r < rim-0.15, blocked beyond",
+      "toppings": [
+        { "ingredient": "leaf_green",         "count": 34, "region": { "type": "disk", "r": 9.0 }, "maxTop": "rim+1.2", "phase": 1 },
+        { "ingredient": "leaf_radicchio",     "count": 6,  "region": { "type": "disk", "r": 8.0 }, "maxTop": "rim+1.5", "phase": 1 },
+        { "ingredient": "cherry_tomato_half", "count": 8,  "region": { "type": "disk", "r": 7.5 }, "maxTop": "rim+2.2", "phase": 2 },
+        { "ingredient": "cucumber_slice",     "count": 7,  "region": { "type": "disk", "r": 7.5 }, "maxTop": "rim+2.2", "phase": 2 },
+        { "ingredient": "carrot_julienne",    "count": 10, "region": { "type": "disk", "r": 7.5 }, "maxTop": "rim+2.2", "phase": 2 },
+        { "ingredient": "feta_cube",          "count": 7,  "region": { "type": "disk", "r": 7.0 }, "maxTop": "rim+2.2", "phase": 2 }
+      ],
+      "cutlery": ["fork@laneA", "knife@laneB"]
+    },
+    {
+      "id": "Poke", "settingX": 60,
+      "container": { "type": "revolvedBowl", "center": [-3, 0], "innerProfile": [[4.5,1.3],[8.0,1.9],[10.2,3.6],[11.2,5.6],[11.5,7.4]], "wall": 0.5, "footH": 0.8, "footR": 4.2, "footW": 0.55, "color": "#304060", "gloss": 0.6, "style": "Deep indigo-glazed bowl" },
+      "base": { "id": "sushi_rice", "type": "domeFill", "level": 4.2, "dome": 0.7, "color": "#F6F4EC", "gloss": 0.2, "note": "Fills from the bowl floor up to level; top z = level + dome*(1-(r/rB)^2), rB = r where zIn(r)=level", "nestle": 0.06 },
+      "toppings": [
+        { "ingredient": "salmon_cube",   "count": 11, "region": { "type": "sector", "r0": 1.2, "r1": "rB-1.2", "deg": [0, 70] } },
+        { "ingredient": "tuna_cube",     "count": 10, "region": { "type": "sector", "r0": 1.2, "r1": "rB-1.2", "deg": [74, 142] } },
+        { "ingredient": "avocado_slice", "count": 6,  "region": { "type": "sector", "r0": 2.0, "r1": "rB-1.2", "deg": [148, 206] } },
+        { "ingredient": "edamame",       "count": 18, "region": { "type": "sector", "r0": 1.2, "r1": "rB-1.2", "deg": [210, 262] } },
+        { "ingredient": "corn_kernel",   "count": 22, "region": { "type": "sector", "r0": 1.2, "r1": "rB-1.2", "deg": [266, 312] } },
+        { "ingredient": "cucumber_cube", "count": 10, "region": { "type": "sector", "r0": 1.2, "r1": "rB-1.2", "deg": [316, 356] } },
+        { "ingredient": "scallion_ring", "count": 14, "region": { "type": "disk", "r": "rB-1" } },
+        { "ingredient": "sesame",        "count": 30, "region": { "type": "disk", "r": "rB-1" } },
+        { "ingredient": "rice_grain",    "count": 70, "region": { "type": "disk", "r": "rB-0.4" }, "onlyOnBase": true, "note": "Placed last so grains fill only the exposed rice" }
+      ],
+      "maxTop": "rim+0.4",
+      "layoutStyle": "sector (wedge) arrangement: poke-style ingredient sections",
+      "cutlery": ["woodChopsticks+rest@chopsticks"]
+    },
+    {
+      "id": "Rice", "settingX": 120,
+      "container": { "type": "revolvedBowl", "center": [-3, 0], "innerProfile": [[3.2,1.55],[5.6,2.25],[7.5,4.3],[8.5,6.6],[8.8,8.5]], "wall": 0.45, "footH": 1.1, "footR": 3.0, "footW": 0.45, "color": "#AAC0B0", "gloss": 0.7, "style": "Celadon footed bowl" },
+      "base": { "id": "steamed_rice", "type": "domeFill", "level": 6.85, "dome": 2.0, "color": "#F6F4EC", "gloss": 0.2, "nestle": 0.06 },
+      "toppings": [
+        { "ingredient": "egg_yolk",     "count": 1,   "region": { "type": "point", "at": [0, 0], "jitter": 0.3 } },
+        { "ingredient": "rice_grain",   "count": 170, "region": { "type": "disk", "r": "rB-0.3" }, "onlyOnBase": true },
+        { "ingredient": "nori_strip",   "count": 5,   "region": { "type": "annulus", "r0": 1.6, "r1": 4.5 } },
+        { "ingredient": "scallion_ring","count": 14,  "region": { "type": "disk", "r": 6.0 }, "params": { "R": 0.3, "r": 0.075 } },
+        { "ingredient": "black_sesame", "count": 24,  "region": { "type": "disk", "r": 6.5 } },
+        { "ingredient": "white_sesame", "count": 12,  "region": { "type": "disk", "r": 6.5 } }
+      ],
+      "maxTop": "rim+1.8",
+      "cutlery": ["koreanSpoon@16.6", "koreanFlatChopsticks@20.4"]
+    },
+    {
+      "id": "Pasta", "settingX": 180,
+      "container": { "type": "revolvedBowl", "center": [-3, 0], "innerProfile": [[4.0,0.9],[6.4,1.3],[7.7,2.3],[8.5,3.1],[9.6,3.4],[12.4,3.6],[14.4,3.95]], "wall": 0.4, "footH": 0.5, "footR": 3.8, "footW": 0.5, "color": "#F4F3F0", "gloss": 0.6, "style": "White wide-rim pasta bowl (deep center well + wide flange)" },
+      "base": { "id": "tomato_sauce", "type": "flatFill", "level": 1.35, "color": "#BE2E22", "gloss": 0.7, "nestle": 0.05 },
+      "floorRule": "sauce top for r < rS-0.1, zIn(r) for r < 8.3 (well wall), blocked beyond (no food on the flange)",
+      "toppings": [
+        { "ingredient": "rigatoni",           "count": 26, "region": { "type": "disk", "r": 5.2 }, "maxTop": 5.7 },
+        { "ingredient": "cherry_tomato_half", "count": 4,  "region": { "type": "disk", "r": 5.5 }, "maxTop": 6.3, "params": { "r": [1.0, 1.15] } },
+        { "ingredient": "parmesan_shaving",   "count": 8,  "region": { "type": "disk", "r": 5.5 }, "maxTop": 6.3 },
+        { "ingredient": "basil_leaf",         "count": 5,  "region": { "type": "disk", "r": 4.5 }, "maxTop": 6.3 },
+        { "ingredient": "black_pepper",       "count": 20, "region": { "type": "disk", "r": 6.0 }, "maxTop": 6.3 }
+      ],
+      "cutlery": ["fork@laneA", "spoon@20.6"]
+    },
+    {
+      "id": "Soup", "settingX": 240,
+      "container": { "type": "revolvedBowl", "center": [-3, 0], "innerProfile": [[4.2,1.0],[6.6,1.5],[8.2,2.9],[8.9,4.1],[9.9,4.45],[12.3,4.65],[13.3,4.9]], "wall": 0.4, "footH": 0.6, "footR": 4.0, "footW": 0.5, "color": "#3E3E40", "gloss": 0.3, "style": "Charcoal matte wide-rim soup plate" },
+      "base": { "id": "pumpkin_soup", "type": "flatFill", "level": 3.3, "color": "#E28034", "gloss": 0.6, "liquid": true, "nestle": 0.12 },
+      "floorRule": "level-0.12 for r < rL-0.25, blocked beyond (garnish stays on the liquid)",
+      "toppings": [
+        { "ingredient": "cream_swirl",  "count": 1,  "region": { "type": "point", "at": [0, 0], "jitter": 0.5 } },
+        { "ingredient": "crouton",      "count": 7,  "region": { "type": "annulus", "r0": 1.0, "r1": "rL-1.2" } },
+        { "ingredient": "pumpkin_seed", "count": 10, "region": { "type": "annulus", "r0": 0.5, "r1": "rL-1.0" } },
+        { "ingredient": "chili_oil",    "count": 7,  "region": { "type": "annulus", "r0": 0.5, "r1": "rL-1.0" } },
+        { "ingredient": "microgreen",   "count": 6,  "region": { "type": "annulus", "r0": 0.5, "r1": 4.0 } }
+      ],
+      "maxTop": "level+1.3",
+      "cutlery": ["soupSpoon@18.5"]
+    },
+    {
+      "id": "OpenSandwich", "settingX": 300,
+      "container": { "type": "roundedSlab", "center": [-3, 0], "w": 27, "d": 16, "h": 1.2, "corner": 1.6, "color": "#C6A272", "gloss": 0.3, "style": "Light oak serving board" },
+      "base": { "id": "rye_bread", "type": "placedPieces", "shape": "roundedBox", "a": 4.8, "b": 3.3, "c": 0.45, "sharpness": 2.6, "color": "#5C362A", "slots": [[-5.8, 0.3], [5.4, -0.2]], "yawJitterRad": 0.12, "afterPlace": "blockUntouched (toppings allowed only on the bread)" },
+      "toppings": [
+        { "ingredient": "butter_lettuce",  "count": 3, "region": { "type": "rect", "c": [-5.8, 0.3], "h": [3.6, 2.2] } },
+        { "ingredient": "smoked_salmon",   "count": 4, "region": { "type": "rect", "c": [-5.8, 0.3], "h": [3.6, 2.2] } },
+        { "ingredient": "red_onion_ring",  "count": 4, "region": { "type": "rect", "c": [-5.8, 0.3], "h": [3.6, 2.2] } },
+        { "ingredient": "caper",           "count": 8, "region": { "type": "rect", "c": [-5.8, 0.3], "h": [3.6, 2.2] } },
+        { "ingredient": "dill",            "count": 7, "region": { "type": "rect", "c": [-5.8, 0.3], "h": [3.6, 2.2] } },
+        { "ingredient": "cucumber_ribbon", "count": 4, "region": { "type": "rect", "c": [5.4, -0.2], "h": [3.6, 2.2] } },
+        { "ingredient": "egg_slice",       "count": 5, "region": { "type": "rect", "c": [5.4, -0.2], "h": [3.6, 2.2] } },
+        { "ingredient": "radish_slice",    "count": 4, "region": { "type": "rect", "c": [5.4, -0.2], "h": [3.6, 2.2] } },
+        { "ingredient": "cress",           "count": 8, "region": { "type": "rect", "c": [5.4, -0.2], "h": [3.6, 2.2] } },
+        { "ingredient": "black_pepper",    "count": 10,"region": { "type": "rect", "c": [5.4, -0.2], "h": [3.6, 2.2] } }
+      ],
+      "maxTop": "board+3.0",
+      "cutlery": ["fork@laneA", "knife@laneB"]
+    },
+    {
+      "id": "Pizza", "settingX": 360,
+      "container": { "type": "revolvedBowl", "center": [-3, 0], "innerProfile": [[11.2,0.75],[12.6,1.1],[13.6,1.65],[14.0,1.95]], "wall": 0.35, "footH": 0.4, "footR": 8.0, "footW": 0.5, "color": "#F4F3F0", "gloss": 0.6, "style": "White flat rimmed plate" },
+      "base": [
+        { "id": "pizza_crust", "type": "revolvedProfile", "profile": "(0,0)->(10.2,0) then interpolate [(10.2,0),(10.9,0.25),(11.05,0.7),(10.8,1.15),(10.3,1.28),(9.8,1.0),(9.4,0.55)] -> (0,0.55)", "zOffset": "plate floor", "color": "#DEB26C", "gloss": 0.3 },
+        { "id": "tomato_sauce", "type": "disk", "r": 9.3, "h": 0.1, "onTopOf": "crust (z = floor+0.55)", "color": "#BA3222", "gloss": 0.6 }
+      ],
+      "floorRule": "sauce top for r < 9.1, blocked beyond",
+      "toppings": [
+        { "ingredient": "mozzarella",         "count": 11, "region": { "type": "disk", "r": 7.8 } },
+        { "ingredient": "cherry_tomato_half", "count": 6,  "region": { "type": "disk", "r": 7.8 }, "params": { "r": [0.8, 0.95], "zScale": 0.6, "flipChance": 1.0 } },
+        { "ingredient": "basil_leaf",         "count": 7,  "region": { "type": "disk", "r": 7.5 } },
+        { "ingredient": "olive_oil_drop",     "count": 8,  "region": { "type": "disk", "r": 8.2 } }
+      ],
+      "maxTop": "sauce+1.2",
+      "cutlery": ["fork@laneA", "knife@laneB"]
+    },
+    {
+      "id": "Sushi", "settingX": 420,
+      "container": { "type": "roundedSlab", "center": [-3, 0], "w": 30, "d": 11, "h": 0.7, "corner": 0.8, "color": "#3A3C40", "gloss": 0.2, "style": "Long black slate plate" },
+      "base": null,
+      "toppings": [
+        { "ingredient": "nigiri", "slots": [[-12, 0, "salmon"], [-9, 0, "tuna"], [-6, 0, "yellowtail"], [-3, 0, "shrimp"]], "yawJitterRad": 0.08, "note": "Long axis along Y (across the plate)" },
+        { "ingredient": "maki",   "slots": [[0.8, 1.6, "salmon"], [0.8, -1.6, "cucumber"], [3.7, 1.6, "salmon"], [3.7, -1.6, "cucumber"]], "jitter": 0.1 },
+        { "ingredient": "pickled_ginger", "count": 5,  "region": { "type": "disk", "c": [8.4, -1.6], "r": 0.6 } },
+        { "ingredient": "wasabi",         "count": 1,  "region": { "type": "point", "at": [8.6, 2.4], "jitter": 0.2 } },
+        { "ingredient": "sesame",         "count": 14, "region": { "type": "rect", "c": [2.25, 0], "h": [2.3, 2.6] } }
+      ],
+      "maxTop": "plate+3.0",
+      "layoutStyle": "slots (fixed-row arrangement). Slot count/type can be edited",
+      "cutlery": ["woodChopsticks+rest@chopsticks"]
+    },
+    {
+      "id": "Burger", "settingX": 480,
+      "container": { "type": "revolvedBowl", "center": [-3, 0], "innerProfile": [[9.5,0.75],[11.5,1.05],[12.8,1.6],[13.3,1.95]], "wall": 0.35, "footH": 0.4, "footR": 8.0, "footW": 0.5, "color": "#ECE8E0", "gloss": 0.5, "style": "Warm white flat plate" },
+      "base": null,
+      "toppings": [
+        { "ingredient": "burger_stack", "center": [-3.0, 0], "note": "See ingredients.burger_stack.layers. Layers can be inserted, removed or reordered" },
+        { "ingredient": "fries",    "count": 16, "region": { "type": "disk", "c": [5.8, 1.2], "r": 2.0 }, "maxTop": "floor+3.0" },
+        { "ingredient": "ketchup",  "count": 1,  "region": { "type": "point", "at": [5.2, -5.0], "jitter": 0.2 } },
+        { "ingredient": "sea_salt", "count": 14, "region": { "type": "disk", "c": [5.8, 1.2], "r": 2.2 } }
+      ],
+      "maxTop": "floor+9.0",
+      "layoutStyle": "stack (ordered layers) + side",
+      "cutlery": ["fork@laneA", "knife@laneB"]
+    },
+    {
+      "id": "Burrito", "settingX": 540,
+      "container": { "type": "roundedSlab", "center": [-3, 0], "w": 30, "d": 16, "h": 0.8, "corner": 2.0, "color": "#DACEBA", "gloss": 0.3, "style": "Sand-tone stone rectangular plate" },
+      "base": null,
+      "toppings": [
+        { "ingredient": "burrito_half", "slots": [[-9.5, -3.2, 1.75], [-3.2, -3.6, 1.35]], "note": "3rd value of each slot = yaw (rad). Cut face toward the viewer" },
+        { "ingredient": "guacamole",     "count": 1,  "region": { "type": "point", "at": [6.5, 3.2], "jitter": 0.3 } },
+        { "ingredient": "sour_cream",    "count": 1,  "region": { "type": "point", "at": [10.5, 3.6], "jitter": 0.3 } },
+        { "ingredient": "lime_wedge",    "count": 2,  "region": { "type": "disk", "c": [11.0, -3.5], "r": 1.2 } },
+        { "ingredient": "tortilla_chip", "count": 5,  "region": { "type": "disk", "c": [7.0, -3.2], "r": 2.0 } },
+        { "ingredient": "pico_tomato",   "count": 10, "region": { "type": "disk", "c": [8.5, 0.2], "r": 2.2 } },
+        { "ingredient": "pico_onion",    "count": 6,  "region": { "type": "disk", "c": [8.5, 0.2], "r": 2.2 } },
+        { "ingredient": "cilantro",      "count": 7,  "region": { "type": "disk", "c": [7.5, 0.5], "r": 4.0 } }
+      ],
+      "maxTop": "plate+3.0 (garnish), plate+6.5 (burrito)",
+      "cutlery": ["fork@laneA", "knife@laneB"]
+    }
+  ],
+
+  "cutlery": {
+    "fork":  { "length": 19.5, "tines": 4, "tineX": [-0.93, -0.31, 0.31, 0.93], "headWidth": 2.35, "handlePath": "(y,z): (3.1,0.1)(4.8,0.2)(7,0.55)(12.5,0.7)(19.5,0.08)", "widths": "s:[0,.1,.18,.9,1] w:[2.35,1.2,0.5,1.0,0.55]", "material": "brass" },
+    "knife": { "length": 21, "blade": "Flat outline extruded 0.12 (edge on the -x side after rotation)", "handle": "Elliptical loft, 0.95 wide x 0.6 thick", "material": "brass" },
+    "spoon": { "head": "Half-ellipsoid shell a=2.3 b=1.7 c=0.55 t=0.09", "handleLength": 15.5, "rise": 0.6, "material": "brass" },
+    "soupSpoon": { "head": "a=1.95 b=1.9 c=0.6", "handleLength": 14.5, "material": "brass" },
+    "koreanSpoon": { "head": "Shallow oval a=1.85 b=1.35 c=0.28", "handle": "Straight flat 15.5 x 0.45~0.7 x 0.12", "material": "brass" },
+    "koreanFlatChopsticks": { "length": 21.5, "section": "rectangle 0.26->0.5 wide, 0.16->0.28 thick", "gap": 0.84, "material": "brass" },
+    "woodChopsticks": { "length": 21.5, "radius": "0.12 (tip) -> 0.3 (end)", "gap": 0.9, "rest": "ellipsoid 1.9x0.55x0.42, flat bottom, 3.2 from the tip; the tip rests on the rest, the thick end on the mat", "color": "#5C3E2C", "restColor": "#ECEAE4" }
+  }
+}
