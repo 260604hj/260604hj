@@ -33,7 +33,14 @@ const INGREDIENTS = [
   "tomato_slice", "tortilla_chip", "tuna_cube", "wasabi", "white_sesame",
 ];
 
-const OPS = ["setCount", "replace", "remove", "add", "setColor"];
+const OPS = [
+  "setCount", "replace", "remove", "add", "setColor",
+  "setSize", "setRegion", "setContainer", "setBase", "defineIngredient", "setCutlery",
+];
+const SHAPES = [
+  "ellipsoid", "roundedBox", "clampedBlob", "leaf", "hemisphere", "cylinder", "tube", "vTube",
+  "torus", "crescent", "teardrop", "wavyRibbon", "droopSheet", "ruffledDisk", "triangleChip", "spiralPipe",
+];
 
 const SYSTEM_PROMPT = `You keep the counter at a small omakase bar. The kitchen can plate exactly ten
 settings, each already modelled down to the bowl profile and every topping. A guest orders a dish by
@@ -96,16 +103,43 @@ CHOOSING
 - 없는 음식이면 가장 가까운 형태를 고르세요: 김밥은 Sushi, 리소토는 Rice, 라멘은 Soup,
   볶음밥은 Rice, 과일 접시는 Salad.
 
-OPS — 고른 차림을 그 음식(또는 그 느낌)처럼 보이게 손질합니다. 음식 이름이면 0~4개,
-음식이 아닌 주문(이름·기분·날씨)이면 **반드시 2~6개**를 써서 눈에 보이게 바꾸세요.
-각 손질의 칸 이름을 정확히 지키세요. count 는 count 에, 색은 color 에 #RRGGBB 로 적습니다.
-- { "op": "setCount", "ingredient": <키>, "count": <수> } 양 늘리고 줄이기
-- { "op": "replace", "from": <키>, "to": <키> } 같은 자리에 다른 재료
-- { "op": "remove", "ingredient": <키> } 빼기
-- { "op": "add", "ingredient": <키>, "count": <수> } 얹기
-- { "op": "setColor", "ingredient": <키>, "color": "#RRGGBB" } 색만 바꾸기
-재료 키는 아래 목록에 있는 것만 쓰세요. 없는 재료는 색을 바꿔 흉내 내세요
-(예: 새우초밥 → nigiri 를 두고 setColor 로 분홍빛, 김치볶음밥 → Rice 에서 rice_grain 색을 붉게).
+OPS — 고른 차림은 뼈대일 뿐입니다. 색·수·크기·자리·그릇·베이스·수저까지 바꿔서
+**주문한 그것처럼 보이게** 만드세요. 음식 이름이면 2~5개, 음식이 아닌 주문(이름·기분·날씨·색)이면
+**5~10개**를 쓰고, 색과 수는 과감하게 바꾸세요. 칸 이름을 정확히 지키세요.
+
+  { "op": "setCount",  "ingredient": <키>, "count": <수> }
+  { "op": "replace",   "from": <키>, "to": <키> }
+  { "op": "remove",    "ingredient": <키> }
+  { "op": "add",       "ingredient": <키>, "count": <수>, "color": "#RRGGBB" }
+  { "op": "setColor",  "ingredient": <키 또는 층 이름>, "color": "#RRGGBB" }
+  { "op": "setSize",   "ingredient": <키>, "scale": 0.4~2.5 }
+  { "op": "setRegion", "ingredient": <키>, "region": {"type":"disk","r":6} }
+       region 은 disk{r} · annulus{r0,r1} · sector{r0,r1,deg:[a,b]} · point{at:[x,y],jitter} 중 하나.
+  { "op": "setContainer", "color": "#RRGGBB" }                 그릇 색
+  { "op": "setBase",   "color": "#RRGGBB", "level": <높이>, "dome": <봉긋함> }  밥·소스·수프 층
+  { "op": "setBase",   "base": null }                          베이스 걷어내기
+  { "op": "setCutlery","cutlery": ["woodChopsticks+rest@chopsticks"] }
+  { "op": "defineIngredient", "id": <새 이름>, "count": <수>,
+    "spec": { "shape": <아래 모양 중 하나>, "color": "#RRGGBB", ...치수 } }
+
+층 이름(setColor 로 쓸 수 있음): bottom_bun, lettuce, beef_patty, cheddar, tomato_slice,
+red_onion_ring, top_bun, sesame, nigiri, maki, burrito_half
+
+MAKING A NEW INGREDIENT — 목록에 없는 것은 defineIngredient 로 만듭니다. 모양은
+${SHAPES.join(" ")}
+치수 칸은 모양에 따라 씁니다 (ellipsoid/roundedBox/clampedBlob: a,b,c[,sharpness,zMin,zMax] ·
+leaf: length,width,cup,bend,ruffle,thickness · hemisphere: r,zScale · cylinder: r,h ·
+torus: R,r · tube/vTube: rOuter,rInner,length/h · ruffledDisk: R,c,amp,lobes,dish ·
+wavyRibbon: a,b,c,amp,freq · droopSheet: a,b,c,droop · spiralPipe: turns,r0,r1,pipeR).
+크기는 cm 이고 한 입 재료는 0.3~3 사이입니다.
+예: 석류알 → {"shape":"ellipsoid","a":0.18,"b":0.16,"c":0.16,"color":"#B0202C"}
+    재 가루 → {"shape":"ellipsoid","a":0.12,"b":0.12,"c":0.08,"color":"#6C6C6C"}
+    숯 조각 → {"shape":"roundedBox","a":0.9,"b":0.7,"c":0.5,"sharpness":2.4,"color":"#242424"}
+
+BOLDNESS — 설명에 쓴 말은 반드시 접시에서 보여야 합니다.
+「회색 버거」라고 썼으면 bottom_bun·top_bun·beef_patty·cheddar 를 전부 회색 계열로 칠하고
+접시 색도 낮추세요. 「붉은」이라 썼으면 붉게, 「성글게」라 썼으면 수를 줄이세요.
+말만 하고 접시가 그대로면 안 됩니다.
 
 INGREDIENT KEYS
 ${INGREDIENTS.join(" ")}
@@ -133,19 +167,54 @@ const RESPONSE_SCHEMA = {
     why: { type: "STRING" },
     ops: {
       type: "ARRAY",
-      maxItems: 6,
+      maxItems: 10,
       items: {
         type: "OBJECT",
         properties: {
           op: { type: "STRING", enum: OPS },
-          ingredient: { type: "STRING", enum: INGREDIENTS },
+          ingredient: { type: "STRING" },
           from: { type: "STRING", enum: INGREDIENTS },
           to: { type: "STRING", enum: INGREDIENTS },
           count: { type: "INTEGER" },
           color: { type: "STRING" },
+          scale: { type: "NUMBER" },
+          level: { type: "NUMBER" },
+          dome: { type: "NUMBER" },
+          id: { type: "STRING" },
+          region: {
+            type: "OBJECT",
+            nullable: true,
+            properties: {
+              type: { type: "STRING", enum: ["disk", "annulus", "sector", "point"] },
+              r: { type: "NUMBER" }, r0: { type: "NUMBER" }, r1: { type: "NUMBER" },
+              deg: { type: "ARRAY", items: { type: "NUMBER" } },
+              at: { type: "ARRAY", items: { type: "NUMBER" } },
+              jitter: { type: "NUMBER" },
+            },
+          },
+          spec: {
+            type: "OBJECT",
+            nullable: true,
+            properties: {
+              shape: { type: "STRING", enum: SHAPES },
+              color: { type: "STRING" },
+              a: { type: "NUMBER" }, b: { type: "NUMBER" }, c: { type: "NUMBER" },
+              r: { type: "NUMBER" }, R: { type: "NUMBER" }, h: { type: "NUMBER" },
+              length: { type: "NUMBER" }, width: { type: "NUMBER" }, thickness: { type: "NUMBER" },
+              cup: { type: "NUMBER" }, bend: { type: "NUMBER" }, ruffle: { type: "NUMBER" },
+              rOuter: { type: "NUMBER" }, rInner: { type: "NUMBER" },
+              amp: { type: "NUMBER" }, freq: { type: "NUMBER" }, lobes: { type: "NUMBER" },
+              dish: { type: "NUMBER" }, curve: { type: "NUMBER" }, droop: { type: "NUMBER" },
+              zScale: { type: "NUMBER" }, sharpness: { type: "NUMBER" },
+              turns: { type: "NUMBER" }, r0: { type: "NUMBER" }, r1: { type: "NUMBER" }, pipeR: { type: "NUMBER" },
+              gloss: { type: "NUMBER" },
+            },
+          },
+          cutlery: { type: "ARRAY", items: { type: "STRING" } },
         },
         required: ["op"],
-        propertyOrdering: ["op", "ingredient", "from", "to", "count", "color"],
+        propertyOrdering: ["op", "ingredient", "from", "to", "count", "color", "scale",
+          "level", "dome", "id", "region", "spec", "cutlery"],
       },
     },
   },

@@ -624,21 +624,31 @@ function buildPiece(name, ing, override, fishColor) {
   const g = new THREE.Group();
   if (Array.isArray(ing.composite)) {
     const forceColor = override && /^#[0-9a-fA-F]{6}$/.test(override.color || '') ? override.color : null;
+    const lieDown = ing.composite.some((p) => p.shape === 'revolvedShell');   // 부리또처럼 눕는 것
+    let top = null;                                                          // 앞 파트의 윗면
     ing.composite.forEach((part, pi) => {
       const spec = { ...part };
-      const col = forceColor && (part.color === '$fish' || pi === ing.composite.length - 1)
+      const col = forceColor && (part.color === '$fish' || part.color === '$filling' || pi === ing.composite.length - 1)
         ? forceColor
-        : (spec.color === '$fish' ? (fishColor || FISH.salmon) : spec.color);
-      const m = new THREE.Mesh(primitive(spec), matOf(tint(col, ing.jitter), val(spec.gloss ?? ing.gloss, 0.35)));
-      m.position.set(val(spec.offsetX, 0), val(spec.offsetY, 0), val(spec.offsetZ, 0));
+        : (spec.color === '$fish' ? (fishColor || FISH.salmon)
+          : spec.color === '$filling' ? (fishColor || FISH.cucumber) : spec.color);
+      const geo = primitive(spec);
+      const m = new THREE.Mesh(geo, matOf(tint(col, ing.jitter), val(spec.gloss ?? ing.gloss, 0.35)));
+      if (lieDown && spec.shape === 'cylinder') m.rotation.y = Math.PI / 2;   // 속도 길이축을 X 로
+      geo.computeBoundingBox();
+      const bb = geo.boundingBox;
+      let z = val(spec.offsetZ, 0);
+      if (spec.placement === 'dropOnPrevious' && top !== null) z = top - bb.min.z - 0.03;
+      m.position.set(val(spec.offsetX, 0), val(spec.offsetY, 0), z);
       m.castShadow = true; m.receiveShadow = true;
       g.add(m);
+      top = Math.max(top ?? -Infinity, z + bb.max.z);
     });
   } else {
-    const s = { ...ing, ...(override || {}) };
-    const list = s.colors || [s.color || '#D8B490'];
-    const m = new THREE.Mesh(primitive(s), matOf(tint(list[Math.floor(rng() * list.length)], s.jitter), val(s.gloss, 0.3)));
-    if (s.shape === 'hemisphere' && rng() < val(s.flipChance, 0)) m.rotation.x = Math.PI;
+    const s2 = { ...ing, ...(override || {}) };
+    const list = s2.colors || [s2.color || '#D8B490'];
+    const m = new THREE.Mesh(primitive(s2), matOf(tint(list[Math.floor(rng() * list.length)], s2.jitter), val(s2.gloss, 0.3)));
+    if (s2.shape === 'hemisphere' && rng() < val(s2.flipChance, 0)) m.rotation.x = Math.PI;
     m.castShadow = true; m.receiveShadow = true;
     g.add(m);
   }
@@ -801,9 +811,8 @@ function buildCutlery(kind, spec, withRest) {
     const len = val(spec?.length, 21.5), gap = val(spec?.gap, 0.9);
     [-gap / 2, gap / 2].forEach((dx) => {
       const stick = wood
-        ? new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.3, len, 8), m)
+        ? new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.3, len, 8), m)   // 축이 Y → 매트에 눕습니다
         : new THREE.Mesh(new THREE.BoxGeometry(0.42, len, 0.18), m);
-      if (wood) stick.rotation.x = Math.PI / 2;
       stick.position.set(dx, len / 2 - 2, wood ? 0.3 : 0.1);
       stick.castShadow = true;
       g.add(stick);
@@ -976,17 +985,32 @@ function buildStack(item, ing, ctx) {
   const c = item.center || [0, 0];
   let z = ctx.container.floor;
   layers.forEach((layer) => {
-    const piece = buildPiece(layer.id, { ...layer, colors: [layer.color] }, null);
-    piece.rotation.z = rng() * Math.PI * 2;
-    piece.position.set(c[0] + rnd(-0.15, 0.15), c[1] + rnd(-0.15, 0.15), 0);
-    const box = localBox(piece);
-    piece.position.z = z - box.min.z;
-    box.translate(new THREE.Vector3(0, 0, z - box.min.z));
-    ctx.group.add(piece);
-    pieces.push({ obj: piece, box, support: z, name: layer.id });
-    z += (box.max.z - box.min.z) * 0.92;
-    report.placed++;
-    log(`${layer.id}`, layer.color);
+    const ref = SPEC.ingredients[layer.id] || {};
+    const spec = layer.shape ? { ...layer } : { ...ref, ...layer };          // 모양이 없으면 재료에서
+    const paint = (item.layerColors || {})[layer.id];
+    if (paint) { spec.color = paint; spec.colors = [paint]; }
+    const n = Math.max(1, Math.round(val(layer.count, 1)));
+    const spread = val(layer.spread, 0);
+    let layerTop = z;
+    for (let i = 0; i < n; i++) {
+      const piece = buildPiece(layer.id, spec.composite ? spec : { ...spec, colors: spec.colors || [spec.color] }, null);
+      piece.rotation.z = rng() * Math.PI * 2;
+      const a = n === 1 ? 0 : (i / n) * Math.PI * 2 + rng();
+      const off = layer.region
+        ? sampleRegion(layer.region, ctx.vars)
+        : [Math.cos(a) * spread, Math.sin(a) * spread];
+      piece.position.set(c[0] + off[0] + rnd(-0.12, 0.12), c[1] + off[1] + rnd(-0.12, 0.12), 0);
+      const box = localBox(piece);
+      const dz = z - box.min.z;
+      piece.position.z = dz;
+      box.translate(new THREE.Vector3(0, 0, dz));
+      ctx.group.add(piece);
+      pieces.push({ obj: piece, box, support: z, name: layer.id });
+      layerTop = Math.max(layerTop, box.max.z);
+      report.placed++;
+    }
+    z += (layerTop - z) * 0.92;
+    log(`${layer.id}${n > 1 ? ` ×${n}` : ''}`, spec.color || (spec.colors || [])[0]);
   });
   return z;
 }
@@ -1038,42 +1062,151 @@ function verify(container) {
 }
 
 // 서버가 보낸 손질(ops)을 기본 차림에 적용합니다.
+// 기본 차림은 뼈대일 뿐이고, 색·수·크기·영역·그릇·베이스까지 바꿀 수 있습니다.
+const HEX = (v) => (/^#[0-9a-fA-F]{6}$/.test(String(v ?? '')) ? String(v) : null);
+
+// 없는 재료를 프리미티브로 즉석에서 만듭니다 (핸드오프의 defineIngredient).
+function defineIngredient(id, spec) {
+  if (!id || typeof id !== 'object' && !spec) return false;
+  const src = spec || {};
+  if (!PRIM[src.shape]) return false;
+  const safe = { shape: src.shape };
+  ['a', 'b', 'c', 'r', 'R', 'h', 'length', 'width', 'thickness', 'cup', 'bend', 'ruffle',
+    'rOuter', 'rInner', 'amp', 'freq', 'lobes', 'dish', 'curve', 'droop', 'droopX', 'droopY',
+    'zScale', 'sharpness', 'zMin', 'zMax', 'turns', 'r0', 'r1', 'pipeR'].forEach((k) => {
+    const v = src[k];
+    if (isNum(v)) safe[k] = clamp(v, -12, 12);
+    else if (Array.isArray(v) && isNum(v[0]) && isNum(v[1])) safe[k] = [clamp(v[0], -12, 12), clamp(v[1], -12, 12)];
+  });
+  const colors = (Array.isArray(src.colors) ? src.colors : [src.color]).map(HEX).filter(Boolean);
+  safe.colors = colors.length ? colors : ['#D8B490'];
+  safe.gloss = clamp(val(src.gloss, 0.3), 0, 1);
+  safe.jitter = clamp(val(src.jitter, 6), 0, 40);
+  safe.tiltMax = clamp(val(src.tiltMax, 20), 0, 60);
+  safe.tiltJitter = clamp(val(src.tiltJitter, 8), 0, 40);
+  SPEC.ingredients[id] = safe;
+  return true;
+}
+
 function applyOps(dish, ops) {
   if (!Array.isArray(ops) || !ops.length) return dish;
   const out = JSON.parse(JSON.stringify(dish));
   const find = (key) => out.toppings.findIndex((t) => t.ingredient === key);
-  ops.slice(0, 12).forEach((raw) => {
+
+  // 층·합성 파트 색까지 바꾸기 (버거 번, 니기리 생선 …)
+  const paintDeep = (key, color) => {
+    let hit = false;
+    out.toppings.forEach((t) => {
+      const ing = SPEC.ingredients[t.ingredient];
+      if (!ing) return;
+      if (t.ingredient === key) { t.params = { ...(t.params || {}), colors: [color], color }; hit = true; }
+      if (ing.layers && ing.layers.some((L) => L.id === key)) {
+        t.layerColors = { ...(t.layerColors || {}), [key]: color };   // 원본 스펙은 그대로 두고
+        hit = true;
+      }
+    });
+    return hit;
+  };
+
+  ops.slice(0, 16).forEach((raw) => {
     if (!raw || typeof raw.op !== 'string') return;
-    // 모델이 칸 이름을 헷갈려 보내는 일이 잦습니다. 뜻이 통하면 살려 씁니다.
     const op = { ...raw };
-    const hex = [raw.color, raw.to, raw.value].find((v) => /^#[0-9a-fA-F]{6}$/.test(String(v ?? '')));
+    const hex = HEX(raw.color) || HEX(raw.to) || HEX(raw.value);
     if (op.op === 'setColor' && hex) op.color = hex;
     if (op.op === 'setCount' && !isNum(op.count)) {
       const n = [raw.count, raw.value, raw.to].map(Number).find((v) => isFinite(v) && v > 0);
-      if (isNum(n)) op.count = n; else return;                       // 수가 없으면 건너뜁니다
+      if (isNum(n)) op.count = n; else return;
     }
-    if (op.op === 'replace' && !SPEC.ingredients[op.to]) return;
-    if (op.op === 'setColor' && !/^#[0-9a-fA-F]{6}$/.test(op.color || '')) return;
     if (!op.ingredient && op.from) op.ingredient = op.from;
     const i = find(op.ingredient ?? op.target);
-    if (op.op === 'remove' && i >= 0) { out.toppings.splice(i, 1); log(`빼기 · ${op.ingredient}`); }
-    else if (op.op === 'setCount' && i >= 0 && isNum(op.count)) {
-      out.toppings[i].count = clamp(Math.round(op.count), 1, 220);
-      log(`개수 · ${op.ingredient} ${out.toppings[i].count}`);
-    } else if (op.op === 'replace' && i >= 0 && SPEC.ingredients[op.to]) {
-      out.toppings[i] = { ...out.toppings[i], ingredient: op.to };
-      log(`바꾸기 · ${op.from} → ${op.to}`);
-    } else if (op.op === 'add' && SPEC.ingredients[op.ingredient]) {
-      out.toppings.push({
-        ingredient: op.ingredient,
-        count: clamp(Math.round(val(op.count, 6)), 1, 120),
-        region: op.region || { type: 'disk', r: 'rB-1' },
-        phase: 3
-      });
-      log(`더하기 · ${op.ingredient}`);
-    } else if (op.op === 'setColor' && i >= 0) {
-      out.toppings[i].params = { ...(out.toppings[i].params || {}), colors: [op.color], color: op.color };
-      log(`색 · ${op.ingredient}`, op.color);
+
+    switch (op.op) {
+      case 'remove':
+        if (i >= 0) { out.toppings.splice(i, 1); log(`빼기 · ${op.ingredient}`); }
+        break;
+      case 'setCount':
+        if (i >= 0) {
+          out.toppings[i].count = clamp(Math.round(op.count), 1, 220);
+          log(`개수 · ${op.ingredient} ${out.toppings[i].count}`);
+        }
+        break;
+      case 'replace':
+        if (i >= 0 && SPEC.ingredients[op.to]) {
+          out.toppings[i] = { ...out.toppings[i], ingredient: op.to, params: undefined };
+          log(`바꾸기 · ${op.from} → ${op.to}`);
+        }
+        break;
+      case 'add':
+        if (SPEC.ingredients[op.ingredient]) {
+          out.toppings.push({
+            ingredient: op.ingredient,
+            count: clamp(Math.round(val(op.count, 6)), 1, 160),
+            region: op.region || { type: 'disk', r: 'rB-1' },
+            params: HEX(op.color) ? { colors: [HEX(op.color)], color: HEX(op.color) } : undefined,
+            phase: 3
+          });
+          log(`더하기 · ${op.ingredient} ×${clamp(Math.round(val(op.count, 6)), 1, 160)}`, HEX(op.color));
+        }
+        break;
+      case 'setColor':
+        if (!op.color) break;
+        if (paintDeep(op.ingredient ?? op.target, op.color)) log(`색 · ${op.ingredient ?? op.target}`, op.color);
+        else log(`색 · ${op.ingredient ?? op.target} 없음`, op.color, true);
+        break;
+      case 'setSize': {
+        const k = clamp(val(op.scale ?? op.count, 1), 0.3, 3);
+        if (i >= 0) {
+          const ing = SPEC.ingredients[out.toppings[i].ingredient] || {};
+          const p = { ...(out.toppings[i].params || {}) };
+          ['a', 'b', 'c', 'r', 'R', 'length', 'width', 'h'].forEach((key) => {
+            const v = ing[key];
+            if (isNum(v)) p[key] = v * k;
+            else if (Array.isArray(v)) p[key] = [v[0] * k, v[1] * k];
+          });
+          out.toppings[i].params = p;
+          log(`크기 · ${op.ingredient} ×${k.toFixed(2)}`);
+        }
+        break;
+      }
+      case 'setRegion':
+        if (i >= 0 && op.region && typeof op.region === 'object') {
+          out.toppings[i].region = op.region;
+          log(`자리 · ${op.ingredient} ${op.region.type ?? ''}`);
+        }
+        break;
+      case 'setContainer':
+        if (HEX(op.color)) { out.container = { ...out.container, color: HEX(op.color) }; log(`그릇 색`, HEX(op.color)); }
+        break;
+      case 'setBase':
+        if (op.base === null || op.base === 'none') { out.base = null; log('베이스 빼기'); }
+        else if (out.base && !Array.isArray(out.base)) {
+          if (HEX(op.color)) out.base.color = HEX(op.color);
+          if (isNum(op.level)) out.base.level = clamp(op.level, 0.5, 12);
+          if (isNum(op.dome)) out.base.dome = clamp(op.dome, 0, 4);
+          log(`베이스 · ${out.base.id}`, HEX(op.color));
+        }
+        break;
+      case 'defineIngredient':
+        if (defineIngredient(op.id ?? op.ingredient, op.spec ?? op.def)) {
+          log(`새 재료 · ${op.id ?? op.ingredient}`, HEX((op.spec || {}).color));
+          if (isNum(op.count) || op.region) {
+            out.toppings.push({
+              ingredient: op.id ?? op.ingredient,
+              count: clamp(Math.round(val(op.count, 8)), 1, 160),
+              region: op.region || { type: 'disk', r: 'rB-1' },
+              phase: 3
+            });
+          }
+        } else log(`새 재료 실패 · ${op.id ?? op.ingredient}`, null, true);
+        break;
+      case 'setCutlery':
+        if (Array.isArray(op.cutlery) && op.cutlery.length) {
+          out.cutlery = op.cutlery.slice(0, 3).map(String);
+          log(`수저 바꾸기 · ${out.cutlery.join(' ')}`);
+        }
+        break;
+      default:
+        break;
     }
   });
   return out;
