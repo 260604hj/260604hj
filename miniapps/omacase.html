@@ -623,9 +623,12 @@ const FISH = { salmon: '#F08E5C', tuna: '#B03A46', yellowtail: '#F0E2C8', shrimp
 function buildPiece(name, ing, override, fishColor) {
   const g = new THREE.Group();
   if (Array.isArray(ing.composite)) {
-    ing.composite.forEach((part) => {
-      const spec = { ...part, ...(override || {}) };
-      const col = spec.color === '$fish' ? (fishColor || FISH.salmon) : spec.color;
+    const forceColor = override && /^#[0-9a-fA-F]{6}$/.test(override.color || '') ? override.color : null;
+    ing.composite.forEach((part, pi) => {
+      const spec = { ...part };
+      const col = forceColor && (part.color === '$fish' || pi === ing.composite.length - 1)
+        ? forceColor
+        : (spec.color === '$fish' ? (fishColor || FISH.salmon) : spec.color);
       const m = new THREE.Mesh(primitive(spec), matOf(tint(col, ing.jitter), val(spec.gloss ?? ing.gloss, 0.35)));
       m.position.set(val(spec.offsetX, 0), val(spec.offsetY, 0), val(spec.offsetZ, 0));
       m.castShadow = true; m.receiveShadow = true;
@@ -1039,9 +1042,20 @@ function applyOps(dish, ops) {
   if (!Array.isArray(ops) || !ops.length) return dish;
   const out = JSON.parse(JSON.stringify(dish));
   const find = (key) => out.toppings.findIndex((t) => t.ingredient === key);
-  ops.slice(0, 12).forEach((op) => {
-    if (!op || typeof op.op !== 'string') return;
-    const i = find(op.ingredient ?? op.from ?? op.target);
+  ops.slice(0, 12).forEach((raw) => {
+    if (!raw || typeof raw.op !== 'string') return;
+    // 모델이 칸 이름을 헷갈려 보내는 일이 잦습니다. 뜻이 통하면 살려 씁니다.
+    const op = { ...raw };
+    const hex = [raw.color, raw.to, raw.value].find((v) => /^#[0-9a-fA-F]{6}$/.test(String(v ?? '')));
+    if (op.op === 'setColor' && hex) op.color = hex;
+    if (op.op === 'setCount' && !isNum(op.count)) {
+      const n = [raw.count, raw.value, raw.to].map(Number).find((v) => isFinite(v) && v > 0);
+      if (isNum(n)) op.count = n; else return;                       // 수가 없으면 건너뜁니다
+    }
+    if (op.op === 'replace' && !SPEC.ingredients[op.to]) return;
+    if (op.op === 'setColor' && !/^#[0-9a-fA-F]{6}$/.test(op.color || '')) return;
+    if (!op.ingredient && op.from) op.ingredient = op.from;
+    const i = find(op.ingredient ?? op.target);
     if (op.op === 'remove' && i >= 0) { out.toppings.splice(i, 1); log(`빼기 · ${op.ingredient}`); }
     else if (op.op === 'setCount' && i >= 0 && isNum(op.count)) {
       out.toppings[i].count = clamp(Math.round(op.count), 1, 220);
@@ -1057,8 +1071,8 @@ function applyOps(dish, ops) {
         phase: 3
       });
       log(`더하기 · ${op.ingredient}`);
-    } else if (op.op === 'setColor' && i >= 0 && /^#[0-9a-fA-F]{6}$/.test(op.color || '')) {
-      out.toppings[i].params = { ...(out.toppings[i].params || {}), colors: [op.color] };
+    } else if (op.op === 'setColor' && i >= 0) {
+      out.toppings[i].params = { ...(out.toppings[i].params || {}), colors: [op.color], color: op.color };
       log(`색 · ${op.ingredient}`, op.color);
     }
   });
@@ -1323,7 +1337,8 @@ async function order(text) {
   }
 
   try {
-    setStep(1, recipe?.title || KO[id] || id, recipe?.why || q);
+    setStep(1, recipe?.title || KO[id] || id, recipe?.read || recipe?.why || q);
+    if (recipe?.read && recipe?.why) log(`읽기 · ${recipe.why}`);
     const t0 = performance.now();
     buildDish(id, hashSeed(q + '|' + Date.now()), recipe?.ops);
     const ms = Math.round(performance.now() - t0);

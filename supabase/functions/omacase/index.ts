@@ -43,6 +43,23 @@ dish they asked for.
 You never draw, never give coordinates, never invent a shape. You only pick a setting and edit its
 ingredient list. The renderer builds everything from dish_specs.json.
 
+ORDER → READING → DISH (one of ten) → OPS (ingredient edits)
+
+STEP 0 — read the order, whatever it is
+주문은 음식 이름이 아닐 수 있습니다. 사람 이름, 건축가, 도시, 날씨, 기분, 색, 계절, 노래 제목,
+아무 낱말이라도 받습니다. 그럴 때는 **그것을 한 접시로 번역**하세요. 거절하거나 기본 차림으로
+얼버무리지 마세요.
+- 무엇을 보고 그렇게 읽었는지 한국어 한 문장으로 read 에 적습니다.
+- 형태·색·밀도·정돈 상태로 옮깁니다:
+  곡선과 흰빛(자하 하디드) → Sushi 를 흰 생선으로 적게, 슬레이트 위에 성글게.
+  벽돌과 침묵과 빛(루이스 칸) → Rice, 장식을 덜고 노른자 하나만 남겨 단정하게.
+  비 오는 화요일 → Soup, 크루통을 더하고 색을 가라앉히기.
+  쓸쓸함 → Salad, 잎을 줄이고 붉은 것을 빼서 성글게.
+  잔치·생일 → Burrito 나 Burger 처럼 곁들이가 많은 차림에 수를 늘리기.
+  여름 바다 → Poke, 파랑·초록을 늘리고 밥알을 드러내기.
+- title 은 그 번역이 드러나게 짓습니다: 「자하 하디드 — 곡선으로 놓은 초밥」처럼.
+- 음식 이름이 분명하면(김치볶음밥, 라멘) 그대로 그 음식으로 차리고 read 는 짧게 씁니다.
+
 ORDER → DISH (one of ten) → OPS (ingredient edits)
 
 THE TEN SETTINGS, with what they already hold
@@ -70,7 +87,9 @@ CHOOSING
 - 없는 음식이면 가장 가까운 형태를 고르세요: 김밥은 Sushi, 리소토는 Rice, 라멘은 Soup,
   볶음밥은 Rice, 과일 접시는 Salad.
 
-OPS — 고른 차림을 그 음식처럼 보이게 손질합니다. 0~6개.
+OPS — 고른 차림을 그 음식(또는 그 느낌)처럼 보이게 손질합니다. 음식 이름이면 0~4개,
+음식이 아닌 주문(이름·기분·날씨)이면 **반드시 2~6개**를 써서 눈에 보이게 바꾸세요.
+각 손질의 칸 이름을 정확히 지키세요. count 는 count 에, 색은 color 에 #RRGGBB 로 적습니다.
 - { "op": "setCount", "ingredient": <키>, "count": <수> } 양 늘리고 줄이기
 - { "op": "replace", "from": <키>, "to": <키> } 같은 자리에 다른 재료
 - { "op": "remove", "ingredient": <키> } 빼기
@@ -83,18 +102,24 @@ INGREDIENT KEYS
 ${INGREDIENTS.join(" ")}
 
 ALSO
-- title: 손님에게 보일 한국어 이름 (주문 그대로거나 더 정확한 이름).
-- why: 왜 이 차림을 골랐는지 한국어 한 문장.
+- read: 주문을 무엇으로 읽었는지 한국어 한 문장. 음식 이름이면 그 음식의 성격 한 마디.
+- title: 손님에게 보일 한국어 이름. 음식이 아닌 주문이면 번역이 드러나게.
+- why: 왜 이 차림과 이 손질인지 한국어 한 문장.
 
 OUTPUT — this exact JSON object, nothing else, no code fence
-{"dish":"Rice","title":"계란 덮밥","why":"밥 위에 노른자를 얹는 한 그릇이라 셀라돈 공기에 담았습니다.",
-"ops":[{"op":"setCount","ingredient":"scallion_ring","count":20},
-{"op":"add","ingredient":"nori_strip","count":7}]}`;
+{"dish":"Sushi","read":"자하 하디드는 흰 곡면이 길게 흐르는 건축입니다.",
+"title":"자하 하디드 — 곡선으로 놓은 초밥",
+"why":"흰 생선만 성글게 올려 슬레이트 위에 곡선 하나만 남겼습니다.",
+"ops":[{"op":"setColor","ingredient":"nigiri","color":"#F0E2C8"},
+{"op":"remove","ingredient":"sesame"},
+{"op":"setCount","ingredient":"pickled_ginger","count":2},
+{"op":"setColor","ingredient":"wasabi","color":"#D8E2C6"}]}`;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     dish: { type: "STRING", enum: DISHES },
+    read: { type: "STRING" },
     title: { type: "STRING" },
     why: { type: "STRING" },
     ops: {
@@ -115,8 +140,8 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["dish", "title", "why", "ops"],
-  propertyOrdering: ["dish", "title", "why", "ops"],
+  required: ["dish", "read", "title", "why", "ops"],
+  propertyOrdering: ["dish", "read", "title", "why", "ops"],
 };
 
 function reply(body: Record<string, unknown>, status = 200) {
