@@ -1301,6 +1301,17 @@ async function askKitchen(order) {
   return JSON.parse(text.slice(start, text.lastIndexOf('}') + 1));
 }
 
+// 손님이 친 말이 이름에는 반드시 남아 있게 (설명은 서버가 쓰되, 비면 이름에서 끌어옵니다)
+function keepWords(recipe, order) {
+  if (!recipe) return recipe;
+  const words = [order, ...String(order).split(/\s+/)].filter((w) => w && w.length >= 2);
+  const said = (text) => words.some((w) => String(text || '').includes(w));
+  if (!said(recipe.title)) recipe.title = `${order} — ${recipe.title || ''}`.trim();
+  if (!recipe.read) recipe.read = `${order}`;
+  if (!said(recipe.read) && !said(recipe.why)) recipe.read = `${order} — ${recipe.read}`;
+  return recipe;
+}
+
 /* ── 주문 → 차림 ─────────────────────────────────────── */
 
 let busy = false;
@@ -1323,6 +1334,7 @@ async function order(text) {
   let recipe = null;
   try {
     recipe = await askKitchen(q);
+    recipe = keepWords(recipe, q);          // 손님이 친 말이 설명에 남아 있는지
   } catch (err) {
     log(`주방 · ${err.message}`, null, true);          // 서버가 없어도 차립니다
   }
@@ -1338,7 +1350,7 @@ async function order(text) {
 
   try {
     setStep(1, recipe?.title || KO[id] || id, recipe?.read || recipe?.why || q);
-    if (recipe?.read && recipe?.why) log(`읽기 · ${recipe.why}`);
+    if (recipe?.why) log(`이유 · ${recipe.why}`);
     const t0 = performance.now();
     buildDish(id, hashSeed(q + '|' + Date.now()), recipe?.ops);
     const ms = Math.round(performance.now() - t0);
