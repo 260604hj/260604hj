@@ -1,0 +1,1643 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Webtoon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+KR:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --paper:#F4F4F2; --ink:#161616; --dim:#77756F; --line:#DCDBD6; --card:#FFFFFF; --accent:#C2412D; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --paper:#111; --ink:#EEE; --dim:#8C8A84; --line:#2A2A28; --card:#1A1A19; } }
+  :root[data-theme="dark"]{ --paper:#111; --ink:#EEE; --dim:#8C8A84; --line:#2A2A28; --card:#1A1A19; }
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:'Inter','Noto Sans KR',system-ui,sans-serif; font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+  main{ max-width:1180px; margin:0 auto; padding:20px 16px 60px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  .top a{ color:var(--ink); text-decoration:none; font-size:20px; }
+  .who{ font-size:12px; color:var(--dim); display:flex; gap:10px; align-items:center; }
+  .who button{ font:inherit; background:none; border:0; color:var(--dim); text-decoration:underline; cursor:pointer; padding:0; }
+  h1{ font-size:24px; margin:0 0 4px; font-weight:600; }
+  h2{ font-size:15px; margin:0 0 8px; font-weight:600; }
+  .sub{ color:var(--dim); margin:0 0 16px; }
+  .tabs{ display:flex; gap:6px; border-bottom:1px solid var(--line); margin-bottom:18px; }
+  .tabs button{ font:inherit; background:none; border:0; border-bottom:2px solid transparent; padding:8px 14px; color:var(--dim); cursor:pointer; }
+  .tabs button.on{ color:var(--ink); border-color:var(--ink); font-weight:600; }
+  button.b{ font:inherit; font-size:12px; background:var(--card); border:1px solid var(--line); color:var(--ink); padding:5px 12px; border-radius:999px; cursor:pointer; }
+  button.b.primary{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  button.b:disabled{ opacity:.4; cursor:default; }
+  .row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .status{ font-size:13px; color:var(--accent); min-height:1.5em; margin:6px 0; }
+  canvas.view{ display:block; width:100%; background:#fff; border-radius:10px; }
+  /* 웹툰 */
+  .make{ display:flex; gap:8px; margin:0 0 6px; }
+  .make textarea{ flex:1; min-width:0; font:inherit; font-size:14px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); resize:vertical; }
+  .toon{ display:grid; grid-template-columns:minmax(0,720px) minmax(0,1fr); gap:28px; align-items:start; }
+  @media (max-width:980px){ .toon{ grid-template-columns:1fr; } }
+  .toon > *{ min-width:0; }
+  .meta h2{ font-size:18px; margin:0; }
+  .meta p{ color:var(--dim); margin:2px 0 12px; font-size:13px; }
+  .castmap{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:0 0 14px; }
+  .crow{ display:grid; grid-template-columns:minmax(80px,120px) minmax(0,1fr) auto; gap:8px; align-items:center; margin:0 0 8px; font-size:13px; }
+  @media (max-width:520px){ .crow{ grid-template-columns:minmax(0,1fr) auto; } .crow select{ grid-column:1 / -1; grid-row:2; } }
+  .crow small{ display:block; color:var(--dim); font-size:11px; line-height:1.3; }
+  .crow select{ min-width:0; width:100%; font:inherit; font-size:12px; padding:4px 6px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); }
+  .strip{ background:#fff; border-radius:6px; padding:0 0 40px; }
+  .page{ padding:30px 0 10px; }
+  .page .no{ font-size:11px; letter-spacing:.12em; color:#999; text-align:center; margin:0 0 14px; font-family:system-ui; }
+  .panel{ display:block; width:100%; margin:0 0 26px; }
+  .side{ position:sticky; top:16px; }
+  .list{ list-style:none; margin:0 0 20px; padding:0; }
+  .list li{ display:flex; gap:8px; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--line); }
+  .list li.on .t{ color:var(--accent); }
+  .list .main{ flex:1; min-width:0; cursor:pointer; }
+  .list .t{ font-weight:600; font-size:13px; }
+  .list .p{ color:var(--dim); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .list .m{ color:var(--dim); font-size:11px; }
+  .pub{ flex:none; border:1px solid var(--line); background:none; color:var(--dim); font:inherit; font-size:11px; padding:2px 8px; cursor:pointer; border-radius:999px; }
+  .pub.on{ border-color:var(--ink); color:var(--ink); }
+  .del{ flex:none; border:0; background:none; color:var(--dim); font-size:16px; cursor:pointer; padding:0 4px; }
+  .toc ol{ margin:0; padding:0 0 0 20px; font-size:12px; }
+  .toc li{ margin:0 0 6px; color:var(--dim); }
+  .toc li b{ color:var(--ink); }
+  /* 인물 */
+  .chars{ display:grid; grid-template-columns:230px minmax(0,1fr); gap:20px; }
+  @media (max-width:820px){ .chars{ grid-template-columns:1fr; } }
+  .chars > *, .editor > *, .bgstage > *{ min-width:0; }
+  .clist{ display:flex; flex-direction:column; gap:6px; margin:10px 0; }
+  .clist button{ text-align:left; font:inherit; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; cursor:pointer; color:var(--ink); }
+  .clist button.on{ outline:2px solid var(--accent); }
+  .clist small{ display:block; color:var(--dim); font-size:12px; }
+  .editor{ display:grid; grid-template-columns:minmax(0,1fr) 270px; gap:18px; }
+  @media (max-width:1000px){ .editor{ grid-template-columns:1fr; } }
+  .field{ display:grid; grid-template-columns:78px minmax(0,1fr) 58px; gap:8px; align-items:center; font-size:13px; margin:0 0 8px; }
+  .field output{ text-align:right; font-variant-numeric:tabular-nums; color:var(--dim); font-size:12px; }
+  .field input[type=range]{ width:100%; min-width:0; }
+  .field input[type=text], .field select{ grid-column:2 / span 2; min-width:0; font:inherit; font-size:13px; padding:4px 6px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); }
+  .stat, .note{ font-size:12px; color:var(--dim); margin:10px 0; }
+  /* 배경 */
+  .thumbs{ display:grid; grid-template-columns:repeat(9,minmax(104px,1fr)); gap:8px; overflow-x:auto; padding-bottom:6px; }
+  .thumb{ background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden; cursor:pointer; }
+  .thumb.on{ outline:2px solid var(--accent); }
+  .thumb canvas{ display:block; width:100%; aspect-ratio:16/10; }
+  .thumb div{ padding:4px 7px 6px; font-size:12px; font-weight:600; }
+  .thumb small{ color:var(--dim); font-weight:400; margin-left:3px; }
+  .bgstage{ display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:18px; margin-top:14px; }
+  @media (max-width:860px){ .bgstage{ grid-template-columns:1fr; } }
+  .objs{ font-size:12px; color:var(--dim); }
+  .objs ol{ margin:4px 0 12px; padding-left:20px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <a href="../admin.html" id="back">←</a>
+    <span class="who" id="who" hidden><span id="email"></span><button type="button" id="logout">로그아웃</button></span>
+  </div>
+  <h1>Webtoon</h1>
+  <p class="sub" id="intro">줄거리 한두 문장을 넣으면 10페이지 막대 인형 웹툰이 됩니다. 인물 체형은 [인물]에 저장해 두고 배역마다 바꿔 끼웁니다.</p>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="toon" class="on">웹툰</button>
+    <button data-tab="chars">인물</button>
+    <button data-tab="sets">배경</button>
+  </nav>
+
+  <section id="tab-toon">
+    <form class="make" id="form" hidden>
+      <textarea id="plot" rows="2" maxlength="300" placeholder="줄거리 한두 문장 (예: 출근길에 전남자친구를 스쳐 지나갔고…)"></textarea>
+      <button class="b primary" id="makeBtn" type="submit">만들기</button>
+    </form>
+    <p class="status" id="status"></p>
+    <div class="toon">
+      <div>
+        <div class="meta" id="meta" hidden><h2 id="sTitle"></h2><p id="sPlot"></p></div>
+        <div class="castmap" id="castBox" hidden>
+          <h2>배역</h2>
+          <div id="castRows"></div>
+          <div class="row"><button class="b primary" id="redraw">다시 그리기</button><span class="note" id="progress"></span></div>
+        </div>
+        <div class="strip" id="strip" hidden></div>
+      </div>
+      <aside class="side">
+        <h2 id="listTitle">지난 웹툰</h2>
+        <ul class="list" id="storyList"></ul>
+        <div class="toc" id="toc"></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="tab-chars" hidden>
+    <div class="chars">
+      <div>
+        <div class="row">
+          <button class="b" id="cNew">새 인물</button>
+          <button class="b" id="cDup">복제</button>
+          <button class="b" id="cDel">삭제</button>
+        </div>
+        <div class="clist" id="clist"></div>
+        <button class="b" id="cSeed" hidden>기본 인물 4명 넣기</button>
+        <div class="note" id="saveState"></div>
+      </div>
+      <div class="editor">
+        <div>
+          <canvas class="view" id="cPreview"></canvas>
+          <div class="row" style="margin:8px 0 14px">
+            <span style="font-size:12px;color:var(--dim)">미리보기 자세</span>
+            <select id="cPose" style="font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)"></select>
+          </div>
+          <h2>키 비교</h2>
+          <canvas class="view" id="cLineup"></canvas>
+        </div>
+        <div>
+          <div class="note" id="ownerNote"></div>
+          <div class="field"><span>이름</span><input type="text" id="fName" maxlength="20"></div>
+          <div class="field"><span>설명</span><input type="text" id="fDesc" maxlength="60"></div>
+          <div id="sliders"></div>
+          <div class="field"><span>머리 모양</span><select id="fHair"></select></div>
+          <div class="field"><span>머리 색</span><select id="fTone"></select></div>
+          <div class="field"><span>안경</span><select id="fGlasses"><option value="">없음</option><option value="1">있음</option></select></div>
+          <div class="stat" id="cStat"></div>
+          <div class="row">
+            <button class="b primary" id="cSave">저장</button>
+            <button class="b" id="cRevert">되돌리기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-sets" hidden>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="bgstage">
+      <div>
+        <canvas class="view" id="setView" style="aspect-ratio:16/10;touch-action:none"></canvas>
+        <div class="row" style="margin-top:8px">
+          <button class="b" id="setWide">설정샷으로</button>
+          <label style="font-size:12px;color:var(--dim)"><input type="checkbox" id="setCast" checked> 인물 올리기</label>
+        </div>
+      </div>
+      <div>
+        <h2 id="setTitle"></h2>
+        <p class="sub" id="setDesc" style="font-size:13px"></p>
+        <div class="objs" id="setObjs"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const PI = Math.PI;
+
+// 막대 인형 웹툰 — Admin(로그인)에서 만들고, Visitor(?mode=visitor)는 공개된 것만 봄. ?demo 는 서버 없이 예시 한 편.
+// 서버: supabase/functions/stick-toon (Gemini 가 스토리보드 JSON 을 짬) · 표: toon_characters, toon_stories (010_toons.sql)
+// 그림은 저장하지 않고, 열 때마다 이 페이지가 3D 로 다시 찍음.
+
+/* ══ 스틱맨 코어 (ref/stickman-poses.html에서 복사) ═══════════════════ */
+const L = {
+  hipHalf: 81.79,   // 골반선 0 ~ 163.58
+  thigh:   454.33,  // 888 → 433.67
+  shin:    433.67,  // 433.67 → 0
+  lower:   218.10,  // ※추가: 골반 → 허리 (척추 545.26을 4:6으로 나눔)
+  upper_t: 327.16,  // ※추가: 허리 → 가슴 (= 어깨 폭)
+  shHalf:  163.58,  // 어깨선 -81.79 ~ 245.37
+  upper:   342.74,  // 1433.26 → 1090.52
+  fore:    327.15,  // 1090.52 → 763.37
+  neck:    93.47,   // 1433.26 → 1526.73
+  headOff: 77.89,   // 목 끝 → 머리 구 중심 (1604.62)
+  headR:   93.47,   // 머리 구 반지름
+};
+
+/* ── 2. 감정 → 표정 프리셋 ──────────────────────────────────── */
+const EMOS = [
+  { id:'calm',  ko:'평이',     color:'#9A958C', face:{ eye:'dot',   brow:null,    mouth:'flat',  fx:[] },
+    rule:['점','없음','일자','–','기본 자세 그대로'] },
+  { id:'joy',   ko:'기쁨',     color:'#E0A030', face:{ eye:'happy', brow:'arch',  mouth:'grin',  fx:['blush'] },
+    rule:['^ ^','둥글게','활짝(반달)','볼터치','가슴을 펴고 팔이 위·바깥으로, 몸이 가볍게 뜸'] },
+  { id:'sad',   ko:'슬픔',     color:'#4A86C5', face:{ eye:'dot',   brow:'sad',   mouth:'frown', fx:['tear'] },
+    rule:['점','안쪽이 올라감 (八)','∩','눈물','등이 굽고 고개가 떨어짐, 팔이 축 처짐'] },
+  { id:'angry', ko:'화남',     color:'#C2412D', face:{ eye:'dot',   brow:'angry', mouth:'grit',  fx:['vein'] },
+    rule:['점','안쪽이 내려감 (V)','이 악문 입','💢','상체가 앞으로, 주먹·팔짱, 보폭이 큼'] },
+  { id:'fear',  ko:'겁에 질림', color:'#7A5BA8', face:{ eye:'big',   brow:'sad',   mouth:'wavy',  fx:['sweat'] },
+    rule:['동그랗게, 작은 눈동자','안쪽이 올라감','물결','식은땀','몸을 웅크리고 뒤로 빠짐, 팔로 몸을 가림'] },
+];
+const EMO = Object.fromEntries(EMOS.map(e=>[e.id,e]));
+
+/* ── 3. 자세 데이터 ───────────────────────────────────────────
+   각 뼈의 "방향 벡터"만 적습니다 (몸 기준 좌표계, 길이는 위에서 고정).
+   팔·다리: [바깥, 위, 앞]  → 바깥(+)이 왼쪽이면 +x, 오른쪽이면 -x로 뒤집힘.
+   waist/spine/neck: [x, 위, 앞]. waist = 골반→허리, spine = 허리→가슴.
+   몸 전체: yaw(좌우 회전) · tilt(앞뒤로 눕힘, -90 = 등을 대고 누움) · spin(옆으로 누울 때 몸통 축 회전)
+   twist: 어깨선 회전, look: 고개 돌림, lift: 공중 높이, chair/mat: 소품.
+   face: 감정 프리셋에서 바꿀 부분만.                                      */
+const SIT_LEGS = { tL:[0.12,0,1], sL:[0.04,-1,0.12], tR:[0.12,0,1], sR:[0.04,-1,0.12] };
+const RUN_LEGS = { tL:[0.04,-0.35,1], sL:[0,-1,-0.15], tR:[0.04,-1,-0.55], sR:[0,-0.45,-1] };
+
+const CATS = [
+  { id:'lie', ko:'눕기', en:'Lie', note:'바닥에 매트. 측면에서 위로 내려다보는 카메라.', poses:{
+    calm:{ d:'등을 대고 누움. 한 손은 배 위, 한쪽 무릎을 세움.', cam:70, pitch:22, mat:true,
+      tilt:-90, waist:[0,1,0], spine:[0,1,0.05], neck:[0,1,0.35],
+      uL:[0.25,-1,0], fL:[0.1,-1,0.1], uR:[0.15,-1,0.25], fR:[-0.9,0.3,0.35],
+      tL:[0.08,-1,0], sL:[0,-1,0], tR:[0.05,-0.75,0.65], sR:[0,-1,-0.6] },
+    joy:{ d:'두 손을 머리 뒤로 깍지, 다리를 꼬고 느긋하게.', cam:60, pitch:22, mat:true,
+      tilt:-90, waist:[0,1,0], spine:[0,1,0.08], neck:[0,1,0.45],
+      uL:[0.9,0.6,0], fL:[-0.8,0.5,-0.35], uR:[0.9,0.6,0], fR:[-0.8,0.5,-0.35],
+      tL:[0.02,-1,0.15], sL:[-0.25,-1,0.15], tR:[0.05,-0.75,0.65], sR:[0,-1,-0.6] },
+    sad:{ d:'옆으로 돌아누워 웅크림. 무릎을 끌어안음.', cam:90, pitch:72, mat:true,
+      tilt:-90, spin:90, waist:[0,1,0.15], spine:[0,1,0.4], neck:[0,1,0.5],
+      uL:[0.1,-1,0.6], fL:[-0.2,-0.4,1], uR:[0.1,-1,0.6], fR:[-0.2,-0.3,1],
+      tL:[0.05,-0.2,1], sL:[0,-1,0.1], tR:[0.05,-0.3,1], sR:[0,-1,0.05] },
+    angry:{ d:'누워서 떼쓰기. 주먹으로 바닥을 치고 발을 버둥.', cam:55, pitch:22, mat:true,
+      tilt:-90, waist:[0,1,0], spine:[0,1,0.1], neck:[0,1,0.45],
+      uL:[0.7,-0.3,0.6], fL:[0,0.3,1], uR:[0.8,0.1,0.5], fR:[0.1,0.6,1],
+      tL:[0.1,-0.4,0.9], sL:[0,-0.3,1], tR:[0.1,-1,0.3], sR:[0,-1,-0.1] },
+    fear:{ d:'팔꿈치로 상체를 받치고 뒤로 물러남. 무릎은 세움.', cam:50, pitch:18, mat:true,
+      tilt:-90, waist:[0,1,0.5], spine:[0,1,0.9], neck:[0,1,0.3],
+      uL:[0.35,-0.4,-1], fL:[0.1,-1,-0.15], uR:[0.35,-0.4,-1], fR:[0.1,-1,-0.15],
+      tL:[0.15,-0.6,0.8], sL:[0.05,-1,-0.7], tR:[0.15,-0.5,0.85], sR:[0.05,-1,-0.6] },
+  }},
+  { id:'sit', ko:'앉기', en:'Sit', note:'의자 좌판 높이를 고정해 골반을 올려놓음.', poses:{
+    calm:{ d:'허벅지 수평, 정강이 수직, 손은 무릎 위.', cam:50, chair:true,
+      waist:[0,1,-0.12], spine:[0,1,0.1], neck:[0,1,0.08],
+      uL:[0.12,-1,0.3], fL:[-0.05,-0.25,1], uR:[0.12,-1,0.3], fR:[-0.05,-0.25,1], ...SIT_LEGS },
+    joy:{ d:'몸을 뒤로 젖히고 두 주먹을 번쩍. 발을 앞으로 차올림.', cam:30, chair:true,
+      waist:[0,1,-0.05], spine:[0,1,-0.15], neck:[0,1,-0.12],
+      uL:[0.45,0.9,0.15], fL:[0.15,1,0.1], uR:[0.45,0.9,0.15], fR:[0.15,1,0.1],
+      tL:[0.12,0.05,1], sL:[0.08,-0.5,1], tR:[0.12,0,1], sR:[0.06,-0.8,0.6] },
+    sad:{ d:'등을 말고 무릎에 팔꿈치를 대고 두 손에 얼굴을 묻음.', cam:55, chair:true,
+      waist:[0,1,0.35], spine:[0,1,0.9], neck:[0,0.4,1],
+      uL:[0.05,-1,0.45], fL:[-0.25,1,0.35], uR:[0.05,-1,0.45], fR:[-0.25,1,0.35],
+      tL:[0.08,0,1], sL:[0,-1,0.05], tR:[0.08,0,1], sR:[0,-1,0.05] },
+    angry:{ d:'팔짱 끼고 다리를 꼬고 뒤로 기댐. 고개를 홱 돌림.', cam:30, chair:true, look:-25,
+      waist:[0,1,-0.1], spine:[0,1,-0.15], neck:[0,1,0],
+      uL:[0.18,-1,0.75], fL:[-1,0.42,-0.05], uR:[0.18,-1,0.75], fR:[-1,0.52,-0.1],
+      tL:[-0.25,0.15,1], sL:[0.15,-1,0.3], tR:[0.12,0,1], sR:[0.04,-1,0.12] },
+    fear:{ d:'의자 위로 발을 올려 무릎을 끌어안고 웅크림.', cam:40, chair:true,
+      waist:[0,1,0.1], spine:[0,1,0.25], neck:[0,1,0.05],
+      uL:[0.3,-0.5,0.8], fL:[-0.7,-0.2,0.7], uR:[0.3,-0.5,0.8], fR:[-0.7,-0.15,0.7],
+      tL:[0.05,1,0.45], sL:[0,-1,-0.05], tR:[0.05,1,0.45], sR:[0,-1,-0.05] },
+  }},
+  { id:'stand', ko:'서기', en:'Stand', note:'대사 컷의 기본 단위.', poses:{
+    calm:{ d:'짝다리를 살짝 짚은 기본 자세.', cam:25,
+      waist:[0.04,1,-0.02], spine:[-0.02,1,0.03], neck:[-0.04,1,0.06], twist:-4,
+      uL:[0.14,-1,0.02], fL:[0.06,-1,0.12], uR:[0.12,-1,-0.03], fR:[0.04,-1,0.1],
+      tL:[0.1,-1,0], sL:[0.02,-1,-0.02], tR:[-0.04,-1,0.12], sR:[0.06,-1,-0.06] },
+    joy:{ d:'만세. 가슴을 펴고 한쪽 발을 뒤로 톡.', cam:20,
+      waist:[0,1,-0.03], spine:[0,1,-0.08], neck:[0,1,-0.18],
+      uL:[0.55,1,0.1], fL:[0.35,1,0.05], uR:[0.55,1,0.1], fR:[0.35,1,0.05],
+      tL:[0.1,-1,0], sL:[0.02,-1,0], tR:[0.05,-1,-0.15], sR:[0,-1,-0.6] },
+    sad:{ d:'어깨가 처지고 고개를 떨굼. 한 손으로 눈물을 훔침.', cam:-30,
+      waist:[0,1,0.05], spine:[0,1,0.3], neck:[0,1,0.4],
+      uL:[0.05,-1,0.05], fL:[0,-1,0.05], uR:[0.2,-1,0.82], fR:[-0.5,1,-0.2],
+      tL:[0.02,-1,0], sL:[0.02,-1,0], tR:[0.02,-1,0.02], sR:[0.02,-1,0] },
+    angry:{ d:'두 주먹을 허리에, 다리를 벌리고 상체를 내밂.', cam:20,
+      waist:[0,1,0.02], spine:[0,1,0.12], neck:[0,1,0.25],
+      uL:[0.75,-1,-0.15], fL:[-0.8,-0.55,0.1], uR:[0.75,-1,-0.15], fR:[-0.8,-0.55,0.1],
+      tL:[0.28,-1,0], sL:[0.05,-1,0], tR:[0.28,-1,0], sR:[0.05,-1,0] },
+    fear:{ d:'무릎을 안으로 모아 굽히고, 두 손을 들어 막으며 뒤로 빠짐.', cam:25, look:15,
+      waist:[0,1,-0.05], spine:[0,1,0.15], neck:[0,1,-0.1],
+      uL:[0.35,-0.6,0.8], fL:[-0.3,1,0.5], uR:[0.35,-0.6,0.8], fR:[-0.3,1,0.5],
+      tL:[-0.05,-1,0.6], sL:[0.15,-1,-0.4], tR:[-0.05,-1,0.5], sR:[0.15,-1,-0.35] },
+  }},
+  { id:'walk', ko:'걷기', en:'Walk', note:'팔과 다리가 엇갈림. 측면에 가까운 카메라.', poses:{
+    calm:{ d:'보통 걸음.', cam:80,
+      waist:[0,1,0.02], spine:[0,1,0.07], neck:[0,1,0.06], twist:8,
+      uL:[0.06,-1,-0.4], fL:[0.02,-1,-0.1], uR:[0.06,-1,0.42], fR:[0.02,-1,0.75],
+      tL:[0.03,-1,0.48], sL:[0,-1,0.12], tR:[0.03,-1,-0.36], sR:[0,-1,-0.7] },
+    joy:{ d:'깡총 스킵. 무릎을 높이 들고 팔을 크게 흔듦.', cam:70, lift:80,
+      waist:[0,1,0], spine:[0,1,-0.05], neck:[0,1,-0.1], twist:10,
+      uL:[0.15,-1,-0.6], fL:[0,-1,-0.2], uR:[0.1,-0.2,1], fR:[0,0.6,1],
+      tL:[0.03,-0.4,1], sL:[0,-1,0.1], tR:[0.03,-1,-0.2], sR:[0,-1,-0.3] },
+    sad:{ d:'터덜터덜. 보폭이 좁고 고개가 떨어짐.', cam:75,
+      waist:[0,1,0.1], spine:[0,1,0.3], neck:[0,1,0.6],
+      uL:[0.05,-1,0.15], fL:[0,-1,0.1], uR:[0.05,-1,0.2], fR:[0,-1,0.12],
+      tL:[0.02,-1,0.2], sL:[0,-1,0.05], tR:[0.02,-1,-0.15], sR:[0,-1,-0.35] },
+    angry:{ d:'쿵쿵. 상체를 앞으로, 주먹 쥔 팔을 뻣뻣하게 흔듦.', cam:65,
+      waist:[0,1,0.05], spine:[0,1,0.2], neck:[0,1,0.3], twist:12,
+      uL:[0.2,-1,-0.5], fL:[0,-1,0.4], uR:[0.2,-1,0.5], fR:[0,-0.3,1],
+      tL:[0.05,-1,0.6], sL:[0,-1,0.05], tR:[0.05,-1,-0.45], sR:[0,-1,-0.6] },
+    fear:{ d:'살금살금. 몸을 낮추고 두리번거림.', cam:60, look:40,
+      waist:[0,1,0.2], spine:[0,1,0.35], neck:[0,1,0.1],
+      uL:[0.25,-1,0.6], fL:[-0.2,0.8,0.6], uR:[0.25,-1,0.5], fR:[-0.15,0.9,0.6],
+      tL:[0.05,-0.8,0.6], sL:[0,-1,-0.1], tR:[0.05,-1,-0.25], sR:[0,-0.9,-0.6] },
+  }},
+  { id:'run', ko:'뛰기', en:'Run', note:'발이 땅에서 뜸. 몸통이 앞으로 기욺.', poses:{
+    calm:{ d:'보통 달리기. 팔꿈치 90°.', cam:75, lift:70,
+      waist:[0,1,0.25], spine:[0,1,0.5], neck:[0,1,0.25], twist:14,
+      uL:[0.08,-1,-0.85], fL:[0,-0.9,0.9], uR:[0.08,-1,0.7], fR:[0,0.75,1], ...RUN_LEGS,
+      face:{ mouth:'open' } },
+    joy:{ d:'두 팔을 활짝 벌리고 달려감.', cam:40, lift:90,
+      waist:[0,1,0.1], spine:[0,1,0.15], neck:[0,1,-0.05],
+      uL:[1,0.35,0.3], fL:[1,0.5,0.2], uR:[1,0.35,0.3], fR:[1,0.5,0.2], ...RUN_LEGS },
+    sad:{ d:'한 팔로 눈을 가리고 울며 뛰어감.', cam:55, lift:70,
+      waist:[0,1,0.15], spine:[0,1,0.3], neck:[0,1,0.35], twist:-8,
+      uL:[0.1,-1,-0.8], fL:[0,-0.6,0.9], uR:[0.35,0.5,0.75], fR:[-1,-0.15,-0.25], ...RUN_LEGS,
+      face:{ eye:'shut', mouth:'open' } },
+    angry:{ d:'고개를 숙이고 돌진. 주먹을 크게 휘두름.', cam:65, lift:60,
+      waist:[0,1,0.4], spine:[0,1,0.7], neck:[0,1,0.6], twist:18,
+      uL:[0.1,-1,-1], fL:[0,-0.5,1], uR:[0.1,-0.5,1], fR:[0,1,0.6],
+      tL:[0.04,-0.25,1], sL:[0,-1,-0.1], tR:[0.04,-1,-0.7], sR:[0,-0.35,-1] },
+    fear:{ d:'팔을 허우적대며 도망. 고개는 뒤를 돌아봄.', cam:60, lift:70, look:75,
+      waist:[0,1,0.15], spine:[0,1,0.3], neck:[0,1,0],
+      uL:[0.5,0.6,0.2], fL:[0.2,1,-0.2], uR:[0.6,0.3,-0.3], fR:[0.3,1,0.1], ...RUN_LEGS,
+      face:{ mouth:'o' } },
+  }},
+];
+
+// 기타: 대분류 밖의 상황 자세
+const EXTRA = [
+  { ko:'원본', d:'3dm 그대로. 팔은 어깨에서, 다리는 골반에서 수직.', cam:0, emo:'calm',
+    waist:[0,1,0], spine:[0,1,0], neck:[0,1,0],
+    uL:[0,-1,0], fL:[0,-1,0], uR:[0,-1,0], fR:[0,-1,0], tL:[0,-1,0], sL:[0,-1,0], tR:[0,-1,0], sR:[0,-1,0] },
+  { ko:'손 흔들기', d:'등장·인사 컷.', cam:15, emo:'joy', look:-8,
+    waist:[0.03,1,0], spine:[-0.09,1,0], neck:[-0.12,1,0.04],
+    uL:[0.12,-1,0.04], fL:[0.05,-1,0.1], uR:[1,0.2,0.05], fR:[0.28,1,0.12],
+    tL:[0.1,-1,0], sL:[0,-1,0], tR:[0.05,-1,0.08], sR:[0,-1,-0.05] },
+  { ko:'가리키기', d:'"저기!"·지목 컷.', cam:40, emo:'calm', twist:-18, look:-10, face:{ mouth:'open', brow:'arch' },
+    waist:[0,1,0.02], spine:[0,1,0.14], neck:[0,1,0.15],
+    uL:[0.75,-1,-0.1], fL:[-0.8,-0.55,0.1], uR:[0.3,0.12,1], fR:[0.2,0.16,1],
+    tL:[0.14,-1,-0.12], sL:[0,-1,0], tR:[0.08,-1,0.28], sR:[0,-1,-0.02] },
+  { ko:'생각', d:'독백·고민 컷.', cam:30, emo:'calm', look:12, face:{ brow:'sad' },
+    waist:[0.04,1,0], spine:[0,1,0.06], neck:[0.14,1,0.05],
+    uL:[0.05,-1,0.32], fL:[-1,0.12,0.35], uR:[0.05,-1,0.62], fR:[-0.5,1,0],
+    tL:[0.12,-1,0], sL:[0,-1,0], tR:[-0.03,-1,0.12], sR:[0.05,-1,-0.1] },
+  { ko:'놀람', d:'반전 컷.', cam:20, emo:'fear', face:{ brow:'arch', mouth:'o', fx:[] },
+    waist:[0,1,-0.06], spine:[0,1,-0.38], neck:[0,1,-0.12],
+    uL:[0.85,-0.25,0.35], fL:[-0.15,1,0.25], uR:[0.85,-0.25,0.35], fR:[-0.15,1,0.25],
+    tL:[0.25,-1,0.05], sL:[0.08,-1,0], tR:[0.2,-1,-0.25], sR:[0.05,-1,-0.1] },
+  { ko:'좌절 (OTL)', d:'무릎 꿇고 바닥을 짚음.', cam:85, emo:'sad', face:{ eye:'shut' },
+    waist:[0,0.65,1], spine:[0,0.3,1], neck:[0,-0.25,1],
+    uL:[0.2,-1,0.25], fL:[0,-1,0.4], uR:[0.2,-1,0.25], fR:[0,-1,0.4],
+    tL:[0.1,-1,0.02], sL:[0.02,-0.02,-1], tR:[0.1,-1,0.02], sR:[0.02,-0.02,-1] },
+  { ko:'환호 점프', d:'성공·기쁨 컷.', cam:20, lift:260, emo:'joy',
+    waist:[0,1,-0.03], spine:[0,1,-0.14], neck:[0,1,-0.22],
+    uL:[0.5,1,0.08], fL:[0.42,1,0], uR:[0.5,1,0.08], fR:[0.42,1,0],
+    tL:[0.14,-1,0.25], sL:[0.04,-1,-0.95], tR:[0.14,-1,0.1], sR:[0.04,-1,-0.85] },
+  { ko:'대화: 말하기', d:'손바닥을 내밀며 설명.', cam:35, emo:'calm', twist:-10, look:-6, face:{ mouth:'talk' },
+    waist:[0.02,1,0.02], spine:[-0.03,1,0.12], neck:[-0.06,1,0.14],
+    uL:[0.14,-1,0.05], fL:[0.06,-1,0.2], uR:[0.22,-1,0.38], fR:[0.12,0.12,1],
+    tL:[0.12,-1,0.02], sL:[0.02,-1,-0.02], tR:[-0.02,-1,0.16], sR:[0.06,-1,-0.08] },
+  { ko:'대화: 듣기', d:'팔짱 끼고 고개를 갸웃.', cam:-30, emo:'calm', twist:6, look:8, face:{ mouth:'smile' },
+    waist:[-0.05,1,-0.03], spine:[0.03,1,-0.02], neck:[0.12,1,0.1],
+    uL:[0.18,-1,0.75], fL:[-1,0.42,-0.05], uR:[0.18,-1,0.75], fR:[-1,0.52,-0.1],
+    tL:[-0.04,-1,0.1], sL:[0.06,-1,-0.06], tR:[0.12,-1,0], sR:[0.02,-1,0] },
+];
+
+/* ── 4. FK: 자세 → 노드 좌표 ───────────────────────────────── */
+const V = (a)=>new THREE.Vector3(a[0],a[1],a[2]).normalize();
+const UP = new THREE.Vector3(0,1,0), XA = new THREE.Vector3(1,0,0);
+const rad = THREE.MathUtils.degToRad;
+const yawQ = (deg)=>new THREE.Quaternion().setFromAxisAngle(UP, rad(deg||0));
+const SEAT_HIP = 452;  // 의자 포즈: 골반 높이 고정
+
+function solve(p, B = L){   // B: 체형 (기본은 3dm 원본 치수)
+  // 몸 기준 좌표계: 몸통 축 회전(spin) → 앞뒤로 눕힘(tilt) → 좌우 회전(yaw)
+  const root = yawQ(p.yaw).multiply(new THREE.Quaternion().setFromAxisAngle(XA, rad(p.tilt||0))).multiply(yawQ(p.spin));
+  const n = {};
+  const at = (from, dir, len)=>from.clone().add(dir.clone().multiplyScalar(len));
+  const limb = (a, side)=>{ const v = V(a); v.x *= side; return v.applyQuaternion(root); };
+  const axis = (x)=>new THREE.Vector3(x,0,0).applyQuaternion(root);
+
+  n.pelvis = new THREE.Vector3();
+  n.hipL = at(n.pelvis, axis( 1), B.hipHalf);
+  n.hipR = at(n.pelvis, axis(-1), B.hipHalf);
+  n.kneeL  = at(n.hipL,  limb(p.tL, 1), B.thigh);
+  n.ankleL = at(n.kneeL, limb(p.sL, 1), B.shin);
+  n.kneeR  = at(n.hipR,  limb(p.tR,-1), B.thigh);
+  n.ankleR = at(n.kneeR, limb(p.sR,-1), B.shin);
+
+  n.waist = at(n.pelvis, V(p.waist || p.spine).applyQuaternion(root), B.lower);
+  n.chest = at(n.waist,  V(p.spine).applyQuaternion(root), B.upper_t);
+  const chestQ = root.clone().multiply(new THREE.Quaternion().setFromUnitVectors(UP, V(p.spine))).multiply(yawQ(p.twist));
+  n.shoulderL = at(n.chest, new THREE.Vector3( 1,0,0).applyQuaternion(chestQ), B.shHalf);
+  n.shoulderR = at(n.chest, new THREE.Vector3(-1,0,0).applyQuaternion(chestQ), B.shHalf);
+  n.elbowL = at(n.shoulderL, limb(p.uL, 1), B.upper);
+  n.wristL = at(n.elbowL,    limb(p.fL, 1), B.fore);
+  n.elbowR = at(n.shoulderR, limb(p.uR,-1), B.upper);
+  n.wristR = at(n.elbowR,    limb(p.fR,-1), B.fore);
+
+  n.neckTop = at(n.chest, V(p.neck).applyQuaternion(root), B.neck);
+  const headQ = root.clone().multiply(new THREE.Quaternion().setFromUnitVectors(UP, V(p.neck))).multiply(yawQ(p.look));
+  n.head = at(n.neckTop, new THREE.Vector3(0,1,0).applyQuaternion(headQ), B.headOff);
+  n.nose = at(n.head, new THREE.Vector3(0,0,1).applyQuaternion(headQ), B.headR);  // 얼굴 방향
+
+  // 접지: 의자면 골반을 좌판에, 아니면 가장 낮은 점을 바닥(0)에 두고 lift만큼 띄움
+  let minY = n.head.y - B.headR;
+  for (const k in n) if (k !== 'nose') minY = Math.min(minY, n[k].y);
+  // 의자면 골반을 좌판에 (정강이가 길면 발이 바닥을 뚫지 않게 조금 올림), 아니면 가장 낮은 점을 바닥에
+  const dy = p.chair ? Math.max(SEAT_HIP - n.pelvis.y, -minY) : -minY + (p.lift||0);
+  for (const k in n) n[k].y += dy;
+  return { n, headQ };
+}
+
+const BONES = [
+  ['hipL','hipR'], ['hipL','kneeL'], ['kneeL','ankleL'], ['hipR','kneeR'], ['kneeR','ankleR'],
+  ['pelvis','waist'], ['waist','chest'], ['shoulderL','shoulderR'], ['shoulderL','elbowL'], ['elbowL','wristL'],
+  ['shoulderR','elbowR'], ['elbowR','wristR'], ['chest','neckTop'],
+];
+
+const INK = new THREE.MeshBasicMaterial({ color:0x151412 });
+const PAPER = new THREE.MeshBasicMaterial({ color:0xffffff });
+const HULL = new THREE.MeshBasicMaterial({ color:0x151412, side:THREE.BackSide });
+const RED = new THREE.MeshBasicMaterial({ color:0xC2412D });
+const VEIN = new THREE.MeshBasicMaterial({ color:0xD9342B });
+const BLUE = new THREE.MeshBasicMaterial({ color:0x6FB7E8 });
+const PINK = new THREE.MeshBasicMaterial({ color:0xF29C9C, transparent:true, opacity:0.75 });
+const SHADOW = new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.08 });
+const PROP = new THREE.MeshBasicMaterial({ color:0xE4DED2 });
+const boneGeo = new THREE.CylinderGeometry(13,13,1,10);
+const jointGeo = new THREE.SphereGeometry(17,14,10);
+const headGeo = new THREE.SphereGeometry(L.headR,32,20);
+const SHARED = [boneGeo, jointGeo, headGeo];
+
+/* 얼굴: 머리 구 표면에 납작한 도형을 붙임. az = 좌우(rad, +가 캐릭터 왼쪽), el = 위아래(rad). */
+const ARC = (r, t, span, up, mat=INK)=>{  // up=true면 ∩, false면 ∪
+  const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 6, 20, span), mat);
+  m.rotation.z = (up ? Math.PI/2 : -Math.PI/2) - span/2;
+  m.position.y = up ? -r*0.75 : r*0.75;
+  return m;
+};
+const plane = (w,h,mat=INK)=>new THREE.Mesh(new THREE.PlaneGeometry(w,h), mat);
+const EYES = {
+  dot:   ()=>{ const m = new THREE.Mesh(new THREE.CircleGeometry(9,20), INK); m.scale.y = 1.35; return m; },
+  big:   ()=>{ const g = new THREE.Group();
+                g.add(new THREE.Mesh(new THREE.RingGeometry(13,16.5,24), INK));
+                g.add(new THREE.Mesh(new THREE.CircleGeometry(4,12), INK)); return g; },
+  happy: ()=>ARC(11, 2.8, Math.PI*0.85, true),
+  shut:  (side)=>{ const m = plane(22,4.5); m.rotation.z = -0.35*side; return m; },
+};
+const BROWS = {   // [모양, 높이(el)]
+  arch:  ()=>[ARC(14, 2.2, Math.PI*0.55, true), 0.36],
+  sad:   (side)=>{ const m = plane(24,4.5); m.rotation.z = -0.38*side; return [m, 0.34]; },
+  angry: (side)=>{ const m = plane(26,5.5); m.rotation.z =  0.45*side; return [m, 0.27]; },
+};
+const MOUTHS = {
+  smile: ()=>ARC(20, 3, Math.PI*0.6, false),
+  frown: ()=>ARC(18, 3, Math.PI*0.6, true),
+  flat:  ()=>plane(26,4.5),
+  talk:  ()=>{ const m = new THREE.Mesh(new THREE.CircleGeometry(10,24,Math.PI,Math.PI), INK); m.scale.y = 0.9; m.position.y = 3; return m; },
+  o:     ()=>{ const m = new THREE.Mesh(new THREE.RingGeometry(7,11.5,24), INK); m.scale.y = 1.3; return m; },
+  open:  ()=>{ const m = new THREE.Mesh(new THREE.CircleGeometry(12,24), INK); m.scale.y = 1.2; return m; },
+  grin:  ()=>{ const m = new THREE.Mesh(new THREE.CircleGeometry(20,24,Math.PI,Math.PI), INK); m.position.y = 6; return m; },
+  grit:  ()=>{ const g = new THREE.Group(); g.add(plane(32,13));
+                const t = plane(28,2.2,PAPER); t.position.z = 0.3; g.add(t); return g; },
+  wavy:  ()=>{ const pts = []; for (let i=0;i<=8;i++) pts.push(new THREE.Vector3(-18+i*4.5, i%2 ? 3.5 : -3.5, 0));
+                return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 32, 2.2, 6), INK); },
+};
+const drop = (r, mat)=>{ const m = new THREE.Mesh(new THREE.SphereGeometry(r,14,10), mat); m.scale.set(1,1.55,0.55); return m; };
+const FX = {
+  tear:  (put)=>{ put(drop(6,BLUE), 0.37, -0.1, 1); put(drop(6,BLUE), -0.37, -0.1, 1); },
+  sweat: (put)=>{ put(drop(11,BLUE), 0.95, 0.42, 6); },
+  blush: (put)=>{ for (const s of [1,-1]){ const m = new THREE.Mesh(new THREE.CircleGeometry(13,20), PINK); m.scale.set(1.35,0.65,1); put(m, 0.6*s, -0.2, 1); } },
+  vein:  (put)=>{ const g = new THREE.Group();   // 💢: 네 귀퉁이 호가 가운데를 향함
+                  [[1,1,Math.PI],[-1,1,-Math.PI/2],[-1,-1,0],[1,-1,Math.PI/2]].forEach(([x,y,rz])=>{
+                    const m = new THREE.Mesh(new THREE.TorusGeometry(8,2.4,6,12,Math.PI/2), VEIN);
+                    m.position.set(x*12,y*12,0); m.rotation.z = rz; g.add(m); });
+                  put(g, -0.85, 0.6, 3); },
+};
+function makeFace(face){
+  const f = new THREE.Group();
+  const put = (obj, az, el, lift=0.6)=>{
+    const pivot = new THREE.Group(); pivot.rotation.order = 'YXZ';
+    pivot.rotation.set(-el, az, 0);
+    obj.position.z = L.headR + lift; pivot.add(obj); f.add(pivot);
+  };
+  const e = EYES[face.eye] || EYES.dot;
+  for (const s of [1,-1]) put(e(s), 0.37*s, 0.1);
+  if (face.brow) for (const s of [1,-1]){ const [m, el] = BROWS[face.brow](s); put(m, 0.37*s, el); }
+  put(new THREE.Mesh(new THREE.SphereGeometry(5.5,10,8), INK), 0, -0.12);   // 코
+  put((MOUTHS[face.mouth] || MOUTHS.flat)(), 0, -0.4);
+  for (const k of face.fx || []) FX[k]?.(put);
+  return f;
+}
+
+
+/* ══ 체형 ══ */
+/* ══ 1. 체형: 숫자 7개 → 뼈 길이 ════════════════════════════════
+   height 키(cm) · heads 등신 · legs 다리 길이(키 대비) · shoulder/hip 어깨·골반 폭 배율
+   arm 팔 길이 배율 · thick 선 굵기(체격). 3dm 원본 = 169.8cm, 9.08등신, 다리 0.523 */
+const BODY_KEYS = [
+  ['height',  '키',        100, 200, 1,    v=>`${v}cm`],
+  ['heads',   '등신',      4,   9.5, 0.1,  v=>`${(+v).toFixed(1)}`],
+  ['legs',    '다리 길이', 0.40,0.56,0.005,v=>`${Math.round(v*1000)/10}%`],
+  ['shoulder','어깨 폭',   0.7, 1.4, 0.01, v=>`×${(+v).toFixed(2)}`],
+  ['hip',     '골반 폭',   0.7, 1.4, 0.01, v=>`×${(+v).toFixed(2)}`],
+  ['arm',     '팔 길이',   0.8, 1.2, 0.01, v=>`×${(+v).toFixed(2)}`],
+  ['thick',   '체격(굵기)',0.6, 2.0, 0.05, v=>`×${(+v).toFixed(2)}`],
+];
+const HAIRS = { none:'없음', short:'짧은 머리', long:'긴 머리', bob:'단발', bun:'올림머리', ponytail:'포니테일' };
+const TONES = { black:['검정', 0x1B1A18], gray:['회색', 0x6E6E6E], light:['밝은색', 0xC9C9C9] };
+
+function deriveBody(b){
+  const H = b.height*10, s = H/1698;
+  const headR = H / b.heads / 2;
+  const neck = Math.min(0.055*H, headR*0.95), headOff = headR*0.83;
+  let leg = H*b.legs, spine = H - leg - neck - headOff - headR;
+  const minSpine = 0.24*H;
+  if (spine < minSpine){ leg -= minSpine - spine; spine = minSpine; }   // 머리가 아주 크면 다리를 줄여 키를 맞춤
+  return {
+    hipHalf:81.79*s*b.hip, thigh:leg*0.5116, shin:leg*0.4884,
+    lower:spine*0.4, upper_t:spine*0.6, shHalf:163.58*s*b.shoulder,
+    upper:spine*0.6286*b.arm, fore:spine*0.6*b.arm,
+    neck, headOff, headR, thick:b.thick, legReal:leg,
+  };
+}
+
+
+/* ══ 인물 그리기 · 배경 세트 · 카메라 · 말풍선 ══ */
+/* ══ 3. 인물 그리기: 체형 + 머리 모양 + 안경 + 소품 ═════════════════════ */
+const HAIR_MAT = {}; for (const k in TONES) HAIR_MAT[k] = new THREE.MeshBasicMaterial({ color:TONES[k][1], side:THREE.DoubleSide });
+function hair(face, kind, tone){
+  const R = L.headR, mat = HAIR_MAT[tone] || HAIR_MAT.black;
+  if (!kind || kind === 'none') return;
+  const capLen = { long:1.5, bob:1.5, short:1.25, bun:1.3, ponytail:1.3 }[kind];
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(R*1.07, 28, 14, 0, PI*2, 0, capLen), mat);
+  cap.rotation.x = -0.42; cap.position.set(0, 4, -6); face.add(cap);
+  const back = (h, y)=>{ const m = new THREE.Mesh(new THREE.CylinderGeometry(R*1.03, R*1.12, h, 24, 1, true, PI/2, PI), mat); m.position.set(0, y, -12); face.add(m); };
+  if (kind === 'long') back(270, -105);
+  if (kind === 'bob') back(130, -40);
+  if (kind === 'bun'){ const b = new THREE.Mesh(new THREE.SphereGeometry(42, 16, 12), mat); b.position.set(0, 72, -88); face.add(b); }
+  if (kind === 'ponytail'){ const t = new THREE.Mesh(new THREE.CylinderGeometry(22, 34, 240, 12), mat); t.position.set(0, -40, -R - 30); t.rotation.x = 0.35; face.add(t); }
+}
+function glasses(face){
+  const R = L.headR + 7, mat = new THREE.MeshBasicMaterial({ color:0x161616 });
+  for (const s of [1,-1]){
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(21, 2.8, 6, 24), mat);
+    const az = 0.37*s, el = 0.1;
+    ring.position.set(Math.sin(az)*Math.cos(el)*R, Math.sin(el)*R, Math.cos(az)*Math.cos(el)*R); ring.rotation.y = az; face.add(ring);
+  }
+  const br = new THREE.Mesh(new THREE.BoxGeometry(26, 4, 4), mat); br.position.set(0, Math.sin(0.12)*R, R*0.99); face.add(br);
+}
+function makeFigure(p, ch){
+  const B = deriveBody(ch.body), t = B.thick;
+  const { n, headQ } = solve(p, B);
+  const g = new THREE.Group();
+  for (const [a,b] of BONES){
+    const m = new THREE.Mesh(boneGeo, INK);
+    m.scale.set(t, n[a].distanceTo(n[b]), t);
+    m.position.copy(n[a]).add(n[b]).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(UP, n[b].clone().sub(n[a]).normalize());
+    m.castShadow = true; g.add(m);
+  }
+  for (const k of ['kneeL','kneeR','elbowL','elbowR','wristL','wristR','ankleL','ankleR','shoulderL','shoulderR','hipL','hipR','waist']){
+    const j = new THREE.Mesh(jointGeo, INK); j.position.copy(n[k]); j.scale.setScalar(t); g.add(j);
+  }
+  const hs = B.headR / L.headR;
+  const head = new THREE.Mesh(headGeo, PAPER); head.position.copy(n.head); head.scale.setScalar(hs); head.castShadow = true; g.add(head);
+  const hull = new THREE.Mesh(headGeo, HULL); hull.position.copy(n.head); hull.scale.setScalar(hs*1.1); g.add(hull);
+  const face = makeFace(p.face); face.position.copy(n.head); face.quaternion.copy(headQ); face.scale.setScalar(hs); g.add(face);
+  hair(face, ch.hair, ch.tone);
+  if (ch.glasses) glasses(face);
+  return { g, n, B };
+}
+function addProp(g, n, kind){
+  if (!kind) return;
+  const mid = n.wristL.clone().lerp(n.wristR, 0.5).add(new THREE.Vector3(0, 25, 0));
+  const m = kind === 'phone'
+    ? new THREE.Mesh(new THREE.BoxGeometry(80, 150, 10), new THREE.MeshBasicMaterial({ color:0x222222 }))
+    : new THREE.Mesh(new THREE.CylinderGeometry(45, 38, 100, 16), new THREE.MeshBasicMaterial({ color:0xF2F2F2 }));
+  m.position.copy(kind === 'phone' ? mid : n.wristR);
+  if (kind === 'phone') m.lookAt(n.head);
+  g.add(m);
+}
+
+/* ══ 4. 배경: 흑백 미니멀 세트 9곳 (객체 = O() 한 번) ═══════════════════ */
+const G = { sky:0xF1F1F1, floor:0xDADADA, wall:0xF4F4F4, white:0xFBFBFB, light:0xE5E5E5, mid:0xC4C4C4, dim:0x9C9C9C, dark:0x6E6E6E, black:0x3E3E3E, glass:0xD3D3D3, ground:0xD0D0D0, road:0x8C8C8C };
+const TONE = new THREE.DataTexture(new Uint8Array([120,195,255]), 3, 1, THREE.RedFormat);
+TONE.minFilter = TONE.magFilter = THREE.NearestFilter; TONE.needsUpdate = true;
+const EDGE = new THREE.LineBasicMaterial({ color:0x2A2A2A });
+const mats = new Map();
+function M(hex, o={}){
+  const k = `${hex}|${o.opacity||1}|${!!o.flat}`;
+  if (!mats.has(k)) mats.set(k, new THREE.MeshToonMaterial({ color:hex, gradientMap:TONE, transparent:o.opacity!=null, opacity:o.opacity??1, flatShading:!!o.flat, depthWrite:o.opacity==null }));
+  return mats.get(k);
+}
+function finish(m, g, edge){ m.castShadow = m.receiveShadow = true; if (edge !== false) m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), EDGE)); return m; }
+function box(par, w,h,d, x,y,z, col, o={}){
+  const g = new THREE.BoxGeometry(w,h,d), m = new THREE.Mesh(g, M(col,o));
+  m.position.set(x, y+h/2, z); if (o.ry) m.rotation.y = o.ry; if (o.rx) m.rotation.x = o.rx;
+  par.add(finish(m, g, o.edge)); return m;
+}
+function cyl(par, r,h, x,y,z, col, o={}){
+  const g = new THREE.CylinderGeometry(o.rt ?? r, r, h, o.seg || 24), m = new THREE.Mesh(g, M(col,{ flat:o.seg && o.seg < 12 }));
+  m.position.set(x, y+h/2, z); par.add(finish(m, g, o.edge)); return m;
+}
+function blob(par, r, x,y,z, col, o={}){
+  const g = new THREE.IcosahedronGeometry(r, o.detail ?? 1), m = new THREE.Mesh(g, M(col,{ flat:true }));
+  m.position.set(x,y,z); if (o.sy) m.scale.y = o.sy; par.add(finish(m, g)); return m;
+}
+function grp(par, x,y,z, ry=0){ const g = new THREE.Group(); g.position.set(x,y,z); g.rotation.y = ry; par.add(g); return g; }
+function rng(seed){ return ()=>{ seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// 벽: 길이 방향 = 로컬 x. 창·문 구멍을 피해 조각으로
+function wall(g, len, h, t, ops, col){
+  let cur = -len/2;
+  for (const o of [...ops].sort((a,b)=>a.x-b.x)){
+    const l = o.x - o.w/2, r = o.x + o.w/2;
+    if (l > cur) box(g, l-cur, h, t, (cur+l)/2, 0, 0, col);
+    if (o.y > 0) box(g, o.w, o.y, t, o.x, 0, 0, col);
+    if (o.y + o.h < h) box(g, o.w, h-o.y-o.h, t, o.x, o.y+o.h, 0, col);
+    const f = 50, d = t + 20;
+    box(g, f, o.h, d, l + f/2, o.y, 0, G.white); box(g, f, o.h, d, r - f/2, o.y, 0, G.white); box(g, o.w, f, d, o.x, o.y + o.h - f, 0, G.white);
+    if (o.door) box(g, o.w - 2*f, o.h - f, 40, o.x, o.y, 0, o.panel ?? G.mid);
+    else { box(g, o.w, f, d + 40, o.x, o.y, 0, G.white); box(g, o.w - 2*f, o.h - 2*f, 8, o.x, o.y + f, 0, G.glass, { opacity:0.3, edge:false }); }
+    cur = r;
+  }
+  if (cur < len/2) box(g, len/2-cur, h, t, (cur+len/2)/2, 0, 0, col);
+}
+// 앉는 소품: 원점 = 앉은 인물의 골반, 좌판 윗면 430, 정면 +z
+function chair(g, x, z, ry, col=G.mid){
+  const c = grp(g, x, 0, z, ry);
+  box(c, 450, 40, 460, 0, 390, 120, col);
+  for (const s of [-1,1]){ box(c, 35, 390, 35, s*195, 0, 330, G.dark); box(c, 35, 880, 35, s*195, 0, -95, G.dark); }
+  box(c, 420, 260, 28, 0, 600, -95, col);
+  return c;
+}
+function officeChair(g, x, z, ry){
+  const c = grp(g, x, 0, z, ry);
+  box(c, 480, 70, 470, 0, 360, 120, G.dark); cyl(c, 30, 300, 0, 60, 120, G.black, { seg:8 }); cyl(c, 300, 40, 0, 20, 120, G.black, { seg:5 });
+  box(c, 460, 540, 55, 0, 500, -110, G.dark, { rx:-0.08 });
+  return c;
+}
+function sofa(g, w){
+  box(g, w, 430, 700, 0, 0, 245, G.mid);
+  box(g, w, 840, 220, 0, 0, -215, G.mid);
+  for (const s of [-1,1]) box(g, 180, 620, 920, s*(w/2 + 90), 0, 135, G.mid);
+}
+function bench(g, len){
+  box(g, len, 50, 420, 0, 380, 95, G.mid);
+  box(g, len, 380, 40, 0, 500, -150, G.mid, { rx:-0.12 });
+  for (const s of [-1,1]) box(g, 60, 380, 440, s*(len/2 - 120), 0, 95, G.dark);
+}
+function plant(g, s=1){ cyl(g, 190*s, 380*s, 0, 0, 0, G.white, { rt:230*s }); blob(g, 380*s, 0, 760*s, 0, G.dim); blob(g, 260*s, 160*s, 1050*s, 60*s, G.mid); }
+function tree(g, s=1){ cyl(g, 110*s, 2200*s, 0, 0, 0, G.dark, { rt:80*s, seg:8 }); blob(g, 1200*s, 0, 2900*s, 0, G.mid); blob(g, 800*s, 600*s, 2500*s, 300*s, G.dim); }
+function pine(g, s=1){ cyl(g, 90*s, 900*s, 0, 0, 0, G.dark, { seg:6 }); [[1100,900,1600],[850,1900,1400],[550,2800,1200]].forEach(([r,y,h])=>cyl(g, r*s, h*s, 0, y*s, 0, G.dim, { rt:0, seg:8 })); }
+function lamppost(g, x, z, y0=0, h=4000){
+  cyl(g, 50, h, x, y0, z, G.black, { seg:10 }); box(g, 50, 50, 600, x, y0 + h - 50, z + 280, G.black); box(g, 220, 100, 320, x, y0 + h - 150, z + 560, G.dark);
+}
+function pendants(g, pts, H){ for (const [x,z] of pts){ cyl(g, 6, 800, x, H - 800, z, G.black, { edge:false, seg:6 }); cyl(g, 230, 220, x, H - 1020, z, G.dark, { rt:50 }); } }
+function tableSet(g, round){
+  if (round){ cyl(g, 380, 30, 0, 690, 0, G.white); cyl(g, 40, 690, 0, 0, 0, G.dark, { seg:10 }); cyl(g, 230, 20, 0, 0, 0, G.dark); }
+  else { box(g, 800, 40, 800, 0, 690, 0, G.white); cyl(g, 45, 690, 0, 0, 0, G.dark, { seg:10 }); box(g, 500, 30, 500, 0, 0, 0, G.dark); }
+  chair(g, -650, 0, PI/2); chair(g, 650, 0, -PI/2);
+}
+
+/* 장소: build(r, O, S) — O(이름, x, z, ry, fn)이 객체 하나, S(id, 유형, 이름, x, y, z, ry)가 인물 자리 */
+const SETS = [
+  { id:'home', ko:'집', en:'Home', desc:'원룸. 소파에서 TV, 침대, 거실 한가운데.', cam:{ pos:[3700,2400,5600], tgt:[-200,900,0] }, shadow:4500,
+    build(r, O, S){
+      O('바닥', 0, 0, 0, g=>box(g, 5000, 40, 4000, 0, -40, 0, G.floor));
+      O('뒷벽 + 창 + 문', 60, -2060, 0, g=>wall(g, 5120, 2500, 120, [{ x:100, w:1400, y:900, h:1150 }, { x:1700, w:900, y:0, h:2100, door:true }], G.wall));
+      O('왼벽', -2560, 0, PI/2, g=>wall(g, 4000, 2500, 120, [], G.wall));
+      O('침대', -1500, -950, 0, g=>{ box(g, 1300, 280, 2000, 0, 0, 0, G.mid); box(g, 1250, 220, 1950, 0, 280, 0, G.white); box(g, 1300, 900, 80, 0, 0, -1000, G.dark); box(g, 650, 120, 360, 0, 500, -720, G.white); box(g, 1270, 50, 900, 0, 500, 450, G.light); });
+      O('TV', -2300, 800, PI/2, g=>{ box(g, 1600, 450, 400, 0, 0, 0, G.dark); box(g, 1300, 750, 50, 0, 700, 0, G.black); });
+      O('소파', 900, 900, -PI/2, g=>sofa(g, 1900));
+      O('탁자', -300, 900, 0, g=>{ box(g, 1100, 40, 550, 0, 380, 0, G.white); for (const sx of [-1,1]) for (const sz of [-1,1]) box(g, 40, 380, 40, sx*500, 0, sz*230, G.dark); });
+      O('러그', -300, 900, 0, g=>box(g, 2600, 8, 2000, 0, 2, 0, G.light, { edge:false }));
+      O('스탠드 조명', 1700, -400, 0, g=>{ cyl(g, 180, 30, 0, 0, 0, G.dark); cyl(g, 18, 1450, 0, 30, 0, G.dark, { seg:8 }); cyl(g, 260, 300, 0, 1450, 0, G.white, { rt:150 }); });
+      O('화분', -2150, 1650, 0, g=>plant(g, 1.1));
+      S('A','sit','소파 왼쪽', 900, 0, 1350, -PI/2); S('B','sit','소파 오른쪽', 900, 0, 450, -PI/2);
+      S('C','lie','침대', -1500, 500, -950, 0); S('D','stand','방 가운데', -200, 0, -200, 0.3);
+    } },
+  { id:'restaurant', ko:'음식점', en:'Restaurant', desc:'사각 테이블 식당. 마주 앉아 밥 먹는 장면.', cam:{ pos:[3900,2400,5600], tgt:[-500,900,0] }, shadow:6000,
+    build(r, O, S){
+      O('바닥', 0, 0, 0, g=>box(g, 7000, 40, 5000, 0, -40, 0, G.floor));
+      O('뒷벽', 60, -2560, 0, g=>wall(g, 7120, 2900, 120, [], G.wall));
+      O('왼벽 + 창', -3560, 0, PI/2, g=>wall(g, 5000, 2900, 120, [{ x:-1200, w:1600, y:900, h:1300 }, { x:1200, w:1600, y:900, h:1300 }], G.wall));
+      O('주방 카운터', 1800, -2050, 0, g=>{ box(g, 3000, 1000, 700, 0, 0, 0, G.dark); box(g, 3100, 40, 800, 0, 1000, 0, G.white); box(g, 2000, 500, 500, 0, 2200, -150, G.mid); });
+      O('메뉴판', -600, -2470, 0, g=>{ box(g, 2200, 800, 40, 0, 1500, 0, G.black); for (let i = 0; i < 3; i++) box(g, 1600, 24, 10, 0, 1680 + i*180, 25, G.white, { edge:false }); });
+      O('테이블 1', -1600, -400, 0, g=>tableSet(g));
+      O('테이블 2', -1600, 1500, 0, g=>tableSet(g));
+      O('테이블 3', 300, 700, 0, g=>tableSet(g));
+      O('펜던트 조명', 0, 0, 0, g=>pendants(g, [[-1600,-400],[-1600,1500],[300,700]], 2900));
+      O('화분', -3150, -2200, 0, g=>plant(g, 1.2));
+      S('A','sit','테이블1 왼쪽', -2250, 0, -400, PI/2); S('B','sit','테이블1 오른쪽', -950, 0, -400, -PI/2);
+      S('C','stand','카운터 앞', 1800, 0, -1300, 0); S('D','sit','안쪽 테이블', -350, 0, 700, PI/2);
+    } },
+  { id:'cafe', ko:'카페', en:'Cafe', desc:'카운터와 원형 테이블, 큰 창.', cam:{ pos:[3700,2400,5300], tgt:[-400,1000,-100] }, shadow:6000,
+    build(r, O, S){
+      O('바닥', 0, 0, 0, g=>box(g, 6500, 40, 5000, 0, -40, 0, G.floor));
+      O('뒷벽', 60, -2560, 0, g=>wall(g, 6620, 3000, 120, [], G.wall));
+      O('왼벽 + 통창', -3310, 0, PI/2, g=>wall(g, 5000, 3000, 120, [{ x:0, w:3600, y:400, h:2000 }], G.wall));
+      O('카운터', 1500, -1800, 0, g=>{ box(g, 3000, 1050, 650, 0, 0, 0, G.dark); box(g, 3100, 40, 720, 0, 1050, 0, G.white); box(g, 550, 450, 420, -700, 1090, -50, G.mid); box(g, 500, 80, 350, -700, 1540, -50, G.black); });
+      O('메뉴판', 1500, -2470, 0, g=>{ box(g, 2400, 800, 40, 0, 1750, 0, G.black); for (let i = 0; i < 3; i++) box(g, 1700, 24, 10, 0, 1930 + i*170, 25, G.white, { edge:false }); });
+      O('테이블 1', -1500, 300, 0, g=>tableSet(g, true));
+      O('테이블 2', 0, 1500, 0, g=>tableSet(g, true));
+      O('선반', -1700, -2380, 0, g=>{ box(g, 2000, 40, 260, 0, 1600, 0, G.white); for (let i = 0; i < 5; i++) cyl(g, 60, 110, -800 + i*400, 1640, 0, i % 2 ? G.white : G.mid); });
+      O('펜던트 조명', 0, 0, 0, g=>pendants(g, [[-1500,300],[0,1500]], 3000));
+      O('화분', -2950, -2200, 0, g=>plant(g, 1.1));
+      S('A','sit','창가 테이블 왼쪽', -2150, 0, 300, PI/2); S('B','sit','창가 테이블 오른쪽', -850, 0, 300, -PI/2);
+      S('C','stand','카운터 앞', 1500, 0, -1050, PI); S('D','sit','안쪽 테이블', -650, 0, 1500, PI/2);
+    } },
+  { id:'office', ko:'사무실', en:'Office', desc:'책상 두 줄, 모니터, 정수기.', cam:{ pos:[4300,2700,5500], tgt:[0,900,-500] }, shadow:6000,
+    build(r, O, S){
+      O('바닥', 0, 0, 0, g=>box(g, 7000, 40, 5500, 0, -40, 0, G.floor));
+      O('뒷벽 + 창', 60, -2810, 0, g=>wall(g, 7120, 2800, 120, [{ x:-1800, w:2400, y:850, h:1400 }, { x:1800, w:2400, y:850, h:1400 }], G.wall));
+      O('왼벽', -3560, 0, PI/2, g=>wall(g, 5500, 2800, 120, [], G.wall));
+      const row = (g)=>{
+        for (const x of [-750, 750]){
+          box(g, 1400, 30, 700, x, 690, 0, G.white); for (const s of [-1,1]) box(g, 30, 690, 650, x + s*680, 0, 0, G.mid);
+          box(g, 40, 160, 30, x, 720, -200, G.black); box(g, 560, 340, 30, x, 860, -200, G.black);
+          officeChair(g, x, 700, PI);
+        }
+        box(g, 3000, 1200, 40, 0, 0, -380, G.light);
+      };
+      O('책상 줄 1', 0, -1300, 0, row);
+      O('책상 줄 2', 0, 600, 0, row);
+      O('화이트보드', -3480, -200, PI/2, g=>{ box(g, 2460, 1160, 20, 0, 870, -10, G.mid); box(g, 2400, 1100, 30, 0, 900, 0, G.white); });
+      O('정수기', 2900, -2300, 0, g=>{ box(g, 380, 1000, 380, 0, 0, 0, G.white); cyl(g, 150, 420, 0, 1000, 0, G.glass); });
+      O('서류장', 3050, -1200, 0, g=>box(g, 500, 1300, 600, 0, 0, 0, G.mid));
+      O('화분', -3150, -2450, 0, g=>plant(g, 1.2));
+      S('A','sit','앞줄 왼쪽 자리', -750, 0, -600, PI); S('B','sit','앞줄 오른쪽 자리', 750, 0, -600, PI);
+      S('C','stand','정수기 앞', 2600, 0, -1700, -PI/2); S('D','stand','A 자리 옆 통로', 0, 0, -150, -2.11);
+    } },
+  { id:'subway', ko:'지하철', en:'Subway', desc:'객차 안. 양쪽 긴 의자와 손잡이.', cam:{ pos:[0,1550,4800], tgt:[0,1050,-4000] }, fov:55, shadow:7000,
+    build(r, O, S){
+      const Lc = 10000, W = 3000, H = 2300;
+      const ops = (sign)=>[-3500, 0, 3500].map(z=>({ x:z*sign, w:1300, y:0, h:1950, door:true, panel:G.mid }))
+        .concat([-1750, 1750].map(z=>({ x:z*sign, w:1800, y:1000, h:750 })));
+      O('바닥', 0, 0, 0, g=>box(g, W + 200, 60, Lc, 0, -60, 0, G.mid));
+      O('천장 + 조명', 0, 0, 0, g=>{ box(g, W + 200, 100, Lc, 0, H, 0, G.white); for (let z = -4000; z <= 4000; z += 2000) box(g, 300, 20, 1500, 0, H - 20, z, G.light, { edge:false }); });
+      O('왼쪽 벽', -1550, 0, PI/2, g=>wall(g, Lc, H, 100, ops(-1), G.wall));
+      O('오른쪽 벽', 1550, 0, -PI/2, g=>wall(g, Lc, H, 100, ops(1), G.wall));
+      O('끝 벽', 0, -Lc/2 - 50, 0, g=>wall(g, W + 200, H, 100, [{ x:0, w:800, y:0, h:1950, door:true, panel:G.mid }], G.wall));
+      const seats = (g, sign)=>{ for (const zc of [-1750, 1750]){ const lx = zc*sign;
+        box(g, 2400, 80, 460, lx, 350, 120, G.dim); box(g, 2400, 350, 40, lx, 0, 300, G.dark); box(g, 2400, 450, 80, lx, 450, -150, G.dim); } };
+      O('왼쪽 좌석', -1400, 0, PI/2, g=>seats(g, -1));
+      O('오른쪽 좌석', 1400, 0, -PI/2, g=>seats(g, 1));
+      O('기둥', 0, 0, 0, g=>{ for (const zc of [-1750, 1750]) for (const s of [-1,1]) for (const e of [-1,1]) cyl(g, 22, H, s*1050, 0, zc + e*1250, G.dark, { seg:8 }); });
+      O('선반 + 손잡이', 0, 0, 0, g=>{ for (const s of [-1,1]){ box(g, 30, 30, Lc - 600, s*800, 1950, 0, G.dark); for (let z = -4500; z <= 4500; z += 600) box(g, 16, 220, 16, s*800, 1730, z, G.mid, { edge:false }); } });
+      S('A','sit','왼쪽 좌석', -1400, 0, -1200, PI/2); S('B','sit','오른쪽 좌석', 1400, 0, -2300, -PI/2);
+      S('C','stand','통로', 300, 0, 1300, -0.25);
+    } },
+  { id:'train', ko:'기차', en:'Train', desc:'2+2 좌석 객실. 나란히 앉은 두 사람.', cam:{ pos:[0,1500,4900], tgt:[0,1000,-4000] }, fov:55, shadow:7000,
+    build(r, O, S){
+      const Lc = 10000, W = 3000, H = 2400, rows = [-3600, -2400, -1200, 0, 1200, 2400];
+      const win = (sign)=>rows.map(z=>({ x:z*sign, w:1000, y:950, h:700 }));
+      O('바닥', 0, 0, 0, g=>{ box(g, W + 200, 60, Lc, 0, -60, 0, G.mid); box(g, 700, 6, Lc, 0, 0, 0, G.light, { edge:false }); });
+      O('천장', 0, 0, 0, g=>{ box(g, W + 200, 100, Lc, 0, H, 0, G.white); box(g, 600, 20, Lc - 400, 0, H - 20, 0, G.light, { edge:false }); });
+      O('왼쪽 벽 + 창', -1550, 0, PI/2, g=>wall(g, Lc, H, 100, win(-1), G.wall));
+      O('오른쪽 벽 + 창', 1550, 0, -PI/2, g=>wall(g, Lc, H, 100, win(1), G.wall));
+      O('끝 벽', 0, -Lc/2 - 50, 0, g=>wall(g, W + 200, H, 100, [{ x:0, w:900, y:0, h:2000, door:true, panel:G.mid }], G.wall));
+      O('짐 선반', 0, 0, 0, g=>{ for (const s of [-1,1]) box(g, 420, 40, Lc - 400, s*1280, 1850, 0, G.mid); });
+      const seat = (g, x, z)=>{ box(g, 480, 80, 480, x, 350, z + 120, G.dim); box(g, 400, 350, 60, x, 0, z + 120, G.dark); box(g, 480, 800, 120, x, 350, z - 170, G.dim); box(g, 300, 200, 110, x, 1150, z - 170, G.light); };
+      O('왼쪽 좌석 열', 0, 0, 0, g=>{ for (const z of rows){ seat(g, -1150, z); seat(g, -630, z); } });
+      O('오른쪽 좌석 열', 0, 0, 0, g=>{ for (const z of rows){ seat(g, 630, z); seat(g, 1150, z); } });
+      S('A','sit','창가 좌석', -1150, 0, 2400, 0); S('B','sit','통로 좌석', -630, 0, 2400, 0);
+      S('C','stand','통로', 0, 0, 1000, 0);
+    } },
+  { id:'park', ko:'공원', en:'Park', desc:'산책로·벤치·연못.', cam:{ pos:[5000,2100,8000], tgt:[0,800,-1500] }, shadow:11000,
+    build(r, O, S){
+      O('잔디', 0, 0, 0, g=>box(g, 40000, 40, 44000, 0, -40, 0, G.ground));
+      O('산책로', 0, 0, 0, g=>box(g, 30000, 8, 2000, 0, 0, 0, G.light, { edge:false }));
+      O('나무 1', -4200, -2800, 0, g=>tree(g, 1.1));
+      O('나무 2', 2600, -4200, 0, g=>tree(g, 1.3));
+      O('나무 3', 6000, -1500, 0, g=>tree(g, 0.9));
+      O('벤치', -1500, -1600, 0, g=>bench(g, 1800));
+      O('가로등', 0, 0, 0, g=>lamppost(g, -200, -1300, 0, 3800));
+      O('덤불', -3200, -1800, 0, g=>{ blob(g, 700, 0, 300, 0, G.dim, { sy:0.6 }); blob(g, 500, 650, 260, 200, G.mid, { sy:0.6 }); });
+      O('연못', 4500, -5500, 0, g=>{ const p = grp(g, 0, 0, 0); p.scale.z = 0.6; cyl(p, 2600, 10, 0, 0, 0, G.mid, { seg:40 }); cyl(p, 2400, 20, 0, 0, 0, G.glass, { seg:40 }); });
+      S('A','sit','벤치 왼쪽', -1950, 0, -1600, 0); S('B','sit','벤치 오른쪽', -1050, 0, -1600, 0);
+      S('C','walk','산책로', 1500, 0, 0, -PI/2); S('D','lie','잔디밭', 3200, 0, -2600, PI/2);
+    } },
+  { id:'mountain', ko:'산', en:'Mountain', desc:'정상 공터와 먼 능선. 정상석, 바위, 소나무.', cam:{ pos:[4600,2300,6800], tgt:[0,1200,-2000] }, shadow:8000,
+    build(r, O, S){
+      O('정상 공터', 0, 0, 0, g=>cyl(g, 9000, 400, 0, -400, 0, G.ground, { seg:11 }));
+      O('먼 산', 0, 0, 0, g=>{ cyl(g, 15000, 10000, -16000, -2000, -42000, 0xCDCDCD, { rt:0, seg:7 }); cyl(g, 13000, 13000, 6000, -2000, -52000, 0xDADADA, { rt:0, seg:6 }); cyl(g, 17000, 8500, 26000, -2000, -38000, 0xCDCDCD, { rt:0, seg:7 }); });
+      O('앞 능선', 0, 0, 0, g=>blob(g, 9000, -9000, -5200, -15000, G.mid, { detail:1, sy:0.45 }));
+      O('정상석', -600, -1400, 0, g=>{ box(g, 520, 1100, 320, 0, 0, 0, G.dark); box(g, 420, 30, 10, 0, 800, 165, G.white, { edge:false }); });
+      O('바위 (앉는 자리)', 1500, -480, 0, g=>box(g, 820, 430, 700, 0, 0, 0, G.dim));
+      O('바위', -2800, 600, 0, g=>blob(g, 700, 0, 260, 0, G.dim, { detail:0, sy:0.6 }));
+      O('소나무 1', -3600, -2600, 0, g=>pine(g, 1.2));
+      O('소나무 2', 3600, -2900, 0, g=>pine(g, 1.4));
+      O('소나무 3', 4900, -1000, 0, g=>pine(g, 0.9));
+      O('등산로', -2600, 3000, 0.5, g=>box(g, 1500, 10, 6000, 0, 0, 0, G.light, { edge:false }));
+      S('A','stand','정상석 옆', -100, 0, -900, 0.2); S('B','sit','바위', 1500, 0, -600, 0);
+      S('C','walk','등산로', -2300, 0, 1800, 2.72);
+    } },
+  { id:'street', ko:'거리', en:'Street', desc:'건물 세 채, 보도, 횡단보도, 버스 정류장.', cam:{ pos:[5500,2300,9500], tgt:[0,2200,-2500] }, shadow:11000,
+    build(r, O, S){
+      const bld = (g, w, h, tone)=>{ box(g, w, h, 8000, 0, 0, -4000, tone);
+        for (let y = 3800; y < h - 1200; y += 3000) box(g, w - 800, 1300, 40, 0, y, 20, G.dim);
+        box(g, w - 1000, 2600, 40, 0, 250, 20, G.glass, { opacity:0.6 }); box(g, w - 600, 120, 1000, 0, 3000, 500, G.dark); };
+      O('차도', 0, 0, 0, g=>{ box(g, 30000, 40, 8000, 0, -40, 4000, G.road); for (let x = -14000; x < 14000; x += 3000) box(g, 1500, 6, 140, x, 0, 4000, G.white, { edge:false }); });
+      O('보도', 0, 0, 0, g=>{ box(g, 30000, 150, 3000, 0, 0, -1500, G.light); box(g, 30000, 160, 200, 0, 0, -100, G.mid); });
+      O('건물 1', -6000, -3000, 0, g=>bld(g, 6000, 9000, G.light));
+      O('건물 2', 250, -3000, 0, g=>bld(g, 6500, 13000, G.mid));
+      O('건물 3', 6500, -3000, 0, g=>bld(g, 6000, 7000, 0xD8D8D8));
+      O('가로등', 0, 0, 0, g=>{ lamppost(g, -3000, -350, 150); lamppost(g, 4000, -350, 150); });
+      O('가로수', 1000, -600, 0, g=>{ const t = grp(g, 0, 150, 0); tree(t, 0.8); });
+      O('버스 정류장', -5500, -2000, 0, g=>{ const t = grp(g, 0, 150, 0); box(t, 3200, 80, 1500, 0, 2500, 100, G.black); for (const s of [-1,1]) box(t, 80, 2500, 80, s*1500, 0, -600, G.black); box(t, 3000, 1800, 20, 0, 500, -640, G.glass, { opacity:0.35 }); bench(t, 2000); });
+      O('횡단보도', 6000, 0, 0, g=>{ for (let i = 0; i < 8; i++) box(g, 450, 6, 4200, (i - 3.5)*900, 0, 2300, G.white, { edge:false }); });
+      O('신호등', 4600, -300, 0, g=>{ cyl(g, 50, 3200, 0, 150, 0, G.black, { seg:10 }); box(g, 300, 800, 260, 0, 3350, 0, G.black); for (let i = 0; i < 3; i++) cyl(g, 70, 20, 0, 3450 + i*230, 140, i ? G.mid : G.white, { edge:false }); });
+      S('A','walk','보도 (→)', -500, 150, -1400, PI/2); S('B','walk','보도 (←)', 2500, 150, -2000, -PI/2);
+      S('C','stand','가로등 옆', 3300, 150, -800, -0.6); S('D','sit','버스 정류장 벤치', -5950, 150, -2000, 0);
+    } },
+];
+// 장소마다 객체 목록과 인물 자리를 한 번 모아 둠
+for (const s of SETS){
+  s.objects = []; s.slots = [];
+  s.make = (root)=>{ s.objects.length = 0; s.slots.length = 0;
+    s.build(root, (name, x, z, ry, fn)=>{ const g = grp(root, x, 0, z, ry); g.name = name; fn(g); s.objects.push(name); return g; },
+                  (id, type, label, x, y, z, ry)=>s.slots.push({ id, type, label, x, y, z, ry })); };
+  s.make(new THREE.Group());
+}
+const SC = Object.fromEntries(SETS.map(s=>[s.id, s]));
+
+/* ══ 5. 자세 키 · 시간대 ═══════════════════════════════════════ */
+const LOCAL_POSES = {
+  sitphone:{ ko:'앉아서 휴대폰', emo:'calm', chair:true, waist:[0,1,-0.05], spine:[0,1,0.12], neck:[0,1,0.55],
+    uL:[0.1,-1,0.3], fL:[-0.5,0.8,1], uR:[0.1,-1,0.3], fR:[-0.5,0.85,1], ...SIT_LEGS },
+  standphone:{ ko:'서서 휴대폰', emo:'calm', waist:[0.03,1,0], spine:[0,1,0.05], neck:[0,1,0.5],
+    uL:[0.1,-1,0.25], fL:[-0.5,0.8,1], uR:[0.1,-1,0.25], fR:[-0.5,0.85,1], tL:[0.1,-1,0], sL:[0.02,-1,0], tR:[-0.03,-1,0.1], sR:[0.05,-1,-0.05] },
+};
+function poseFromKey(key, emo){
+  const i = key.indexOf(':'), a = key.slice(0, i), b = key.slice(i + 1);
+  const p = a === 'x' ? EXTRA.find(e=>e.ko === b) : a === 'p' ? LOCAL_POSES[b] : CATS.find(c=>c.id === a)?.poses[b];
+  if (!p) throw new Error('자세 없음: ' + key);
+  const base = a === 'x' || a === 'p' ? p.emo : b, e = emo || base;
+  return { ...p, emo:e, face: e === base ? { ...EMO[e].face, ...(p.face||{}) } : { ...EMO[e].face } };
+}
+const TIME = {
+  morning:{ sky:0xEDEDED, hemi:[0xffffff, 0xcfcfcf, 1.6], sun:[0xffffff, 1.9] },
+  day:    { sky:null,     hemi:[0xffffff, 0xcfcfcf, 1.6], sun:[0xffffff, 1.9] },
+  evening:{ sky:0xBEBEBE, hemi:[0xf2f2f2, 0xa6a6a6, 1.3], sun:[0xffffff, 1.3] },
+  night:  { sky:0x3A3A3A, hemi:[0xdadada, 0x5c5c5c, 0.9], sun:[0xffffff, 0.8] },
+};
+function lights(scene, s, time){
+  const t = TIME[time] || TIME.day;
+  scene.background = new THREE.Color(t.sky ?? (s.bg || G.sky));
+  scene.add(new THREE.HemisphereLight(...t.hemi));
+  const sun = new THREE.DirectionalLight(...t.sun);
+  sun.position.set(4000, 9000, 6000); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left:-s.shadow, right:s.shadow, top:s.shadow, bottom:-s.shadow, near:100, far:40000 });
+  sun.shadow.bias = -0.0004; scene.add(sun, sun.target);
+  if (time === 'night' || time === 'evening'){ const lamp = new THREE.PointLight(0xffffff, time === 'night' ? 2 : 1, 0, 0); lamp.position.set(-1000, 2300, 800); scene.add(lamp); }
+}
+function actor(spec, scene, s, chMap){
+  const p = poseFromKey(spec.pose, spec.emo);
+  const sl = s.slots.find(x=>x.id === spec.slot);
+  if (!sl) throw new Error(`${s.ko}에 자리 ${spec.slot} 없음`);
+  const ch = chMap[spec.who] || SEED[0];
+  const { g, n, B } = makeFigure(p, ch);
+  addProp(g, n, spec.prop);
+  const ry = sl.ry + rad(spec.turn || 0);
+  const fwd = new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry));
+  g.position.set(sl.x, sl.y, sl.z).addScaledVector(fwd, spec.step || 0);
+  g.rotation.y = ry;
+  scene.add(g); g.updateMatrixWorld(true);
+  const W = (v)=>v.clone().applyMatrix4(g.matrixWorld);
+  return { who:spec.who, g, head:W(n.head), chest:W(n.chest), feet:Math.min(W(n.ankleL).y, W(n.ankleR).y), fwd, ry, hr:B.headR };
+}
+
+/* ══ 6~7. 카메라 · 말풍선 (storyboard-demo에서 복사) ══════════════════ */
+/* ── 6. 카메라: 샷 크기 × 각도 × 높이, 가리는 세트는 잘라냄 ────────────── */
+function cameraFor(panel, s, actors, aspect){
+  const cam = new THREE.PerspectiveCamera(35, aspect, 30, 300000);
+  const c = panel.camera || {};
+  const by = (id)=>actors.find(a=>a.who === id);
+  let pos, tgt;
+  if (panel.shot === 'wide' || !actors.length){
+    cam.fov = s.fov || 40; pos = new THREE.Vector3(...s.cam.pos); tgt = new THREE.Vector3(...s.cam.tgt);
+    if (aspect > 1.5){ pos.sub(tgt).multiplyScalar(0.92).add(tgt); }
+  } else if (panel.shot === 'two'){
+    const A = by(c.on) || actors[0], B = by(c.with) || actors.find(a=>a !== A) || A;
+    tgt = A.head.clone().lerp(B.head, 0.5); tgt.y -= 380;
+    const span = A.head.distanceTo(B.head);
+    let side = new THREE.Vector3().subVectors(B.head, A.head).setY(0).normalize().cross(UP);
+    if (side.lengthSq() < 0.5) side.set(0,0,1);
+    const facing = A.fwd.clone().add(B.fwd), wide = new THREE.Vector3(...s.cam.pos).sub(tgt);
+    if (side.dot(facing.lengthSq() > 0.2 ? facing : wide) < 0) side.negate();
+    pos = tgt.clone().addScaledVector(side, Math.max(2600, span*1.25 + 1700)).add(new THREE.Vector3(0, 380, 0));
+  } else {
+    const A = by(c.on) || actors[0];
+    const D = ({ full:3500, bust:1300, close:820 }[panel.shot] || 1300) * (panel.shot === 'full' ? 1 : Math.pow((A.hr || L.headR) / L.headR, 0.8));   // 머리가 크면 조금 물러남
+    tgt = panel.shot === 'full' ? new THREE.Vector3(A.head.x, (A.head.y + A.feet)/2 + 80, A.head.z)
+        : panel.shot === 'bust' ? A.chest.clone().lerp(A.head, 0.6) : A.head.clone().add(new THREE.Vector3(0, -15, 0));
+    if (c.angle === 'ots'){
+      const B = by(c.from) || actors.find(a=>a !== A);
+      const toA = new THREE.Vector3().subVectors(A.head, B.head).setY(0).normalize();
+      const right = new THREE.Vector3().crossVectors(toA, UP).normalize().multiplyScalar(c.side === 'left' ? -1 : 1);
+      const back = { full:1500, bust:700, close:480 }[panel.shot] || 700;
+      const off = { full:650, bust:430, close:330 }[panel.shot] || 430;
+      pos = B.head.clone().addScaledVector(toA, -back).addScaledVector(right, off).add(new THREE.Vector3(0, 90, 0));
+      tgt.addScaledVector(right, -off*0.35);
+    } else {
+      const deg = { front:0, three:35, side:90, back:180 }[c.angle || 'three'] * (c.side === 'left' ? -1 : 1);
+      const dir = A.fwd.clone().applyAxisAngle(UP, rad(deg));
+      pos = tgt.clone().addScaledVector(dir, D);
+      if (c.height === 'high') pos.y += D*0.55;
+      else if (c.height === 'low'){ pos.y = Math.max(A.feet + 250, tgt.y - D*0.4); }
+      else pos.y += D*0.06;
+    }
+  }
+  if (panel.shot !== 'wide' && panel.bubbles.some(b=>b.kind === 'text')){
+    const right = new THREE.Vector3().subVectors(tgt, pos).cross(UP).normalize(), k = pos.distanceTo(tgt) * Math.tan(rad(cam.fov/2)) * aspect * 0.42;   // 인물을 화면 왼쪽 1/4쯤으로
+    pos.addScaledVector(right, k); tgt.addScaledVector(right, k);
+  }
+  cam.position.copy(pos); cam.lookAt(tgt); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+  return { cam, tgt };
+}
+// 카메라와 인물 사이를 막는 세트 조각은 감춤 (웹툰식 단면):
+// 인물보다 카메라에 가깝고, 화면에서 인물이 차지하는 범위와 겹치는 조각
+function cutaway(setGroup, cam, actors){
+  const pts = actors.flatMap(a=>[a.head, a.chest, new THREE.Vector3(a.head.x, a.feet, a.head.z)]);
+  if (!pts.length) return;
+  let x0 = 1, x1 = -1, y0 = 1, y1 = -1, near = Infinity;
+  for (const p of pts){
+    const q = p.clone().project(cam);
+    x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+    near = Math.min(near, p.distanceTo(cam.position));
+  }
+  x0 -= 0.12; x1 += 0.12; y0 -= 0.08; y1 += 0.18;
+  const box = new THREE.Box3(), c = new THREE.Vector3();
+  setGroup.traverse(o=>{
+    if (!o.isMesh) return;
+    box.setFromObject(o);
+    if (box.max.y <= 12) return;                         // 바닥은 남김
+    if (box.containsPoint(cam.position)){ o.visible = false; return; }
+    if (box.distanceToPoint(cam.position) > near - 220) return;
+    let a0 = 1, a1 = -1, b0 = 1, b1 = -1, behind = false;
+    for (let i = 0; i < 8; i++){
+      c.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z);
+      if (c.clone().applyMatrix4(cam.matrixWorldInverse).z > -cam.near){ behind = true; break; }
+      c.project(cam);
+      a0 = Math.min(a0, c.x); a1 = Math.max(a1, c.x); b0 = Math.min(b0, c.y); b1 = Math.max(b1, c.y);
+    }
+    if (behind || (a1 > x0 && a0 < x1 && b1 > y0 && b0 < y1)) o.visible = false;
+  });
+}
+
+/* ── 7. 2D 덧그림: 말풍선 · 내레이션 · 휴대폰 · 효과음 · 효과선 ────────── */
+const FONT = '"Noto Sans KR", "Malgun Gothic", sans-serif';
+function wrap(ctx, text, maxW){
+  const lines = []; let line = '';
+  for (const ch of text){
+    if (ctx.measureText(line + ch).width > maxW && line){ lines.push(line.trim()); line = ch === ' ' ? '' : ch; }
+    else line += ch;
+  }
+  if (line.trim()) lines.push(line.trim());
+  // 문장부호만 남은 마지막 줄은 앞 줄에 붙임
+  if (lines.length > 1 && /^[.,!?…~"')\]]{1,2}$/.test(lines[lines.length-1])) lines[lines.length-2] += lines.pop();
+  return lines;
+}
+function rrect(ctx, x, y, w, h, r){ ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function project(v, cam, W, H){ const p = v.clone().project(cam); return { x:(p.x+1)/2*W, y:(1-p.y)/2*H, vis:p.z < 1 && Math.abs(p.x) < 1.15 && Math.abs(p.y) < 1.15 }; }
+
+function fxLayer(ctx, kind, W, H, focus){
+  ctx.save();
+  if (kind === 'focus'){
+    const cx = focus?.x ?? W/2, cy = focus?.y ?? H/2, r = rngFx(3);
+    ctx.fillStyle = 'rgba(20,20,20,0.85)';
+    for (let i = 0; i < 140; i++){
+      const a = r()*PI*2, inner = Math.min(W,H)*(0.32 + r()*0.12), outer = Math.hypot(W,H), wdt = 0.004 + r()*0.01;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a)*inner, cy + Math.sin(a)*inner);
+      ctx.lineTo(cx + Math.cos(a-wdt)*outer, cy + Math.sin(a-wdt)*outer);
+      ctx.lineTo(cx + Math.cos(a+wdt)*outer, cy + Math.sin(a+wdt)*outer);
+      ctx.fill();
+    }
+  } else if (kind === 'gloom'){
+    const r = rngFx(9);
+    const grd = ctx.createLinearGradient(0,0,0,H*0.55); grd.addColorStop(0,'rgba(40,46,70,0.35)'); grd.addColorStop(1,'rgba(40,46,70,0)');
+    ctx.fillStyle = grd; ctx.fillRect(0,0,W,H*0.55);
+    ctx.strokeStyle = 'rgba(30,30,40,0.55)';
+    for (let x = 6; x < W; x += 9 + r()*7){ ctx.lineWidth = 1 + r()*1.5; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x, H*(0.18 + r()*0.3)); ctx.stroke(); }
+  } else if (kind === 'sparkle'){
+    const r = rngFx(5);
+    for (let i = 0; i < 26; i++){
+      const x = r()*W, y = r()*H, s = 6 + r()*16;
+      if (focus && Math.hypot(x - focus.x, y - focus.y) < Math.min(W,H)*0.22) continue;
+      ctx.fillStyle = i % 3 ? 'rgba(255,255,255,0.95)' : 'rgba(255,214,120,0.95)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let k = 0; k < 8; k++){ const a = k*PI/4, rr = k % 2 ? s*0.28 : s; ctx.lineTo(x + Math.cos(a)*rr, y + Math.sin(a)*rr); }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+function rngFx(seed){ return rng(seed); }
+
+function overlay(ctx, panel, W, H, cam, actors, chars){
+  const S = W / 720;                                     // 720px 폭 기준 크기
+  const pad = 18*S;
+  const head = {}; for (const a of actors) head[a.who] = project(a.head, cam, W, H);
+  const headR = (a)=>{ const top = project(a.head.clone().add(new THREE.Vector3(0, a.hr || L.headR, 0)), cam, W, H); return Math.abs(head[a.who].y - top.y); };
+  const focusAt = panel.camera?.on && head[panel.camera.on] || null;
+  fxLayer(ctx, panel.fx, W, H, focusAt && { x:focusAt.x, y:focusAt.y });
+
+  const placed = [];
+  const free = (r)=>!placed.some(p=>r.x < p.x + p.w + 8*S && p.x < r.x + r.w + 8*S && r.y < p.y + p.h + 8*S && p.y < r.y + r.h + 8*S);
+  const findSpot = (w, h, prefX, startY)=>{
+    for (let y = startY; y < H - h - pad; y += 12*S){
+      for (const dx of [0, 1, -1, 2, -2, 3, -3]){
+        const x = Math.min(W - w - pad, Math.max(pad, prefX - w/2 + dx*70*S));
+        const r = { x, y, w, h }; if (free(r)) return r;
+      }
+    }
+    return { x:pad, y:startY, w, h };
+  };
+
+  // 내레이션: 왼쪽 위 사각 상자
+  let topY = pad;
+  for (const b of panel.bubbles.filter(b=>b.kind === 'narration')){
+    ctx.font = `600 ${19*S}px ${FONT}`;
+    const lines = wrap(ctx, b.text, W*0.62), lh = 27*S;
+    const w = Math.max(...lines.map(l=>ctx.measureText(l).width)) + 28*S, h = lines.length*lh + 20*S;
+    const r = { x:pad, y:topY, w, h };
+    ctx.fillStyle = '#FFFDF6'; ctx.strokeStyle = '#151412'; ctx.lineWidth = 2*S;
+    ctx.fillRect(r.x, r.y, w, h); ctx.strokeRect(r.x, r.y, w, h);
+    ctx.fillStyle = '#151412'; ctx.textBaseline = 'top';
+    lines.forEach((l,i)=>ctx.fillText(l, r.x + 14*S, r.y + 10*S + i*lh));
+    placed.push(r); topY += h + 10*S;
+  }
+
+  // 휴대폰 화면: 메시지를 한 화면에 모아 오른쪽에 (자리를 먼저 잡고, 말풍선 뒤에 그림)
+  const texts = panel.bubbles.filter(b=>b.kind === 'text');
+  let drawPhone = ()=>{};
+  if (texts.length){
+    const pw = Math.min(W*0.46, 330*S), ph = Math.min(H*0.8, pw*1.75);
+    const px = W - pw - pad*1.4, py = (H - ph)/2;
+    placed.push({ x:px, y:py, w:pw, h:ph });
+    drawPhone = ()=>{
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 18*S;
+    ctx.fillStyle = '#1D1E22'; rrect(ctx, px, py, pw, ph, 34*S); ctx.fill(); ctx.restore();
+    const sx = px + 12*S, sy = py + 44*S, sw = pw - 24*S, sh = ph - 70*S;
+    ctx.fillStyle = '#F2F3F5'; rrect(ctx, sx, sy, sw, sh, 14*S); ctx.fill();
+    const other = texts.find(t=>t.who !== texts[0].who)?.who || STORY.characters.find(c=>c.id !== texts[0].who)?.id;
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(sx, sy, sw, 42*S);
+    ctx.fillStyle = '#151412'; ctx.font = `600 ${16*S}px ${FONT}`; ctx.textBaseline = 'middle';
+    ctx.fillText(chars[other]?.name || '', sx + 14*S, sy + 21*S);
+    let y = sy + 58*S;
+    ctx.font = `400 ${15*S}px ${FONT}`;
+    const me = texts[0].who;
+    for (const t of texts){
+      const mine = t.who === me;
+      const lines = wrap(ctx, t.text, sw*0.66), lh = 22*S;
+      const bw = Math.max(...lines.map(l=>ctx.measureText(l).width)) + 22*S, bh = lines.length*lh + 14*S;
+      const bx = mine ? sx + sw - bw - 10*S : sx + 10*S;
+      ctx.fillStyle = mine ? '#FFE16B' : '#FFFFFF'; rrect(ctx, bx, y, bw, bh, 12*S); ctx.fill();
+      ctx.fillStyle = '#151412'; ctx.textBaseline = 'top';
+      lines.forEach((l,i)=>ctx.fillText(l, bx + 11*S, y + 7*S + i*lh));
+      y += bh + 10*S;
+    }
+    };
+  }
+
+  // 말풍선 · 속마음
+  for (const b of panel.bubbles.filter(b=>b.kind === 'speech' || b.kind === 'thought')){
+    const a = actors.find(x=>x.who === b.who), h0 = a && head[b.who];
+    const isT = b.kind === 'thought';
+    ctx.font = `${isT ? 400 : 600} ${21*S}px ${FONT}`;
+    const lines = wrap(ctx, b.text, W*0.36), lh = 29*S;
+    const tw = Math.max(...lines.map(l=>ctx.measureText(l).width));
+    const w = tw + 56*S, h = lines.length*lh + 34*S;
+    const pref = h0 && h0.vis ? h0.x + (h0.x > W/2 ? -W*0.12 : W*0.12) : W*0.7;
+    const r = findSpot(w, h, pref, topY);
+    placed.push(r);
+    const cx = r.x + w/2, cy = r.y + h/2;
+    ctx.save();
+    ctx.lineWidth = 2.2*S; ctx.strokeStyle = '#151412'; ctx.fillStyle = '#FFFFFF';
+    if (isT){
+      // 구름 테두리: 타원 둘레에 작은 원을 겹침
+      ctx.beginPath();
+      const n = Math.max(10, Math.round((w + h)/34/S));
+      for (let i = 0; i < n; i++){ const t = i/n*PI*2; ctx.moveTo(cx + Math.cos(t)*w/2 + 15*S, cy + Math.sin(t)*h/2); ctx.arc(cx + Math.cos(t)*w/2, cy + Math.sin(t)*h/2, 15*S, 0, PI*2); }
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(cx, cy, w/2, h/2, 0, 0, PI*2); ctx.fill();
+      if (h0 && h0.vis){
+        const ty = h0.y - headR(a) - 14*S;
+        for (const [t, rr] of [[0.45, 9], [0.72, 6]]){ ctx.beginPath(); ctx.arc(cx + (h0.x - cx)*t, cy + h/2 + (ty - cy - h/2)*t, rr*S, 0, PI*2); ctx.fill(); ctx.stroke(); }
+      }
+    } else {
+      ctx.beginPath(); ctx.ellipse(cx, cy, w/2, h/2, 0, 0, PI*2);
+      if (h0 && h0.vis){
+        const tx = h0.x, ty = Math.max(cy + h/2 + 6*S, h0.y - headR(a) - 10*S);
+        const bx = cx + Math.max(-w*0.25, Math.min(w*0.25, (tx - cx)*0.4));
+        ctx.moveTo(bx - 14*S, cy + h*0.38); ctx.lineTo(tx, ty); ctx.lineTo(bx + 14*S, cy + h*0.38);
+      }
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(cx, cy, w/2 - 1.2*S, h/2 - 1.2*S, 0, 0, PI*2); ctx.fill();
+    }
+    ctx.restore();
+    ctx.fillStyle = isT ? '#3A3936' : '#151412'; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+    lines.forEach((l,i)=>ctx.fillText(l, cx, cy - lines.length*lh/2 + i*lh + 2*S));
+    ctx.textAlign = 'left';
+  }
+
+  drawPhone();
+
+  // 효과음: 머리 옆, 다른 풍선·휴대폰과 겹치면 반대쪽으로
+  for (const b of panel.bubbles.filter(b=>b.kind === 'sfx')){
+    const a = actors.find(x=>x.who === b.who), h0 = head[b.who];
+    const fs = (b.text.length <= 1 ? 82 : 54)*S, sw = fs*b.text.length;
+    let x = W*0.75, y = H*0.3;
+    if (h0?.vis){
+      const off = headR(a)*1.25 + sw*0.6;
+      y = Math.max(fs, h0.y - headR(a)*0.9);
+      x = h0.x + off;
+      const hitsAny = (xx)=>placed.some(p=>xx + sw/2 > p.x && xx - sw/2 < p.x + p.w && y + fs/2 > p.y && y - fs/2 < p.y + p.h) || xx + sw/2 > W;
+      if (hitsAny(x)) x = h0.x - off;
+      x = Math.max(sw/2 + pad, Math.min(W - sw/2 - pad, x));
+    }
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-0.12);
+    ctx.font = `800 ${fs}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round'; ctx.lineWidth = 12*S; ctx.strokeStyle = '#FFFFFF'; ctx.strokeText(b.text, 0, 0);
+    ctx.fillStyle = '#151412'; ctx.fillText(b.text, 0, 0);
+    ctx.restore();
+  }
+}
+
+
+
+
+/* ══ 예시 이야기 (?demo) ══ */
+let STORY = { characters:[] };   // 지금 그리는 이야기 (말풍선이 읽음)
+const SAMPLE = {
+  title: '출근길, 3년 만에',
+  plot: '출근길에 전남자친구를 스쳐 지나갔고, 일하면서 계속 생각하다가 결국 먼저 연락해서 식사를 하게 된 이야기',
+  characters: [
+    { id:'jieun',  name:'지은', desc:'주인공. 28살 회사원' },
+    { id:'dohyun', name:'도현', desc:'3년 전에 헤어진 전남자친구' },
+    { id:'mina',   name:'민아', desc:'지은의 옆자리 동료' },
+  ],
+  pages: [
+    { summary:'월요일 출근길', panels:[
+      { size:'wide', location:'street', time:'morning', shot:'wide', camera:{}, cast:[{ who:'jieun', slot:'A', pose:'walk:calm' }],
+        bubbles:[{ kind:'narration', text:'월요일 아침 8시 40분. 오늘도 지각 직전.' }], fx:'none' },
+      { size:'normal', location:'street', time:'morning', shot:'bust', camera:{ on:'jieun', angle:'three', side:'right' }, cast:[{ who:'jieun', slot:'A', pose:'walk:calm' }],
+        bubbles:[{ kind:'thought', who:'jieun', text:'회의 자료… 다 챙겼나.' }], fx:'none' } ]},
+    { summary:'맞은편에서 걸어오는 사람', panels:[
+      { size:'wide', location:'street', time:'morning', shot:'two', camera:{ on:'jieun', with:'dohyun' }, cast:[{ who:'jieun', slot:'A', pose:'walk:calm' }, { who:'dohyun', slot:'B', pose:'walk:calm' }],
+        bubbles:[{ kind:'narration', text:'그때였다.' }], fx:'none' },
+      { size:'normal', location:'street', time:'morning', shot:'close', camera:{ on:'dohyun', angle:'three', side:'left' }, cast:[{ who:'jieun', slot:'A', pose:'walk:calm' }, { who:'dohyun', slot:'B', pose:'walk:calm' }],
+        bubbles:[{ kind:'sfx', who:'dohyun', text:'스윽' }], fx:'none' },
+      { size:'tall', location:'street', time:'morning', shot:'close', camera:{ on:'jieun', angle:'front' }, cast:[{ who:'jieun', slot:'A', pose:'x:놀람' }],
+        bubbles:[{ kind:'sfx', who:'jieun', text:'!' }, { kind:'thought', who:'jieun', text:'방금… 도현이?' }], fx:'focus' } ]},
+    { summary:'돌아보지만, 그냥 지나침', panels:[
+      { size:'wide', location:'street', time:'morning', shot:'full', camera:{ on:'dohyun', angle:'ots', from:'jieun' }, cast:[{ who:'jieun', slot:'A', pose:'stand:calm', emo:'sad', turn:180 }, { who:'dohyun', slot:'B', pose:'walk:calm', step:4800 }],
+        bubbles:[{ kind:'thought', who:'jieun', text:'3년 만인데… 하나도 안 변했네.' }], fx:'none' },
+      { size:'normal', location:'street', time:'morning', shot:'full', camera:{ on:'jieun', angle:'three', side:'left', height:'high' }, cast:[{ who:'jieun', slot:'A', pose:'walk:sad' }],
+        bubbles:[{ kind:'narration', text:'인사 한마디 못 하고, 그냥 지나쳤다.' }], fx:'gloom' } ]},
+    { summary:'사무실, 일이 손에 안 잡힘', panels:[
+      { size:'wide', location:'office', time:'day', shot:'wide', camera:{}, cast:[{ who:'jieun', slot:'A', pose:'sit:calm' }, { who:'mina', slot:'B', pose:'sit:calm' }],
+        bubbles:[{ kind:'narration', text:'오전 10시. 머릿속은 아직 출근길에 있다.' }], fx:'none' },
+      { size:'normal', location:'office', time:'day', shot:'bust', camera:{ on:'jieun', angle:'front' }, cast:[{ who:'jieun', slot:'A', pose:'sit:calm' }],
+        bubbles:[{ kind:'thought', who:'jieun', text:'집중하자, 집중.' }], fx:'none' } ]},
+    { summary:'자꾸 떠오르는 얼굴', panels:[
+      { size:'normal', location:'office', time:'day', shot:'close', camera:{ on:'jieun', angle:'three', side:'right', height:'high' }, cast:[{ who:'jieun', slot:'A', pose:'sit:sad' }],
+        bubbles:[{ kind:'thought', who:'jieun', text:'왜 자꾸 그 얼굴이 떠오르지…' }], fx:'gloom' },
+      { size:'wide', location:'office', time:'day', shot:'two', camera:{ on:'mina', with:'jieun' }, cast:[{ who:'jieun', slot:'A', pose:'sit:calm', emo:'joy' }, { who:'mina', slot:'D', pose:'x:대화: 말하기' }],
+        bubbles:[{ kind:'speech', who:'mina', text:'지은 씨, 아까부터 한숨만 쉬던데. 무슨 일 있어요?' }, { kind:'speech', who:'jieun', text:'아, 아니에요! 하하…' }], fx:'none' } ]},
+    { summary:'3년 동안 못 지운 번호', panels:[
+      { size:'normal', location:'office', time:'day', shot:'bust', camera:{ on:'jieun', angle:'three', side:'left' }, cast:[{ who:'jieun', slot:'A', pose:'p:sitphone', prop:'phone' }],
+        bubbles:[{ kind:'narration', text:'오후 3시. 3년 동안 끝내 못 지운 번호.' }], fx:'none' },
+      { size:'tall', location:'office', time:'day', shot:'close', camera:{ on:'jieun', angle:'front', height:'low' }, cast:[{ who:'jieun', slot:'A', pose:'p:sitphone', prop:'phone' }],
+        bubbles:[{ kind:'text', who:'jieun', text:'오늘 아침에 너 본 것 같아.' }, { kind:'thought', who:'jieun', text:'보낼까… 말까…' }], fx:'none' } ]},
+    { summary:'전송, 그리고 답장', panels:[
+      { size:'normal', location:'office', time:'day', shot:'close', camera:{ on:'jieun', angle:'front' }, cast:[{ who:'jieun', slot:'A', pose:'p:sitphone', prop:'phone', emo:'angry' }],
+        bubbles:[{ kind:'sfx', who:'jieun', text:'꾹' }, { kind:'text', who:'jieun', text:'오늘 아침에 너 본 것 같아. 잘 지내?' }], fx:'focus' },
+      { size:'normal', location:'office', time:'day', shot:'bust', camera:{ on:'jieun', angle:'three', side:'right' }, cast:[{ who:'jieun', slot:'A', pose:'sit:sad' }],
+        bubbles:[{ kind:'thought', who:'jieun', text:'미쳤어, 미쳤어… 왜 보냈어.' }], fx:'gloom' },
+      { size:'tall', location:'office', time:'day', shot:'close', camera:{ on:'jieun', angle:'front' }, cast:[{ who:'jieun', slot:'A', pose:'p:sitphone', prop:'phone', emo:'joy' }],
+        bubbles:[{ kind:'sfx', who:'jieun', text:'띠링' }, { kind:'text', who:'jieun', text:'오늘 아침에 너 본 것 같아. 잘 지내?' }, { kind:'text', who:'dohyun', text:'응, 나도 너 봤어. 오늘 저녁 먹을래?' }], fx:'sparkle' } ]},
+    { summary:'약속 장소로 가는 길', panels:[
+      { size:'wide', location:'street', time:'evening', shot:'wide', camera:{}, cast:[{ who:'jieun', slot:'A', pose:'walk:fear' }],
+        bubbles:[{ kind:'narration', text:'저녁 7시. 약속 장소로 가는 길.' }], fx:'none' },
+      { size:'normal', location:'street', time:'evening', shot:'bust', camera:{ on:'jieun', angle:'front' }, cast:[{ who:'jieun', slot:'C', pose:'stand:calm', emo:'fear' }],
+        bubbles:[{ kind:'thought', who:'jieun', text:'아무렇지 않은 척. 아무렇지 않은 척.' }], fx:'none' } ]},
+    { summary:'다시 마주 앉음', panels:[
+      { size:'wide', location:'restaurant', time:'evening', shot:'wide', camera:{}, cast:[{ who:'dohyun', slot:'B', pose:'sit:calm', emo:'joy' }, { who:'jieun', slot:'C', pose:'stand:calm', turn:-69 }],
+        bubbles:[{ kind:'speech', who:'dohyun', text:'지은아, 여기!' }], fx:'none' },
+      { size:'normal', location:'restaurant', time:'evening', shot:'bust', camera:{ on:'jieun', angle:'ots', from:'dohyun' }, cast:[{ who:'jieun', slot:'A', pose:'sit:calm' }, { who:'dohyun', slot:'B', pose:'sit:calm' }],
+        bubbles:[{ kind:'speech', who:'jieun', text:'…오랜만이야.' }], fx:'none' } ]},
+    { summary:'따뜻해지는 저녁', panels:[
+      { size:'normal', location:'restaurant', time:'evening', shot:'close', camera:{ on:'dohyun', angle:'ots', from:'jieun' }, cast:[{ who:'jieun', slot:'A', pose:'sit:calm' }, { who:'dohyun', slot:'B', pose:'sit:calm', emo:'joy' }],
+        bubbles:[{ kind:'speech', who:'dohyun', text:'아침에 그냥 지나가길래, 나 못 알아본 줄 알았어.' }], fx:'none' },
+      { size:'normal', location:'restaurant', time:'evening', shot:'close', camera:{ on:'jieun', angle:'front' }, cast:[{ who:'jieun', slot:'A', pose:'sit:calm', emo:'joy' }, { who:'dohyun', slot:'B', pose:'sit:calm' }],
+        bubbles:[{ kind:'speech', who:'jieun', text:'알아봤지. 그래서 연락한 거야.' }], fx:'sparkle' },
+      { size:'wide', location:'restaurant', time:'night', shot:'two', camera:{ on:'jieun', with:'dohyun' }, cast:[{ who:'jieun', slot:'A', pose:'sit:calm', emo:'joy', prop:'cup' }, { who:'dohyun', slot:'B', pose:'sit:calm', emo:'joy', prop:'cup' }],
+        bubbles:[{ kind:'narration', text:'식어 버린 줄 알았던 이야기가, 다시 따뜻해지기 시작했다.' }], fx:'none' } ]},
+  ],
+};
+
+
+/* ══ 컷 그리기 ══ */
+/* ══ 9. 렌더러 · 컷 그리기 ══════════════════════════════════════ */
+const off = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+off.shadowMap.enabled = true; off.shadowMap.type = THREE.PCFSoftShadowMap;
+const SIZE = { wide:[720, 405], normal:[720, 540], tall:[720, 860] };
+const DPR = 1.5;
+const disposeScene = (scene)=>scene.traverse(o=>{ if (o.geometry && ![boneGeo, jointGeo, headGeo].includes(o.geometry)) o.geometry.dispose(); });
+
+function renderPanel(panel, chMap, names){
+  const s = SC[panel.location];
+  if (!s) throw new Error('장소 없음: ' + panel.location);
+  const [w, h] = SIZE[panel.size] || SIZE.normal;
+  const scene = new THREE.Scene(); lights(scene, s, panel.time);
+  const set = new THREE.Group(); s.make(set); scene.add(set);
+  const actors = panel.cast.map(c=>actor(c, scene, s, chMap));
+  const { cam } = cameraFor(panel, s, actors, w/h);
+  scene.updateMatrixWorld(true);
+  if (panel.shot !== 'wide') cutaway(set, cam, actors);
+  off.setPixelRatio(DPR); off.setSize(w, h); off.render(scene, cam);
+  const cv = document.createElement('canvas'); cv.width = w*DPR; cv.height = h*DPR; cv.className = 'panel';
+  const ctx = cv.getContext('2d'); ctx.drawImage(off.domElement, 0, 0);
+  overlay(ctx, panel, cv.width, cv.height, cam, actors, names);
+  ctx.lineWidth = 3; ctx.strokeStyle = '#161616'; ctx.strokeRect(1.5, 1.5, cv.width - 3, cv.height - 3);
+  disposeScene(scene);
+  return cv;
+}
+
+
+
+/* ══ Supabase ═══════════════════════════════════════════════ */
+// Supabase 대시보드 > Connect 에서 복사. KEY 는 Publishable key. Secret key 는 절대 넣지 말 것.
+const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
+const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
+const params = new URLSearchParams(location.search);
+const MODE = params.get('mode') === 'visitor' ? 'visitor' : params.has('demo') ? 'demo' : 'admin';
+const db = MODE !== 'demo' && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+let me = null;
+
+const $ = (id)=>document.getElementById(id);
+const esc = (s)=>String(s ?? '').replace(/[&<>"']/g, c=>({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const say = (msg)=>{ $('status').textContent = msg || ''; };
+function fail(error){ console.error(error); say(error?.message || String(error)); }
+const when = (t)=>new Date(t).toLocaleString('ko-KR', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+
+/* ── 기본 인물 · 체형 힌트 ── */
+const SEED = [
+  { name:'지은', desc:'28살 회사원',  body:{ height:162, heads:6.8, legs:0.50, shoulder:0.9,  hip:1.05, arm:1.0,  thick:1.0  }, hair:'long',  tone:'black', glasses:false },
+  { name:'도현', desc:'키 큰 직장인', body:{ height:181, heads:7.4, legs:0.52, shoulder:1.18, hip:0.95, arm:1.03, thick:1.2  }, hair:'short', tone:'black', glasses:false },
+  { name:'민아', desc:'옆자리 동료',   body:{ height:157, heads:6.4, legs:0.48, shoulder:0.92, hip:1.08, arm:0.98, thick:0.95 }, hair:'bun',   tone:'gray',  glasses:true  },
+  { name:'아이', desc:'초등학생',     body:{ height:125, heads:4.8, legs:0.44, shoulder:0.85, hip:0.9,  arm:0.95, thick:0.9  }, hair:'bob',   tone:'black', glasses:false },
+];
+// Gemini 가 준 체형 힌트(키·등신·체격) → 숫자 7개
+function hintBody(h = {}){
+  const heads = h.heads ?? 7, build = h.build || 'normal';
+  return { height:h.height ?? 165, heads, legs: heads < 5.5 ? 0.44 : heads < 6.5 ? 0.48 : 0.5,
+    shoulder: build === 'broad' ? 1.15 : build === 'slim' ? 0.9 : 1, hip:1, arm:1,
+    thick: build === 'broad' ? 1.25 : build === 'slim' ? 0.85 : 1 };
+}
+const snap = (c)=>({ name:c.name, body:c.body, hair:c.hair, tone:c.tone, glasses:!!c.glasses, from:c.id ?? null });
+const hintSnap = (sc)=>({ name:sc.name, body:hintBody(sc.body_hint), hair:sc.hair || 'short', tone:'black', glasses:false, from:null });
+
+/* ══ 인물 라이브러리 ═════════════════════════════════════════════ */
+let CHARS = [];          // { id, name, desc, body, hair, tone, glasses, mine, author }
+let selId = null, draft = null;
+const charById = (id)=>CHARS.find(c=>String(c.id) === String(id));
+const rowToChar = (r)=>({ id:r.id, name:r.name, desc:r.descr, body:r.body, hair:r.hair, tone:r.tone, glasses:r.glasses, mine:!!me && r.user_id === me.id, author:r.author_email });
+
+async function loadChars(){
+  if (MODE === 'demo'){ if (!CHARS.length) CHARS = SEED.map((c, i)=>({ ...structuredClone(c), id:'demo' + i, mine:true })); }
+  else if (MODE === 'admin'){
+    const { data, error } = await db.from('toon_characters').select('id, name, descr, body, hair, tone, glasses, user_id, author_email').order('created_at');
+    if (error) return fail(error);
+    CHARS = data.map(rowToChar);
+  }
+  if (!charById(selId)){ selId = CHARS[0]?.id ?? null; draft = CHARS[0] ? structuredClone(CHARS[0]) : null; }
+  else if (!isDirty()) draft = structuredClone(charById(selId));
+  if (!$('tab-chars').hidden) refreshChar();
+  if (current) renderCastRows();
+}
+const isDirty = ()=>!!draft && JSON.stringify(draft) !== JSON.stringify(charById(selId));
+const charFields = (c)=>({ name:c.name.slice(0, 20), descr:(c.desc || '').slice(0, 60), body:c.body, hair:c.hair, tone:c.tone, glasses:!!c.glasses });
+
+async function insertChar(c){
+  if (MODE === 'demo'){ const n = { ...structuredClone(c), id:'demo' + Date.now(), mine:true }; CHARS.push(n); return n; }
+  const { data, error } = await db.from('toon_characters').insert(charFields(c)).select('id, name, descr, body, hair, tone, glasses, user_id, author_email').single();
+  if (error){ fail(error); return null; }
+  const n = rowToChar(data); CHARS.push(n); return n;
+}
+
+$('sliders').innerHTML = BODY_KEYS.map(([k, label, mn, mx, st])=>`<div class="field"><span>${label}</span><input type="range" id="b_${k}" min="${mn}" max="${mx}" step="${st}"><output id="o_${k}"></output></div>`).join('');
+$('fHair').innerHTML = Object.entries(HAIRS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+$('fTone').innerHTML = Object.entries(TONES).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('');
+const PREVIEW_POSES = [['stand:calm','서기'],['stand:joy','서기·기쁨'],['walk:calm','걷기'],['run:calm','뛰기'],['sit:calm','앉기'],['x:대화: 말하기','말하기']];
+$('cPose').innerHTML = PREVIEW_POSES.map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+const EDIT_IDS = ['fName','fDesc','fHair','fTone','fGlasses', ...BODY_KEYS.map(([k])=>'b_' + k)];
+
+function fillEditor(){
+  if (!draft) return;
+  $('fName').value = draft.name; $('fDesc').value = draft.desc || '';
+  for (const [k,,,,,fmt] of BODY_KEYS){ $('b_' + k).value = draft.body[k]; $('o_' + k).textContent = fmt(draft.body[k]); }
+  $('fHair').value = draft.hair; $('fTone').value = draft.tone; $('fGlasses').value = draft.glasses ? '1' : '';
+  for (const id of EDIT_IDS) $(id).disabled = !draft.mine;
+  $('ownerNote').textContent = draft.mine ? '' : `${draft.author || '다른 팀원'}님의 인물이라 보기만 됩니다. 고치려면 [복제]하세요.`;
+}
+function renderList(){
+  $('clist').innerHTML = CHARS.map(c=>`<button data-id="${c.id}" class="${String(c.id) === String(selId) ? 'on' : ''}">${esc(c.name)}${String(c.id) === String(selId) && isDirty() ? ' ·' : ''}<small>${c.body.height}cm · ${(+c.body.heads).toFixed(1)}등신 · ${HAIRS[c.hair]}${c.mine ? '' : ' · 팀원'}</small></button>`).join('');
+  $('clist').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    if (isDirty() && !confirm('저장하지 않은 변경이 있습니다. 버리고 넘어갈까요?')) return;
+    selId = b.dataset.id; draft = structuredClone(charById(selId)); fillEditor(); refreshChar();
+  });
+  $('cSeed').hidden = !!CHARS.length || MODE !== 'admin';
+  $('cSave').disabled = !isDirty(); $('cRevert').disabled = !isDirty();
+  $('cDup').disabled = !draft; $('cDel').disabled = !draft?.mine;
+  $('saveState').textContent = MODE === 'demo' ? '데모: 인물은 이 창에서만 유지됩니다' : isDirty() ? '저장하지 않은 변경이 있습니다' : `팀 인물 ${CHARS.length}명`;
+}
+function onEdit(){
+  if (!draft?.mine) return;
+  draft.name = $('fName').value.trim() || '이름 없음'; draft.desc = $('fDesc').value.trim();
+  for (const [k,,,,,fmt] of BODY_KEYS){ draft.body[k] = +$('b_' + k).value; $('o_' + k).textContent = fmt(draft.body[k]); }
+  draft.hair = $('fHair').value; draft.tone = $('fTone').value; draft.glasses = !!$('fGlasses').value;
+  refreshChar();
+}
+EDIT_IDS.forEach(id=>$(id).addEventListener('input', onEdit));
+$('cPose').onchange = ()=>drawPreview();
+
+$('cSave').onclick = async ()=>{
+  if (!draft?.mine) return;
+  if (MODE !== 'demo'){
+    const { error } = await db.from('toon_characters').update({ ...charFields(draft), updated_at:new Date().toISOString() }).eq('id', draft.id);
+    if (error) return fail(error);
+  }
+  const i = CHARS.findIndex(c=>String(c.id) === String(selId)); CHARS[i] = structuredClone(draft); refreshChar();
+};
+$('cRevert').onclick = ()=>{ draft = structuredClone(charById(selId)); fillEditor(); refreshChar(); };
+const pickNew = (c)=>{ if (!c) return; selId = c.id; draft = structuredClone(c); fillEditor(); refreshChar(); };
+$('cNew').onclick = async ()=>pickNew(await insertChar({ name:'새 인물', desc:'', body:{ height:170, heads:7, legs:0.5, shoulder:1, hip:1, arm:1, thick:1 }, hair:'short', tone:'black', glasses:false }));
+$('cDup').onclick = async ()=>draft && pickNew(await insertChar({ ...draft, name:(draft.name + ' 복사').slice(0, 20) }));
+$('cDel').onclick = async ()=>{
+  if (!draft?.mine || !confirm(`'${draft.name}'을(를) 삭제할까요? 이미 만든 웹툰의 배역은 그대로 남습니다.`)) return;
+  if (MODE !== 'demo'){ const { error } = await db.from('toon_characters').delete().eq('id', draft.id); if (error) return fail(error); }
+  CHARS = CHARS.filter(c=>String(c.id) !== String(draft.id)); selId = CHARS[0]?.id ?? null; draft = CHARS[0] ? structuredClone(CHARS[0]) : null; fillEditor(); refreshChar();
+};
+$('cSeed').onclick = async ()=>{ $('cSeed').disabled = true; const made = []; for (const c of SEED) made.push(await insertChar(c)); $('cSeed').disabled = false; pickNew(made.find(Boolean)); };
+
+function refreshChar(){
+  renderList();
+  if (!draft){ $('cStat').textContent = '인물이 없습니다. [새 인물]이나 [기본 인물 4명 넣기]로 시작하세요.'; return; }
+  const B = deriveBody(draft.body);
+  $('cStat').textContent = `머리 지름 ${Math.round(B.headR*2/10)}cm · 다리 ${Math.round(B.legReal/10)}cm · 어깨 ${Math.round(B.shHalf*2/10)}cm · 팔 ${Math.round((B.upper + B.fore)/10)}cm`;
+  drawPreview(); drawLineup();
+}
+function studio(){
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xdddddd, 2));
+  box(scene, 6000, 10, 1600, 0, -10, 0, 0xEFEFEF, { edge:false });
+  for (const h of [1000, 1500, 1800]) box(scene, 6000, 6, 6, 0, h, -500, 0xD5D5D5, { edge:false });
+  return scene;
+}
+function shoot(canvas, scene, w, h, pos, tgt, fov=22){
+  const cam = new THREE.PerspectiveCamera(fov, w/h, 50, 50000); cam.position.set(...pos); cam.lookAt(...tgt);
+  off.setPixelRatio(DPR); off.setSize(w, h); off.render(scene, cam);
+  canvas.width = w*DPR; canvas.height = h*DPR; canvas.getContext('2d').drawImage(off.domElement, 0, 0);
+  return cam;
+}
+function drawPreview(){
+  if (!draft) return;
+  const scene = studio(), p = poseFromKey($('cPose').value);
+  [[0, -1100], [-0.6, 0], [-PI/2, 1100]].forEach(([ry, x])=>{ const f = makeFigure(p, draft).g; f.position.x = x; f.rotation.y = ry; scene.add(f); });
+  const cv = $('cPreview'), cam = shoot(cv, scene, 720, 420, [0, 1000, 5600], [0, 880, 0]);
+  const ctx = cv.getContext('2d'); ctx.font = `400 ${12*DPR}px ${FONT}`; ctx.fillStyle = '#9a9a9a';
+  for (const hh of [1000, 1500, 1800]){ const q = new THREE.Vector3(-2900, hh, -500).project(cam); ctx.fillText(`${hh/10}cm`, 8*DPR, (1 - q.y)/2*cv.height - 4); }
+  disposeScene(scene);
+}
+function drawLineup(){
+  const scene = studio(), list = CHARS.map(c=>String(c.id) === String(selId) ? draft : c).slice(0, 12), gap = 750;
+  list.forEach((c, i)=>{ const f = makeFigure(poseFromKey('stand:calm'), c).g; f.position.x = (i - (list.length - 1)/2)*gap; scene.add(f); });
+  const cv = $('cLineup'), span = Math.max(2200, list.length*gap);
+  const cam = shoot(cv, scene, 720, 300, [0, 1000, span*1.55 + 2500], [0, 850, 0], 24);
+  const ctx = cv.getContext('2d'); ctx.font = `600 ${12*DPR}px ${FONT}`; ctx.textAlign = 'center';
+  list.forEach((c, i)=>{ const q = new THREE.Vector3((i - (list.length - 1)/2)*gap, 0, 300).project(cam);
+    ctx.fillStyle = String(c.id) === String(selId) ? '#C2412D' : '#333'; ctx.fillText(`${c.name} ${c.body.height}`, (q.x + 1)/2*cv.width, (1 - q.y)/2*cv.height + 16*DPR); });
+  disposeScene(scene);
+}
+
+/* ══ 배경 탭 ══ */
+/* ══ 12. 배경 탭 ═════════════════════════════════════════════ */
+let setsReady = false, curSet = SETS[0], setScene = null;
+const viewR = new THREE.WebGLRenderer({ canvas:$('setView'), antialias:true });
+viewR.setPixelRatio(Math.min(2, devicePixelRatio)); viewR.shadowMap.enabled = true; viewR.shadowMap.type = THREE.PCFSoftShadowMap;
+const viewCam = new THREE.PerspectiveCamera(40, 16/10, 50, 300000);
+const orbit = new OrbitControls(viewCam, $('setView')); orbit.enableDamping = true;
+const DEMO_CAST = { sit:'sit:calm', lie:'lie:calm', stand:'stand:calm', walk:'walk:calm' };
+function loadSet(s){
+  curSet = s;
+  if (setScene) disposeScene(setScene);
+  setScene = new THREE.Scene(); lights(setScene, s, 'day');
+  const g = new THREE.Group(); s.make(g); setScene.add(g);
+  if ($('setCast').checked) s.slots.forEach((sl, i)=>{ const ch = CHARS[i % CHARS.length]; actor({ who:'x', slot:sl.id, pose:DEMO_CAST[sl.type] }, setScene, s, { x:ch }); });
+  viewCam.fov = s.fov || 40; viewCam.updateProjectionMatrix();
+  viewCam.position.set(...s.cam.pos); orbit.target.set(...s.cam.tgt); orbit.update();
+  $('setTitle').textContent = `${s.ko} · ${s.en}`; $('setDesc').textContent = s.desc;
+  const typeKo = { sit:'앉기', lie:'눕기', stand:'서기', walk:'걷기·뛰기' };
+  $('setObjs').innerHTML = `<b>객체 ${s.objects.length}개</b><ol>${s.objects.map(o=>`<li>${o}</li>`).join('')}</ol><b>인물 자리</b><ol type="A">${s.slots.map(sl=>`<li>${sl.label} (${typeKo[sl.type]})</li>`).join('')}</ol>`;
+  document.querySelectorAll('.thumb').forEach(t=>t.classList.toggle('on', t.dataset.id === s.id));
+}
+function openSets(){
+  if (setsReady){ resizeView(); return; }
+  setsReady = true;
+  const tr = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true }); tr.setSize(320, 200); tr.shadowMap.enabled = true;
+  for (const s of SETS){
+    const el = document.createElement('div'); el.className = 'thumb'; el.dataset.id = s.id;
+    el.innerHTML = `<canvas width="320" height="200"></canvas><div>${s.ko}<small>${s.objects.length}개</small></div>`;
+    el.onclick = ()=>loadSet(s); $('thumbs').appendChild(el);
+    const sc = new THREE.Scene(); lights(sc, s, 'day'); const g = new THREE.Group(); s.make(g); sc.add(g);
+    const cam = new THREE.PerspectiveCamera(s.fov || 40, 16/10, 50, 300000); cam.position.set(...s.cam.pos); cam.lookAt(...s.cam.tgt);
+    tr.render(sc, cam); el.querySelector('canvas').getContext('2d').drawImage(tr.domElement, 0, 0); disposeScene(sc);
+  }
+  tr.dispose();
+  resizeView(); loadSet(SETS[0]);
+  viewR.setAnimationLoop(()=>{ if ($('tab-sets').hidden) return; orbit.update(); viewR.render(setScene, viewCam); });
+}
+function resizeView(){ const c = $('setView'), w = c.clientWidth || 720; viewR.setSize(w, Math.round(w*10/16), false); viewCam.aspect = 16/10; viewCam.updateProjectionMatrix(); }
+addEventListener('resize', ()=>{ if (setsReady) resizeView(); });
+$('setWide').onclick = ()=>loadSet(curSet);
+$('setCast').onchange = ()=>loadSet(curSet);
+
+
+
+/* ══ 웹툰: 만들기 · 목록 · 보기 ═════════════════════════════════════ */
+const EXTRA_NAMES = ['대화: 말하기', '대화: 듣기', '손 흔들기', '가리키기', '생각', '놀람'];
+// 서버(Gemini)에 알려 줄 장소·자리 목록. 서버는 이 목록 밖의 값을 바로잡음
+const catalog = ()=>({ locations: SETS.map(s=>({ id:s.id, ko:s.ko, slots:s.slots.map(({ id, type, label })=>({ id, type, label })) })), extras: EXTRA_NAMES });
+
+let current = null;          // { id, plot, title, story, cast, model, user_id, mine }
+let STORIES = [];
+const DEMO_ID = 'demo';
+
+async function make(plot){
+  const btn = $('makeBtn'); btn.disabled = true; btn.textContent = '만드는 중'; say('Gemini가 콘티를 짜는 중입니다 (30초쯤)…');
+  const { data, error } = await db.functions.invoke('stick-toon', { body:{ plot, catalog:catalog() } });
+  btn.disabled = false; btn.textContent = '만들기';
+  if (error){
+    let message = error.message;
+    try { const body = await error.context.json(); if (body.error) message = body.error; } catch (_) {}
+    return fail({ message });
+  }
+  say('');
+  const story = { characters:data.characters, pages:data.pages };
+  // 배역: 같은 이름의 저장된 인물이 있으면 그 체형, 없으면 Gemini 가 제안한 체형
+  const cast = {};
+  for (const c of story.characters){ const lib = CHARS.find(x=>x.name === c.name); cast[c.id] = lib ? snap(lib) : hintSnap(c); }
+  const { data:row, error:e2 } = await db.from('toon_stories')
+    .insert({ plot, title:data.title, story, cast, model:data.model }).select('id, plot, title, story, cast, model, user_id, is_public, created_at').single();
+  if (e2) return fail({ message:`저장하지 못했습니다: ${e2.message}` });
+  $('plot').value = '';
+  await loadStories();
+  openStory(row);
+}
+
+async function loadStories(){
+  if (MODE === 'demo'){ STORIES = [{ id:DEMO_ID, plot:SAMPLE.plot, title:SAMPLE.title, mine:true, created_at:new Date().toISOString() }]; renderStoryList(); return STORIES; }
+  let q = db.from('toon_stories');
+  q = MODE === 'visitor' ? q.select('id, title, plot, created_at').eq('is_public', true)
+                         : q.select('id, title, plot, user_id, author_email, is_public, created_at');
+  const { data, error } = await q.order('created_at', { ascending:false }).limit(40);
+  if (error){ fail(error); return []; }
+  STORIES = data.map(r=>({ ...r, mine:!!me && r.user_id === me.id }));
+  renderStoryList();
+  return STORIES;
+}
+function renderStoryList(){
+  $('storyList').innerHTML = STORIES.length ? STORIES.map(s=>`<li data-id="${s.id}" class="${current && String(current.id) === String(s.id) ? 'on' : ''}">
+    <div class="main"><div class="t">${esc(s.title)}</div><div class="p">${esc(s.plot)}</div><div class="m">${MODE === 'admin' ? esc(s.author_email || '') + ' · ' : ''}${when(s.created_at)}</div></div>
+    ${MODE === 'admin' && s.mine ? `<button class="pub ${s.is_public ? 'on' : ''}" data-pub="${s.id}">${s.is_public ? '공개' : '비공개'}</button><button class="del" data-del="${s.id}" aria-label="삭제">×</button>` : ''}
+  </li>`).join('') : `<li class="m">${MODE === 'visitor' ? '공개된 웹툰이 아직 없습니다.' : '아직 만든 웹툰이 없습니다.'}</li>`;
+  $('storyList').querySelectorAll('.main').forEach(el=>el.onclick=()=>openSaved(el.parentElement.dataset.id));
+  $('storyList').querySelectorAll('[data-pub]').forEach(b=>b.onclick=async ()=>{
+    const s = STORIES.find(x=>String(x.id) === b.dataset.pub);
+    const { error } = await db.from('toon_stories').update({ is_public:!s.is_public }).eq('id', s.id);
+    if (error) return fail(error); loadStories();
+  });
+  $('storyList').querySelectorAll('[data-del]').forEach(b=>b.onclick=async ()=>{
+    const s = STORIES.find(x=>String(x.id) === b.dataset.del);
+    if (!confirm(`'${s.title}'을(를) 삭제할까요?`)) return;
+    const { error } = await db.from('toon_stories').delete().eq('id', s.id);
+    if (error) return fail(error);
+    if (current && String(current.id) === String(s.id)){ current = null; ['meta','castBox','strip'].forEach(id=>$(id).hidden = true); $('toc').innerHTML = ''; }
+    loadStories();
+  });
+}
+async function openSaved(id){
+  if (MODE === 'demo'){
+    const story = { characters:SAMPLE.characters.map(c=>({ ...c, body_hint:{ height:165, heads:7 } })), pages:SAMPLE.pages };
+    const cast = {}; for (const c of story.characters){ const lib = CHARS.find(x=>x.name === c.name); cast[c.id] = lib ? snap(lib) : hintSnap(c); }
+    return openStory({ id:DEMO_ID, plot:SAMPLE.plot, title:SAMPLE.title, story, cast, model:'예시 (서버 없이)', user_id:null });
+  }
+  const { data, error } = await db.from('toon_stories').select(MODE === 'visitor' ? 'id, plot, title, story, cast, model' : 'id, plot, title, story, cast, model, user_id').eq('id', id).single();
+  if (error) return fail(error);
+  openStory(data);
+}
+function openStory(row){
+  current = { ...row, mine: MODE === 'demo' || (!!me && row.user_id === me.id) };
+  for (const c of current.story.characters) if (!current.cast[c.id]) current.cast[c.id] = hintSnap(c);
+  $('meta').hidden = false; $('sTitle').textContent = current.title; $('sPlot').textContent = current.plot + (current.model ? ` · ${current.model}` : '');
+  $('toc').innerHTML = `<h2>페이지</h2><ol>${current.story.pages.map(p=>`<li><b>${esc(p.summary)}</b> · ${p.panels.length}컷 · ${[...new Set(p.panels.map(x=>SC[x.location]?.ko || x.location))].join(', ')}</li>`).join('')}</ol>`;
+  renderCastRows(); renderStoryList();
+  drawStory();
+}
+// 배역 줄: 역 이름 · 고른 인물 · (제안 체형이면) 인물로 저장
+function renderCastRows(){
+  if (!current) return;
+  $('castBox').hidden = false;
+  const canEdit = current.mine && MODE !== 'visitor';
+  $('castRows').innerHTML = current.story.characters.map(c=>{
+    const v = current.cast[c.id], val = v.from != null && charById(v.from) ? String(v.from) : 'hint';
+    // 'hint' 칸: 라이브러리에 없는 체형(Gemini 제안, 또는 지워진 인물의 저장 당시 사본)
+    const kept = val === 'hint' ? v : hintSnap(c), keptName = v.from != null && val === 'hint' ? esc(v.name) + ' (저장 당시 체형)' : '제안 체형';
+    const opts = [`<option value="hint" ${val === 'hint' ? 'selected' : ''}>${keptName} · ${kept.body.height}cm ${(+kept.body.heads).toFixed(1)}등신</option>`]
+      .concat(MODE === 'visitor' ? [] : CHARS.map(x=>`<option value="${x.id}" ${String(x.id) === val ? 'selected' : ''}>${esc(x.name)} · ${x.body.height}cm ${(+x.body.heads).toFixed(1)}등신</option>`));
+    return `<div class="crow"><span><b>${esc(c.name)}</b><small>${esc(c.desc || '')}</small></span>
+      <select data-who="${c.id}" ${canEdit ? '' : 'disabled'}>${opts.join('')}</select>
+      ${canEdit && val === 'hint' && MODE === 'admin' ? `<button class="b" data-keep="${c.id}">인물로 저장</button>` : '<span></span>'}</div>`;
+  }).join('');
+  $('redraw').hidden = MODE === 'visitor';
+  $('castRows').querySelectorAll('select').forEach(sel=>sel.onchange=async ()=>{
+    const c = current.story.characters.find(x=>x.id === sel.dataset.who);
+    current.cast[c.id] = sel.value === 'hint' ? hintSnap(c) : snap(charById(sel.value));
+    await saveCast(); renderCastRows();
+  });
+  $('castRows').querySelectorAll('[data-keep]').forEach(b=>b.onclick=async ()=>{
+    const c = current.story.characters.find(x=>x.id === b.dataset.keep), v = current.cast[c.id];
+    const n = await insertChar({ name:c.name, desc:c.desc || '', body:v.body, hair:v.hair, tone:v.tone, glasses:v.glasses });
+    if (!n) return;
+    current.cast[c.id] = snap(n); await saveCast(); renderCastRows(); say(`'${n.name}'을(를) 인물에 저장했습니다. [인물] 탭에서 다듬을 수 있어요.`);
+  });
+}
+async function saveCast(){
+  if (MODE !== 'admin' || !current.mine) return;
+  const { error } = await db.from('toon_stories').update({ cast:current.cast }).eq('id', current.id);
+  if (error) fail(error);
+}
+
+let drawToken = 0;
+async function drawStory(){
+  const token = ++drawToken, st = current.story;
+  const chMap = {}, names = {};
+  for (const c of st.characters){ chMap[c.id] = current.cast[c.id]; names[c.id] = { name:c.name }; }
+  STORY = { title:current.title, plot:current.plot, characters:st.characters, pages:st.pages };   // 휴대폰 화면의 상대 이름용
+  const strip = $('strip'); strip.innerHTML = ''; strip.hidden = false;
+  const total = st.pages.reduce((n,p)=>n + p.panels.length, 0); let done = 0;
+  await document.fonts.load(`800 40px "Noto Sans KR"`).catch(()=>{});
+  for (const [i, page] of st.pages.entries()){
+    const el = document.createElement('section'); el.className = 'page';
+    el.innerHTML = `<div class="no">PAGE ${String(i+1).padStart(2,'0')}</div>`; strip.appendChild(el);
+    for (const panel of page.panels){
+      if (token !== drawToken) return;            // 다른 웹툰을 열었으면 멈춤
+      try { el.appendChild(renderPanel(panel, chMap, names)); }
+      catch (e){ console.error(e); const d = document.createElement('div'); d.className = 'note'; d.textContent = '컷 오류: ' + e.message; el.appendChild(d); }
+      $('progress').textContent = `${++done} / ${total}컷`;
+      await new Promise(r=>requestAnimationFrame(r));
+    }
+  }
+  $('progress').textContent = `${total}컷`;
+}
+$('redraw').onclick = ()=>current && drawStory();
+
+/* ══ 탭 · 시작 ═══════════════════════════════════════════════ */
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on', x === b));
+  for (const t of ['toon','chars','sets']) $('tab-' + t).hidden = t !== b.dataset.tab;
+  if (b.dataset.tab === 'chars'){ if (!draft && CHARS[0]){ selId = CHARS[0].id; draft = structuredClone(CHARS[0]); } fillEditor(); refreshChar(); }
+  if (b.dataset.tab === 'sets') openSets();
+});
+$('form').addEventListener('submit', e=>{ e.preventDefault(); const plot = $('plot').value.trim(); if (plot) make(plot); });
+$('plot').addEventListener('keydown', e=>{ if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('form').requestSubmit(); });
+
+async function applyUser(user){
+  if (!user) return location.replace('../admin.html');
+  me = user; $('who').hidden = false; $('email').textContent = user.email; $('form').hidden = false;
+  await loadChars(); await loadStories();
+}
+
+async function start(){
+  if (MODE === 'demo'){
+    $('intro').textContent = '데모: 서버 없이 예시 한 편을 그립니다. [만들기]와 저장은 Admin에서 로그인한 뒤에 됩니다.';
+    await loadChars(); await loadStories(); openSaved(DEMO_ID); return;
+  }
+  if (!db) return say('Supabase를 불러오지 못했습니다.');
+  if (MODE === 'visitor'){
+    $('back').href = '../visitor.html'; $('tabs').hidden = true; $('listTitle').textContent = '웹툰 목록';
+    $('intro').textContent = '막대 인형으로 그린 10페이지 웹툰입니다.';
+    db.channel('toon_stories').on('postgres_changes', { event:'*', schema:'public', table:'toon_stories' }, loadStories).subscribe();
+    const rows = await loadStories(); if (rows.length) openSaved(rows[0].id);
+    return;
+  }
+  $('logout').onclick = ()=>db.auth.signOut();
+  db.auth.onAuthStateChange((event, session)=>{
+    if (['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT'].includes(event)) setTimeout(()=>applyUser(session ? session.user : null), 0);
+  });
+  db.channel('toon_stories').on('postgres_changes', { event:'*', schema:'public', table:'toon_stories' }, ()=>me && loadStories()).subscribe();
+  db.channel('toon_characters').on('postgres_changes', { event:'*', schema:'public', table:'toon_characters' }, ()=>me && loadChars()).subscribe();
+}
+start();
+</script>
+</body>
+</html>
