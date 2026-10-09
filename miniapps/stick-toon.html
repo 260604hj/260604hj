@@ -695,7 +695,7 @@ function tableSet(g, round){
 
 /* 장소: build(r, O, S) — O(이름, x, z, ry, fn)이 객체 하나, S(id, 유형, 이름, x, y, z, ry)가 인물 자리 */
 const SETS = [
-  { id:'home', ko:'집', en:'Home', desc:'원룸. 소파에서 TV, 침대, 거실 한가운데.', cam:{ pos:[3700,2400,5600], tgt:[-200,900,0] }, shadow:4500,
+  { id:'home', ko:'집', en:'Home', desc:'원룸. 소파에서 TV, 침대, 거실 한가운데.', cam:{ pos:[3700,2400,5600], tgt:[-200,900,0] }, room:{ x:[-2380, 9e4], z:[-1880, 9e4], y:2350 }, shadow:4500,
     build(r, O, S){
       O('바닥', 0, 0, 0, g=>box(g, 5000, 40, 4000, 0, -40, 0, G.floor));
       O('뒷벽 + 창 + 문', 60, -2060, 0, g=>wall(g, 5120, 2500, 120, [{ x:100, w:1400, y:900, h:1150 }, { x:1700, w:900, y:0, h:2100, door:true }], G.wall));
@@ -710,12 +710,12 @@ const SETS = [
       S('A','sit','소파 왼쪽', 900, 0, 1350, -PI/2); S('B','sit','소파 오른쪽', 900, 0, 450, -PI/2);
       S('C','lie','침대', -1500, 500, -950, 0); S('D','stand','방 가운데', -200, 0, -200, 0.3);
     } },
-  { id:'restaurant', ko:'음식점', en:'Restaurant', desc:'사각 테이블 식당. 마주 앉아 밥 먹는 장면.', cam:{ pos:[3900,2400,5600], tgt:[-500,900,0] }, shadow:6000,
+  { id:'restaurant', ko:'음식점', en:'Restaurant', desc:'사각 테이블 식당. 마주 앉아 밥 먹는 장면.', cam:{ pos:[3900,2400,5600], tgt:[-500,900,0] }, room:{ x:[-3380, 9e4], z:[-2380, 9e4], y:2750 }, shadow:6000,
     build(r, O, S){
       O('바닥', 0, 0, 0, g=>box(g, 7000, 40, 5000, 0, -40, 0, G.floor));
       O('뒷벽', 60, -2560, 0, g=>wall(g, 7120, 2900, 120, [], G.wall));
       O('왼벽 + 창', -3560, 0, PI/2, g=>wall(g, 5000, 2900, 120, [{ x:-1200, w:1600, y:900, h:1300 }, { x:1200, w:1600, y:900, h:1300 }], G.wall));
-      O('주방 카운터', 1800, -2050, 0, g=>{ box(g, 3000, 1000, 700, 0, 0, 0, G.dark); box(g, 3100, 40, 800, 0, 1000, 0, G.white); box(g, 2000, 500, 500, 0, 2200, -150, G.mid); });
+      O('주방 카운터', 1800, -2050, 0, g=>{ box(g, 3000, 1000, 700, 0, 0, 0, G.dark); box(g, 3100, 40, 800, 0, 1000, 0, G.white); });
       O('메뉴판', -600, -2470, 0, g=>{ box(g, 2200, 800, 40, 0, 1500, 0, G.black); for (let i = 0; i < 3; i++) box(g, 1600, 24, 10, 0, 1680 + i*180, 25, G.white, { edge:false }); });
       O('테이블 1', -1600, -400, 0, g=>tableSet(g));
       O('테이블 2', -1600, 1500, 0, g=>tableSet(g));
@@ -725,7 +725,7 @@ const SETS = [
       S('A','sit','테이블1 왼쪽', -2250, 0, -400, PI/2); S('B','sit','테이블1 오른쪽', -950, 0, -400, -PI/2);
       S('C','stand','카운터 앞', 1800, 0, -1300, 0); S('D','sit','안쪽 테이블', -350, 0, 700, PI/2);
     } },
-  { id:'cafe', ko:'카페', en:'Cafe', desc:'카운터와 원형 테이블, 큰 창.', cam:{ pos:[3700,2400,5300], tgt:[-400,1000,-100] }, shadow:6000,
+  { id:'cafe', ko:'카페', en:'Cafe', desc:'카운터와 원형 테이블, 큰 창.', cam:{ pos:[3700,2400,5300], tgt:[-400,1000,-100] }, room:{ x:[-3130, 9e4], z:[-2380, 9e4], y:2850 }, shadow:6000,
     build(r, O, S){
       O('바닥', 0, 0, 0, g=>box(g, 6500, 40, 5000, 0, -40, 0, G.floor));
       O('뒷벽', 60, -2560, 0, g=>wall(g, 6620, 3000, 120, [], G.wall));
@@ -740,7 +740,7 @@ const SETS = [
       S('A','sit','창가 테이블 왼쪽', -2150, 0, 300, PI/2); S('B','sit','창가 테이블 오른쪽', -850, 0, 300, -PI/2);
       S('C','stand','카운터 앞', 1500, 0, -1050, PI); S('D','sit','안쪽 테이블', -650, 0, 1500, PI/2);
     } },
-  { id:'office', ko:'사무실', en:'Office', desc:'책상 두 줄, 모니터, 정수기.', cam:{ pos:[4300,2700,5500], tgt:[0,900,-500] }, shadow:6000,
+  { id:'office', ko:'사무실', en:'Office', desc:'책상 두 줄, 모니터, 정수기.', cam:{ pos:[4300,2700,5500], tgt:[0,900,-500] }, room:{ x:[-3380, 9e4], z:[-2630, 9e4], y:2650 }, shadow:6000,
     build(r, O, S){
       O('바닥', 0, 0, 0, g=>box(g, 7000, 40, 5500, 0, -40, 0, G.floor));
       O('뒷벽 + 창', 60, -2810, 0, g=>wall(g, 7120, 2800, 120, [{ x:-1800, w:2400, y:850, h:1400 }, { x:1800, w:2400, y:850, h:1400 }], G.wall));
@@ -762,7 +762,7 @@ const SETS = [
       S('A','sit','앞줄 왼쪽 자리', -750, 0, -600, PI); S('B','sit','앞줄 오른쪽 자리', 750, 0, -600, PI);
       S('C','stand','정수기 앞', 2600, 0, -1700, -PI/2); S('D','stand','A 자리 옆 통로', 0, 0, -150, -2.11);
     } },
-  { id:'subway', ko:'지하철', en:'Subway', desc:'객차 안. 양쪽 긴 의자와 손잡이.', cam:{ pos:[0,1550,4800], tgt:[0,1050,-4000] }, fov:55, shadow:7000,
+  { id:'subway', ko:'지하철', en:'Subway', desc:'객차 안. 양쪽 긴 의자와 손잡이.', cam:{ pos:[0,1550,4800], tgt:[0,1050,-4000] }, fov:55, room:{ x:[-1380, 1380], z:[-4880, 9e4], y:2150 }, shadow:7000,
     build(r, O, S){
       const Lc = 10000, W = 3000, H = 2300;
       const ops = (sign)=>[-3500, 0, 3500].map(z=>({ x:z*sign, w:1300, y:0, h:1950, door:true, panel:G.mid }))
@@ -781,7 +781,7 @@ const SETS = [
       S('A','sit','왼쪽 좌석', -1400, 0, -1200, PI/2); S('B','sit','오른쪽 좌석', 1400, 0, -2300, -PI/2);
       S('C','stand','통로', 300, 0, 1300, -0.25);
     } },
-  { id:'train', ko:'기차', en:'Train', desc:'2+2 좌석 객실. 나란히 앉은 두 사람.', cam:{ pos:[0,1500,4900], tgt:[0,1000,-4000] }, fov:55, shadow:7000,
+  { id:'train', ko:'기차', en:'Train', desc:'2+2 좌석 객실. 나란히 앉은 두 사람.', cam:{ pos:[0,1500,4900], tgt:[0,1000,-4000] }, fov:55, room:{ x:[-1380, 1380], z:[-4880, 9e4], y:2250 }, shadow:7000,
     build(r, O, S){
       const Lc = 10000, W = 3000, H = 2400, rows = [-3600, -2400, -1200, 0, 1200, 2400];
       const win = (sign)=>rows.map(z=>({ x:z*sign, w:1000, y:950, h:700 }));
@@ -946,13 +946,20 @@ function cameraFor(panel, s, actors, aspect){
     const right = new THREE.Vector3().subVectors(tgt, pos).cross(UP).normalize(), k = pos.distanceTo(tgt) * Math.tan(rad(cam.fov/2)) * aspect * 0.42;   // 인물을 화면 왼쪽 1/4쯤으로
     pos.addScaledVector(right, k); tgt.addScaledVector(right, k);
   }
+  if (s.room && panel.shot !== 'wide'){                       // 실내: 카메라가 벽 밖으로 나가지 않게
+    pos.x = Math.min(s.room.x[1], Math.max(s.room.x[0], pos.x));
+    pos.z = Math.min(s.room.z[1], Math.max(s.room.z[0], pos.z));
+    pos.y = Math.min(s.room.y, pos.y);
+  }
   cam.position.copy(pos); cam.lookAt(tgt); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
   return { cam, tgt };
 }
-// 카메라와 인물 사이를 막는 세트 조각은 감춤 (웹툰식 단면):
-// 인물보다 카메라에 가깝고, 화면에서 인물이 차지하는 범위와 겹치는 조각
+// 카메라와 인물 사이를 막는 세트 조각은 감춤 (웹툰식 단면)
+// - 카메라가 안에 들어가 있는 조각
+// - 카메라 앞에 통째로 있고, 인물보다 가까우며, 화면에서 인물 자리와 겹치는 조각 (나무·모니터 등)
+// - 카메라 뒤까지 이어지는 큰 조각(벽·천장·의자 줄)은 인물로 가는 시선을 실제로 가로막을 때만
 function cutaway(setGroup, cam, actors){
-  const pts = actors.flatMap(a=>[a.head, a.chest, new THREE.Vector3(a.head.x, a.feet, a.head.z)]);
+  const pts = actors.flatMap(a=>[a.head, a.chest, new THREE.Vector3(a.head.x, (a.head.y + a.feet)/2, a.head.z), new THREE.Vector3(a.head.x, a.feet + 80, a.head.z)]);
   if (!pts.length) return;
   let x0 = 1, x1 = -1, y0 = 1, y1 = -1, near = Infinity;
   for (const p of pts){
@@ -961,7 +968,8 @@ function cutaway(setGroup, cam, actors){
     near = Math.min(near, p.distanceTo(cam.position));
   }
   x0 -= 0.12; x1 += 0.12; y0 -= 0.08; y1 += 0.18;
-  const box = new THREE.Box3(), c = new THREE.Vector3();
+  const rays = pts.map(p=>({ ray:new THREE.Ray(cam.position.clone(), p.clone().sub(cam.position).normalize()), len:p.distanceTo(cam.position) }));
+  const box = new THREE.Box3(), c = new THREE.Vector3(), hit = new THREE.Vector3();
   setGroup.traverse(o=>{
     if (!o.isMesh) return;
     box.setFromObject(o);
@@ -975,7 +983,8 @@ function cutaway(setGroup, cam, actors){
       c.project(cam);
       a0 = Math.min(a0, c.x); a1 = Math.max(a1, c.x); b0 = Math.min(b0, c.y); b1 = Math.max(b1, c.y);
     }
-    if (behind || (a1 > x0 && a0 < x1 && b1 > y0 && b0 < y1)) o.visible = false;
+    const blocks = rays.some(({ ray, len })=>ray.intersectBox(box, hit) && hit.distanceTo(cam.position) < len - 150);
+    if (behind ? blocks : (a1 > x0 && a0 < x1 && b1 > y0 && b0 < y1)) o.visible = false;
   });
 }
 
@@ -1594,7 +1603,7 @@ async function drawStory(){
       try { el.appendChild(renderPanel(panel, chMap, names)); }
       catch (e){ console.error(e); const d = document.createElement('div'); d.className = 'note'; d.textContent = '컷 오류: ' + e.message; el.appendChild(d); }
       $('progress').textContent = `${++done} / ${total}컷`;
-      await new Promise(r=>requestAnimationFrame(r));
+      await new Promise(r=>setTimeout(r, 0));
     }
   }
   $('progress').textContent = `${total}컷`;

@@ -111,6 +111,14 @@ ${cat.locations.map((l) => `  ${l.id}(${l.ko}): ` + l.slots.map((s) => `${s.id}=
 [제목] title: 한국어 짧은 제목.`;
 }
 
+// 응답 형식(responseSchema)을 Gemini 가 받지 않을 때(400) 프롬프트에 붙이는 모양 예시
+const SHAPE_EXAMPLE = `
+
+[응답 모양] 아래 모양의 JSON 하나만 출력하세요 (pages는 정확히 ${PAGES}개, 설명 글 없이).
+{"title":"...","characters":[{"id":"jieun","name":"지은","desc":"28살 회사원","hair":"long","body_hint":{"height":162,"heads":6.8,"build":"slim"}}],
+ "pages":[{"summary":"...","panels":[{"size":"wide","location":"street","time":"morning","shot":"wide","camera":{},
+   "cast":[{"who":"jieun","slot":"A","pose":"walk:calm"}],"bubbles":[{"kind":"narration","text":"..."}],"fx":"none"}]}]}`;
+
 function responseSchema(cat: Catalog) {
   const S = (e?: string[]) => (e ? { type: "STRING", enum: e } : { type: "STRING" });
   return {
@@ -298,17 +306,26 @@ async function currentUser(req: Request) {
   return res.ok ? await res.json() : null;
 }
 
-async function askGemini(model: string, apiKey: string, plot: string, cat: Catalog) {
+// withSchema=false: 응답 형식 없이 JSON 모드만 (값은 cleanStory 가 어차피 바로잡음)
+async function askGemini(model: string, apiKey: string, plot: string, cat: Catalog, withSchema: boolean) {
+  const generationConfig: Record<string, unknown> = { responseMimeType: "application/json" };
+  if (withSchema) generationConfig.responseSchema = responseSchema(cat);
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt(cat) }] },
+      systemInstruction: { parts: [{ text: systemPrompt(cat) + (withSchema ? "" : SHAPE_EXAMPLE) }] },
       contents: [{ role: "user", parts: [{ text: `<plot>${plot}</plot>` }] }],
-      generationConfig: { responseMimeType: "application/json", responseSchema: responseSchema(cat), maxOutputTokens: 16000 },
+      generationConfig,
     }),
   });
-  return { res, data: await res.json() };
+  return { res, data: await res.json().catch(() => ({})) };
+}
+
+// Google 이 알려 주는 오류 이유 (어느 칸이 문제인지)
+function why(data: { error?: { message?: string; details?: { fieldViolations?: { field?: string; description?: string }[] }[] } }) {
+  const v = data.error?.details?.flatMap((d) => d.fieldViolations ?? []) ?? [];
+  return [data.error?.message ?? "", ...v.map((x) => `${x.field ?? ""} ${x.description ?? ""}`.trim())].filter(Boolean).join(" / ").slice(0, 400);
 }
 
 Deno.serve(async (req) => {
@@ -332,12 +349,17 @@ Deno.serve(async (req) => {
     // 3. Gemini 에게 스토리보드 요청 (붐비면 다음 모델로)
     let model = "", res: Response | undefined, data;
     for (model of GEMINI_MODELS) {
-      ({ res, data } = await askGemini(model, apiKey, plot, cat));
+      ({ res, data } = await askGemini(model, apiKey, plot, cat, true));
+      if (res.status === 400) {
+        // 응답 형식을 받지 않는 모델·상황: 형식 없이 다시
+        console.warn(`${model} 400 (schema): ${why(data)}`);
+        ({ res, data } = await askGemini(model, apiKey, plot, cat, false));
+      }
       if (res.ok || !TRY_NEXT.includes(res.status)) break;
-      console.warn(`${model} ${res.status}: ${data.error?.message ?? ""}`);
+      console.warn(`${model} ${res.status}: ${why(data)}`);
     }
     if (!res!.ok) {
-      const detail = `${res!.status}: ${data.error?.message ?? ""}`;
+      const detail = `${res!.status}: ${why(data)}`;
       if (TRY_NEXT.includes(res!.status)) {
         return reply({ error: `Gemini 모델 ${GEMINI_MODELS.length}개가 모두 응답하지 못했습니다. 잠시 후 다시 시도하세요. (${detail})` }, 503);
       }
