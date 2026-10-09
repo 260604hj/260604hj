@@ -33,6 +33,12 @@
   canvas.view{ display:block; width:100%; background:#fff; border-radius:10px; }
   /* 웹툰 */
   .make{ display:flex; gap:8px; margin:0 0 6px; }
+  .picks{ margin:0 0 8px; }
+  .picks .lab{ font-size:12px; color:var(--dim); margin:0 0 6px; }
+  .picks .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{ font:inherit; font-size:12px; background:var(--card); border:1px solid var(--line); color:var(--ink); padding:4px 10px; border-radius:999px; cursor:pointer; }
+  .chip.on{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .chip small{ opacity:.65; margin-left:3px; }
   .make textarea{ flex:1; min-width:0; font:inherit; font-size:14px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); resize:vertical; }
   .toon{ display:grid; grid-template-columns:minmax(0,720px) minmax(0,1fr); gap:28px; align-items:start; }
   @media (max-width:980px){ .toon{ grid-template-columns:1fr; } }
@@ -110,6 +116,10 @@
       <textarea id="plot" rows="2" maxlength="300" placeholder="줄거리 한두 문장 (예: 출근길에 전남자친구를 스쳐 지나갔고…)"></textarea>
       <button class="b primary" id="makeBtn" type="submit">만들기</button>
     </form>
+    <div class="picks" id="picks" hidden>
+      <div class="lab" id="picksLab"></div>
+      <div class="chips" id="pickChips"></div>
+    </div>
     <p class="status" id="status"></p>
     <div class="toon">
       <div>
@@ -1322,6 +1332,7 @@ async function loadChars(){
   else if (!isDirty()) draft = structuredClone(charById(selId));
   if (!$('tab-chars').hidden) refreshChar();
   if (current) renderCastRows();
+  renderPicks();
 }
 const isDirty = ()=>!!draft && JSON.stringify(draft) !== JSON.stringify(charById(selId));
 const charFields = (c)=>({ name:c.name.slice(0, 20), descr:(c.desc || '').slice(0, 60), body:c.body, hair:c.hair, tone:c.tone, glasses:!!c.glasses });
@@ -1481,9 +1492,38 @@ let current = null;          // { id, plot, title, story, cast, model, user_id, 
 let STORIES = [];
 const DEMO_ID = 'demo';
 
+// 줄거리에 넣을 인물: 서버 인물 목록에서 최대 4명. 고른 순서대로 서버가 p1~p4 로 부름
+const MAX_PICKS = 4;
+let picked = [];                 // 인물 id
+const nameKey = (v)=>String(v ?? '').replace(/\s+/g, '').replace(/님$/, '').toLowerCase();
+function renderPicks(){
+  picked = picked.filter(id=>charById(id));
+  $('picks').hidden = MODE !== 'admin' || !CHARS.length;
+  $('picksLab').textContent = `등장인물 고르기 · ${picked.length}/${MAX_PICKS}명 (고르지 않은 인물은 Gemini가 체형을 제안)`;
+  $('pickChips').innerHTML = CHARS.map(c=>`<button type="button" class="chip ${picked.includes(c.id) ? 'on' : ''}" data-id="${c.id}">${esc(c.name)}<small>${c.body.height}</small></button>`).join('');
+  $('pickChips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    const id = charById(b.dataset.id).id;
+    if (picked.includes(id)) picked = picked.filter(x=>x !== id);
+    else if (picked.length < MAX_PICKS) picked.push(id);
+    else return say(`등장인물은 ${MAX_PICKS}명까지 고를 수 있어요.`);
+    say(''); renderPicks();
+  });
+}
+// 배역 체형: 고른 인물(p1~) → 그 인물, 아니면 같은 이름(띄어쓰기·'님' 무시)의 저장된 인물, 없으면 Gemini 제안 체형
+function castFor(characters, pickedChars = []){
+  const cast = {};
+  for (const c of characters){
+    const p = /^p\d$/.test(c.id) ? pickedChars[+c.id.slice(1) - 1] : null;
+    const lib = p || CHARS.find(x=>nameKey(x.name) === nameKey(c.name));
+    cast[c.id] = lib ? snap(lib) : hintSnap(c);
+  }
+  return cast;
+}
+
 async function make(plot){
   const btn = $('makeBtn'); btn.disabled = true; btn.textContent = '만드는 중'; say('Gemini가 콘티를 짜는 중입니다 (30초쯤)…');
-  const { data, error } = await db.functions.invoke('stick-toon', { body:{ plot, catalog:catalog() } });
+  const pickedChars = picked.map(charById).filter(Boolean);
+  const { data, error } = await db.functions.invoke('stick-toon', { body:{ plot, catalog:catalog(), cast:pickedChars.map(c=>({ name:c.name, desc:c.desc || '', hair:c.hair })) } });
   btn.disabled = false; btn.textContent = '만들기';
   if (error){
     let message = error.message;
@@ -1492,9 +1532,7 @@ async function make(plot){
   }
   say('');
   const story = { characters:data.characters, pages:data.pages };
-  // 배역: 같은 이름의 저장된 인물이 있으면 그 체형, 없으면 Gemini 가 제안한 체형
-  const cast = {};
-  for (const c of story.characters){ const lib = CHARS.find(x=>x.name === c.name); cast[c.id] = lib ? snap(lib) : hintSnap(c); }
+  const cast = castFor(story.characters, pickedChars);
   const { data:row, error:e2 } = await db.from('toon_stories')
     .insert({ plot, title:data.title, story, cast, model:data.model }).select('id, plot, title, story, cast, model, user_id, is_public, created_at').single();
   if (e2) return fail({ message:`저장하지 못했습니다: ${e2.message}` });
@@ -1537,7 +1575,7 @@ function renderStoryList(){
 async function openSaved(id){
   if (MODE === 'demo'){
     const story = { characters:SAMPLE.characters.map(c=>({ ...c, body_hint:{ height:165, heads:7 } })), pages:SAMPLE.pages };
-    const cast = {}; for (const c of story.characters){ const lib = CHARS.find(x=>x.name === c.name); cast[c.id] = lib ? snap(lib) : hintSnap(c); }
+    const cast = castFor(story.characters);
     return openStory({ id:DEMO_ID, plot:SAMPLE.plot, title:SAMPLE.title, story, cast, model:'예시 (서버 없이)', user_id:null });
   }
   const { data, error } = await db.from('toon_stories').select(MODE === 'visitor' ? 'id, plot, title, story, cast, model' : 'id, plot, title, story, cast, model, user_id').eq('id', id).single();

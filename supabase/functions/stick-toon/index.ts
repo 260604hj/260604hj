@@ -70,6 +70,20 @@ function readCatalog(raw: unknown): Catalog | null {
   return locations.length ? { locations, extras } : null;
 }
 
+// 사용자가 서버 인물 목록에서 고른 배역 (최대 4명). id 는 p1~p4 로 고정
+type Picked = { id: string; name: string; desc: string; hair: string };
+function readPicked(raw: unknown): Picked[] {
+  const used = new Set<string>();
+  return (Array.isArray(raw) ? raw : []).slice(0, 4).map((c: Record<string, unknown>, i: number) => ({
+    id: `p${i + 1}`,
+    name: String(c?.name ?? "").replace(/[<>`]/g, "").replace(/\s+/g, " ").trim().slice(0, 20),
+    desc: String(c?.desc ?? "").replace(/[<>`]/g, "").replace(/\s+/g, " ").trim().slice(0, 60),
+    hair: HAIRS.includes(String(c?.hair)) ? String(c?.hair) : "short",
+  })).filter((c) => c.name && !used.has(c.name) && used.add(c.name));
+}
+// 이름 비교: 띄어쓰기·끝의 "님"·대소문자 무시 ("그룹장님" = "그룹장")
+const norm = (v: unknown) => String(v ?? "").replace(/\s+/g, "").replace(/님$/, "").toLowerCase();
+
 function poseList(cat: Catalog) {
   const list = [];
   for (const c of CATS) for (const e of EMOS) list.push(`${c}:${e}`);
@@ -77,8 +91,13 @@ function poseList(cat: Catalog) {
   return list.concat(LOCAL_POSES);
 }
 
-function systemPrompt(cat: Catalog) {
-  return `한두 문장의 줄거리를 받아 세로 스크롤 웹툰 ${PAGES}페이지의 스토리보드를 JSON으로 만듭니다. 줄거리는 <plot> 안에 있습니다.
+function systemPrompt(cat: Catalog, picked: Picked[]) {
+  const must = picked.length ? `
+[정해진 인물] 사용자가 고른 인물입니다. characters에 아래 id와 name을 그대로 넣고, 줄거리 속 같은 사람(호칭이 달라도)은 이 인물로 쓰세요. 모두 이야기에 등장시키세요.
+${picked.map((c) => `- id=${c.id}, name=${c.name}${c.desc ? `, ${c.desc}` : ""}`).join("\n")}
+나머지 인물은 필요할 때만 더해 characters가 모두 4명을 넘지 않게.
+` : "";
+  return must + `한두 문장의 줄거리를 받아 세로 스크롤 웹툰 ${PAGES}페이지의 스토리보드를 JSON으로 만듭니다. 줄거리는 <plot> 안에 있습니다.
 그림은 정해진 흑백 3D 세트와 막대 인형이 그립니다. 아래 목록에 있는 값만 쓰세요.
 
 [인물] characters: 2~4명.
@@ -193,31 +212,36 @@ const clamp = (v: unknown, lo: number, hi: number, d: number) => {
 };
 const text = (v: unknown, n: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 
-export function cleanStory(raw: Record<string, unknown>, cat: Catalog) {
+export function cleanStory(raw: Record<string, unknown>, cat: Catalog, picked: Picked[] = []) {
   const poses = new Set(poseList(cat));
   const loc = Object.fromEntries(cat.locations.map((l) => [l.id, l]));
 
-  // 인물
-  const ids = new Set<string>();
-  const characters = (Array.isArray(raw.characters) ? raw.characters : []).slice(0, 4).map((c: Record<string, unknown>, i: number) => {
+  // 인물: 고른 인물(p1~)을 먼저 모두 넣고, Gemini 가 같은 사람을 다른 id·호칭으로 썼으면 고른 인물로 묶음
+  const rawChars = (Array.isArray(raw.characters) ? raw.characters : []) as Record<string, unknown>[];
+  const ref: Record<string, string> = {};               // Gemini 가 쓴 id → 최종 id
+  const claimed = new Set<string>();
+  const hint = (c: Record<string, unknown> = {}) => {
+    const b = (c.body_hint ?? {}) as Record<string, unknown>;
+    return { height: Math.round(clamp(b.height, 100, 200, 165)), heads: Math.round(clamp(b.heads, 4, 9.5, 7) * 10) / 10, build: pick(b.build, BUILDS, "normal") };
+  };
+  const characters: { id: string; name: string; desc: string; hair: string; body_hint: ReturnType<typeof hint> }[] = [];
+  for (const p of picked) {
+    const r = rawChars.find((c) => !claimed.has(String(c.id)) && (String(c.id) === p.id || norm(c.name) === norm(p.name)))
+      ?? rawChars.find((c) => !claimed.has(String(c.id)) && norm(c.name) && (norm(c.name).includes(norm(p.name)) || norm(p.name).includes(norm(c.name))));
+    if (r) { claimed.add(String(r.id)); ref[String(r.id)] = p.id; }
+    characters.push({ id: p.id, name: p.name, desc: p.desc || text(r?.desc, 40), hair: p.hair, body_hint: hint(r) });
+  }
+  const ids = new Set<string>(characters.map((c) => c.id));
+  for (const [i, c] of rawChars.entries()) {
+    if (characters.length >= 4) break;
+    if (claimed.has(String(c.id))) continue;
     let id = String(c.id ?? "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 12) || `c${i + 1}`;
     while (ids.has(id)) id += "x";
-    ids.add(id);
-    const b = (c.body_hint ?? {}) as Record<string, unknown>;
-    return {
-      id,
-      name: text(c.name, 10) || `인물${i + 1}`,
-      desc: text(c.desc, 40),
-      hair: pick(c.hair, HAIRS, "short"),
-      body_hint: {
-        height: Math.round(clamp(b.height, 100, 200, 165)),
-        heads: Math.round(clamp(b.heads, 4, 9.5, 7) * 10) / 10,
-        build: pick(b.build, BUILDS, "normal"),
-      },
-    };
-  });
+    ids.add(id); ref[String(c.id)] = id;
+    characters.push({ id, name: text(c.name, 10) || `인물${i + 1}`, desc: text(c.desc, 40), hair: pick(c.hair, HAIRS, "short"), body_hint: hint(c) });
+  }
   if (!characters.length) throw new Error("등장인물을 받지 못했습니다");
-  const who = (v: unknown) => (ids.has(String(v)) ? String(v) : "");
+  const who = (v: unknown) => { const id = ref[String(v)] ?? String(v); return ids.has(id) ? id : ""; };
 
   // 페이지 · 컷
   let lastLoc = cat.locations[0].id;
@@ -256,17 +280,17 @@ export function cleanStory(raw: Record<string, unknown>, cat: Catalog) {
       if (!cast.length) shot = "wide";
       if (shot === "two" && cast.length < 2) shot = "bust";
       const c = (p.camera ?? {}) as Record<string, unknown>;
-      const inCast = (v: unknown) => (inPanel.has(String(v)) ? String(v) : "");
+      const inCast = (v: unknown) => (inPanel.has(who(v)) ? who(v) : "");
       const on = inCast(c.on) || (cast[0]?.who as string) || "";
       const camera: Record<string, string> = {};
       if (shot !== "wide") {
         camera.on = on;
         camera.angle = pick(c.angle, ANGLES, "three");
         if (camera.angle === "ots") {
-          const from = inCast(c.from) && c.from !== on ? String(c.from) : (cast.find((a) => a.who !== on)?.who as string) || "";
+          const from = inCast(c.from) && inCast(c.from) !== on ? inCast(c.from) : (cast.find((a) => a.who !== on)?.who as string) || "";
           if (from) camera.from = from; else camera.angle = "three";
         }
-        if (shot === "two") camera.with = inCast(c.with) && c.with !== on ? String(c.with) : (cast.find((a) => a.who !== on)?.who as string);
+        if (shot === "two") camera.with = inCast(c.with) && inCast(c.with) !== on ? inCast(c.with) : (cast.find((a) => a.who !== on)?.who as string);
         if (["left", "right"].includes(String(c.side))) camera.side = String(c.side);
         if (["eye", "high", "low"].includes(String(c.height))) camera.height = String(c.height);
       }
@@ -307,14 +331,14 @@ async function currentUser(req: Request) {
 }
 
 // withSchema=false: 응답 형식 없이 JSON 모드만 (값은 cleanStory 가 어차피 바로잡음)
-async function askGemini(model: string, apiKey: string, plot: string, cat: Catalog, withSchema: boolean) {
+async function askGemini(model: string, apiKey: string, plot: string, cat: Catalog, picked: Picked[], withSchema: boolean) {
   const generationConfig: Record<string, unknown> = { responseMimeType: "application/json" };
   if (withSchema) generationConfig.responseSchema = responseSchema(cat);
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt(cat) + (withSchema ? "" : SHAPE_EXAMPLE) }] },
+      systemInstruction: { parts: [{ text: systemPrompt(cat, picked) + (withSchema ? "" : SHAPE_EXAMPLE) }] },
       contents: [{ role: "user", parts: [{ text: `<plot>${plot}</plot>` }] }],
       generationConfig,
     }),
@@ -345,15 +369,16 @@ Deno.serve(async (req) => {
     if (plot.length > MAX_PLOT) return reply({ error: `줄거리는 ${MAX_PLOT}자 이내로 써주세요.` }, 400);
     const cat = readCatalog(body.catalog);
     if (!cat) return reply({ error: "장소 목록이 비었거나 너무 큽니다." }, 400);
+    const picked = readPicked(body.cast);
 
     // 3. Gemini 에게 스토리보드 요청 (붐비면 다음 모델로)
     let model = "", res: Response | undefined, data;
     for (model of GEMINI_MODELS) {
-      ({ res, data } = await askGemini(model, apiKey, plot, cat, true));
+      ({ res, data } = await askGemini(model, apiKey, plot, cat, picked, true));
       if (res.status === 400) {
         // 응답 형식을 받지 않는 모델·상황: 형식 없이 다시
         console.warn(`${model} 400 (schema): ${why(data)}`);
-        ({ res, data } = await askGemini(model, apiKey, plot, cat, false));
+        ({ res, data } = await askGemini(model, apiKey, plot, cat, picked, false));
       }
       if (res.ok || !TRY_NEXT.includes(res.status)) break;
       console.warn(`${model} ${res.status}: ${why(data)}`);
@@ -382,7 +407,7 @@ Deno.serve(async (req) => {
       return reply({ error: `스토리보드를 읽지 못했습니다 (${candidate?.finishReason ?? "응답 없음"}). 다시 시도하세요.` }, 502);
     }
     try {
-      return reply({ ...cleanStory(parsed, cat), model });
+      return reply({ ...cleanStory(parsed, cat, picked), model });
     } catch (e) {
       return reply({ error: `${e instanceof Error ? e.message : e}. 다시 시도하세요.` }, 502);
     }
