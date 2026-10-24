@@ -10,7 +10,7 @@
 
 const GEMINI_MODELS = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash"];
 const TRY_NEXT = [404, 429, 500, 503];
-const MAX_OUT = 1100;
+const MAX_OUT = 1200;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,6 +89,17 @@ const TOPICS = [
   "좋아하는 편의점 조합", "술버릇", "첫 월급 쓴 곳",
 ];
 
+// 상대 취미 — 운동·만들기·덕질·문화·생활 전반
+const HOBBIES = [
+  "클라이밍", "러닝 크루", "테니스", "필라테스", "골프 연습장", "서핑", "스쿠버다이빙", "백패킹", "캠핑", "낚시",
+  "등산", "자전거 라이딩", "스케이트보드", "복싱", "크로스핏", "수영", "볼링", "스윙 댄스", "탱고", "요가",
+  "보드게임", "방탈출", "독서모임", "필름카메라", "베이킹", "홈카페 라떼아트", "와인 공부", "위스키 시음", "커피 로스팅",
+  "식물 키우기", "뜨개질", "도자기 공방", "유화 그리기", "피아노", "통기타", "LP 수집", "재즈 공연 보기", "레고",
+  "건담 프라모델", "닌텐도 게임", "롤 랭크 게임", "애니 덕질", "웹소설 쓰기", "블로그 글쓰기", "빵지순례",
+  "맛집 탐방 지도 만들기", "전시회 다니기", "별 보기", "마라톤", "야구 직관", "뮤지컬 관람", "외국어 공부",
+  "주식 공부", "봉사활동", "반려견 산책 모임", "향수 수집", "중고 카메라 수리", "역사 유적 답사", "드럼", "요리 클래스",
+];
+
 // MBTI 16유형 — 상대 말투·행동 힌트
 const MBTI_STYLE: Record<string, string> = {
   ISTJ: "약속 시간 10분 전 도착, 말이 정확하고 계획적", ISFJ: "세심하게 챙기고 리액션이 따뜻함",
@@ -127,19 +138,22 @@ const TONES = ["navy", "black", "beige", "grey", "white", "olive", "burgundy"];
 const SYSTEM_PROMPT = `너는 친구들 근황토크용 '그럴듯한 가짜 소개팅 썰'을 쓴다. 작성자가 친구들에게 1인칭 반말 구어체로 말하듯("~했잖아", "~더라").
 - 주선자: 듣는 친구들이 확인 못 할 먼 사이. 이름 없이 관계로만(후보 참고).
 - 장소: 후보 동네 하나, 메뉴와 1인 가격대, 가게 분위기.
-- 상대(p): 가명, 나이, 키(cm), 직업(후보 중), 출신 학교, MBTI(주어진 것). 외모·성격·매너를 구체적으로, 직업다운 디테일 하나.
+- 상대(p): 가명, 나이, 키(cm), 직업(후보 중), 출신 학교, MBTI(주어진 것), 취미(후보 중). 외모·성격·매너를 구체적으로, 직업다운 디테일 하나.
+- n: 상대 별칭 한 단어, '~남' 또는 '~녀'로 끝나고 8자 이내 (예: 솥밥남, 클라이밍녀). 썰의 핵심 디테일에서.
 - 대화: 주제 후보에서 골라 실제 오간 대사 2개 이상을 따옴표로. 상대 MBTI가 드러나는 말투.
+- 취미 이야기를 꼭 넣는다: 상대 취미로 대화가 흘러간 장면 1~2줄 (구체적 에피소드, 내 반응 포함).
 - 자극 정도는 '도파민' 지시를 따른다. 반전 후보가 있으면 하나 녹인다.
 - 결말은 주어진 결과를 그대로. 유명인·실존 인물 금지, 비하·성적 표현 금지.
 - s: 6~10줄, 줄마다 60자 안팎. t: 썰 제목 18자 이내.
 - a(몽타주)는 썰 속 외모와 맞게. 0~1 수치(eye 눈크기, eyeY 눈높이, gap 눈간격, nose 코크기, mouth 입크기, mouthY 입높이, limb 팔다리길이).
-JSON만: {"t":"","p":{"name":"","age":0,"h":0,"job":"","school":"","mbti":""},"a":{"face":"","skin":0,"hair":"","hc":"","glasses":"","eye":0,"eyeY":0,"gap":0,"nose":0,"mouth":0,"mouthY":0,"build":"","limb":0,"outfit":"","tone":""},"s":[""]}`;
+JSON만: {"t":"","n":"","p":{"name":"","age":0,"h":0,"job":"","school":"","mbti":"","hobby":""},"a":{"face":"","skin":0,"hair":"","hc":"","glasses":"","eye":0,"eyeY":0,"gap":0,"nose":0,"mouth":0,"mouthY":0,"build":"","limb":0,"outfit":"","tone":""},"s":[""]}`;
 
 const num01 = { type: "NUMBER" };
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     t: { type: "STRING" },
+    n: { type: "STRING" },
     p: {
       type: "OBJECT",
       properties: {
@@ -149,8 +163,9 @@ const RESPONSE_SCHEMA = {
         job: { type: "STRING" },
         school: { type: "STRING" },
         mbti: { type: "STRING" },
+        hobby: { type: "STRING" },
       },
-      required: ["name", "age", "h", "job", "school", "mbti"],
+      required: ["name", "age", "h", "job", "school", "mbti", "hobby"],
     },
     a: {
       type: "OBJECT",
@@ -171,7 +186,7 @@ const RESPONSE_SCHEMA = {
     },
     s: { type: "ARRAY", maxItems: 10, items: { type: "STRING" } },
   },
-  required: ["t", "p", "a", "s"],
+  required: ["t", "n", "p", "a", "s"],
 };
 
 function sample<T>(arr: readonly T[], n: number): T[] {
@@ -255,7 +270,7 @@ Deno.serve(async (req) => {
     const ask = [
       `작성자: <me>${name}, ${age}세 ${gender}, ${job}, ${mbti}</me>`,
       `상대: ${target === "f" ? "여" : "남"}, 작성자와 ±4세, MBTI ${theirMbti}(${MBTI_STYLE[theirMbti]})`,
-      `상대 직업 후보: ${sample(JOBS, 3).join(", ")}`,
+      `상대 직업 후보: ${sample(JOBS, 3).join(", ")} · 취미 후보: ${sample(HOBBIES, 2).join(", ")}`,
       `대화 주제 후보: ${sample(TOPICS, 3).join(", ")}`,
       `결말: ${OUTCOMES[outcome]}${ending ? ` / ${ending}` : ""}`,
       DOPAMINE[dopamine] + (dopamine === "low" ? "" : ` 반전 후보: ${sample(TWISTS, dopamine === "high" ? 2 : 1).join(", ")}`),

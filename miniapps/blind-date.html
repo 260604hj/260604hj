@@ -77,44 +77,82 @@
     .hint{ margin-top:10px; font-size:12px; color:var(--muted); min-height:16px; }
     .hint.warn{ color:var(--red); }
 
-    /* ── 썰: 제목 · 프로필 ────────────────────────────── */
-    .head .kicker{ font-size:11px; font-weight:500; letter-spacing:.14em; color:var(--muted); }
-    .head .title{
-        margin-top:8px;
-        font-size:28px; font-weight:500; letter-spacing:-0.02em; line-height:1.3; word-break:keep-all;
+    /* ── 결과 화면: 벤토 그리드 ───────────────────────── */
+    .wrap.wide{ max-width:920px; }
+    .topbar{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .topbar .btns{ display:flex; gap:8px; }
+    .pill{
+        min-height:38px; padding:0 16px; border-radius:999px;
+        border:1px solid var(--line); background:var(--paper); color:var(--ink);
+        font:inherit; font-size:13px; cursor:pointer; transition:border-color .2s ease, opacity .2s ease;
     }
-    .head .who{ margin-top:14px; display:flex; flex-wrap:wrap; gap:6px; }
-    .head .who span{ font-size:13px; padding:5px 10px; background:var(--soft); color:#4a4f57; }
+    .pill:hover{ border-color:var(--muted); }
+    .pill.dark{ background:var(--ink); border-color:var(--ink); color:#fff; }
+    .pill:disabled{ opacity:.5; cursor:default; }
 
-    /* ── 썰: 줄거리 ───────────────────────────────────── */
-    .story{ border:1px solid var(--line); padding:24px 24px 22px; }
-    .story ol{ list-style:none; counter-reset:l; }
-    .story li{
-        counter-increment:l;
-        display:flex; gap:12px;
-        font-size:15px; line-height:1.75; word-break:keep-all;
-        padding:3px 0;
+    .bento{ display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; margin-top:22px; }
+    .tile{ border-radius:22px; background:var(--soft); padding:20px 22px; min-width:0; }
+    .sec{
+        grid-column:1 / -1; display:flex; align-items:center; gap:10px;
+        margin:22px 4px 2px; font-size:11px; font-weight:600; letter-spacing:.16em; color:var(--muted);
     }
-    .story li::before{
+    .sec b{ font-family:'IBM Plex Mono',monospace; font-weight:500; color:var(--faint); }
+    .sec::after{ content:''; flex:1; height:1px; background:var(--line); }
+
+    .t-title{ grid-column:1 / -1; background:var(--ink); color:#fff; padding:30px 28px 32px; }
+    .t-title .kicker{ font-size:11px; font-weight:500; letter-spacing:.16em; color:rgba(255,255,255,.5); }
+    .t-title .title{ margin-top:12px; font-size:32px; font-weight:500; letter-spacing:-0.025em; line-height:1.25; word-break:keep-all; }
+
+    .t-nick{ grid-column:1 / -1; display:flex; align-items:baseline; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+    .t-nick .nick{ font-size:26px; font-weight:600; letter-spacing:-0.02em; word-break:keep-all; }
+    .t-nick .sub{ font-size:13px; color:#5d6168; }
+
+    .t-stage{ grid-column:span 4; position:relative; padding:0; overflow:hidden; aspect-ratio:1; }
+    .t-stage canvas{ position:absolute; inset:0; display:block; cursor:grab; }
+    .t-stage canvas:active{ cursor:grabbing; }
+    .t-stage .chip{
+        position:absolute; z-index:2; top:14px; left:14px;
+        font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em;
+        padding:5px 9px; border-radius:999px; background:rgba(255,255,255,.7); color:#4a4038;
+        pointer-events:none;
+    }
+    .t-stage .how{
+        position:absolute; z-index:2; top:16px; right:16px; font-size:11px; color:rgba(60,48,40,.55); pointer-events:none;
+    }
+    .t-stage .views{
+        position:absolute; z-index:2; left:50%; bottom:14px; transform:translateX(-50%);
+        display:flex; gap:4px; padding:4px; border-radius:999px;
+        background:rgba(255,255,255,.72); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    }
+    .t-stage .views button{
+        min-height:32px; padding:0 13px; border:0; border-radius:999px; background:transparent;
+        font:inherit; font-size:12.5px; color:#3d3530; cursor:pointer; white-space:nowrap;
+    }
+    .t-stage .views button:hover{ background:rgba(255,255,255,.9); }
+
+    .stats{ grid-column:span 2; display:flex; flex-direction:column; gap:12px; }
+    .stat{ flex:1; display:flex; flex-direction:column; justify-content:center; padding:14px 18px; }
+    .stat .k{ font-size:11px; letter-spacing:.1em; color:var(--muted); }
+    .stat .v{ margin-top:5px; font-size:17px; font-weight:500; line-height:1.3; word-break:keep-all; }
+
+    .t-builder{ grid-column:1 / -1; padding:0; background:transparent; }
+
+    .t-story{ grid-column:1 / -1; background:var(--paper); border:1px solid var(--line); padding:24px 26px 22px; }
+    .t-story ol{ list-style:none; counter-reset:l; }
+    .t-story li{
+        counter-increment:l;
+        display:flex; gap:14px;
+        font-size:15.5px; line-height:1.8; word-break:keep-all;
+        padding:4px 0;
+    }
+    .t-story li::before{
         content:counter(l, decimal-leading-zero);
-        flex:none; width:22px; padding-top:3px;
+        flex:none; width:22px; padding-top:4px;
         font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--faint);
     }
-    .story .tools{ display:flex; gap:8px; margin-top:20px; }
-    .story .tools button{
-        min-height:38px; padding:0 14px; border:1px solid var(--line); background:var(--paper);
-        font:inherit; font-size:13px; cursor:pointer;
-    }
-    .story .tools button:hover{ border-color:var(--muted); }
-
-    /* ── 몽타주 ───────────────────────────────────────── */
-    .board{ position:relative; border:1px solid var(--line); background:#F1E6D4; overflow:hidden; }
-    .board canvas{ position:absolute; inset:0; display:block; }
-    .boardhead{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
-    .boardhead .tag{ font-size:12px; color:var(--muted); margin-bottom:14px; text-align:right; }
 
     /* ── 빌더 ─────────────────────────────────────────── */
-    details.builder{ margin-top:14px; border:1px solid var(--line); }
+    details.builder{ border:1px solid var(--line); border-radius:22px; }
     details.builder summary{
         list-style:none; cursor:pointer;
         display:flex; justify-content:space-between; align-items:center;
@@ -145,19 +183,28 @@
         font:inherit; font-size:13px; cursor:pointer;
     }
 
+    @media (max-width: 680px){
+        .bento{ grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+        .t-stage{ grid-column:1 / -1; }
+        .stats{ grid-column:1 / -1; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+        .stats .stat:last-child:nth-child(odd){ grid-column:1 / -1; }
+        .t-title .title{ font-size:25px; }
+        .t-nick .nick{ font-size:22px; }
+    }
     @media (max-width: 520px){
         body{ padding-top:32px; }
         h1{ font-size:28px; }
         .grid, .controls{ grid-template-columns:minmax(0,1fr); }
-        .head .title{ font-size:23px; }
-        .story{ padding:20px 16px 18px; }
-        .story li{ font-size:14.5px; }
+        .tile{ border-radius:18px; }
+        .t-title{ padding:24px 20px 26px; }
+        .t-story{ padding:20px 16px 18px; }
+        .t-story li{ font-size:14.5px; }
     }
     :focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="formScreen">
     <a class="back" href="../visitor.html">←</a>
     <h1>Blind Date</h1>
     <p class="lead">근황토크에서 할 말이 없을 때 꺼내는 (가짜) 소개팅 썰. 친구들이 확인할 수 없을 만큼 먼 주선자를 끼워 드립니다.</p>
@@ -179,38 +226,54 @@
         <p class="hint" id="hint">입력은 이 기기에만 기억됩니다</p>
     </section>
 
-    <!-- 썰 제목 → 프로필 → 몽타주 → 줄거리 -->
-    <section class="block head" id="sHead" hidden>
-        <p class="kicker">오늘의 썰</p>
-        <p class="title" id="sTitle"></p>
-        <div class="who" id="sWho"></div>
-    </section>
+</div>
 
-    <section class="block">
-        <div class="boardhead">
-            <h2>상대 몽타주 · 4방향</h2>
-            <p class="tag" id="tag">예시 인물 · 아직 주선 전</p>
+<!-- 결과 화면: 썰 제목 → 프로필(별칭 · 아바타 · 카드) → 줄거리 -->
+<div class="wrap wide" id="resultScreen" hidden>
+    <div class="topbar">
+        <button class="pill" type="button" id="back">← 다시 쓰기</button>
+        <div class="btns">
+            <button class="pill" type="button" id="copy">복사</button>
+            <button class="pill dark" type="button" id="again">다른 썰</button>
         </div>
-        <div class="board" id="board">
-            <canvas id="bg"></canvas>
+    </div>
+
+    <div class="bento">
+        <p class="sec" style="margin-top:0"><b>01</b> 썰 제목</p>
+        <div class="tile t-title">
+            <p class="kicker">오늘의 썰</p>
+            <p class="title" id="sTitle"></p>
+        </div>
+
+        <p class="sec"><b>02</b> 프로필</p>
+        <div class="tile t-nick" id="tNick">
+            <p class="nick" id="sNick"></p>
+            <p class="sub" id="sNickSub"></p>
+        </div>
+        <div class="tile t-stage" id="stage">
             <canvas id="gl"></canvas>
-        </div>
-        <details class="builder" id="builder">
-            <summary>몽타주 고치기</summary>
-            <div class="controls" id="controls"></div>
-        </details>
-    </section>
-
-    <section class="block" id="sBody" hidden>
-        <h2>줄거리</h2>
-        <div class="story">
-            <ol id="sLines"></ol>
-            <div class="tools">
-                <button type="button" id="copy">복사</button>
-                <button type="button" id="again">다른 썰</button>
+            <span class="chip" id="hchip"></span>
+            <span class="how">드래그 회전 · 휠/핀치 확대</span>
+            <div class="views">
+                <button type="button" data-v="front">정면</button>
+                <button type="button" data-v="side">옆</button>
+                <button type="button" data-v="back">뒤</button>
+                <button type="button" data-v="zoom">전신</button>
             </div>
         </div>
-    </section>
+        <div class="stats" id="stats"></div>
+        <div class="tile t-builder">
+            <details class="builder" id="builder">
+                <summary>아바타 고치기</summary>
+                <div class="controls" id="controls"></div>
+            </details>
+        </div>
+
+        <p class="sec"><b>03</b> 줄거리</p>
+        <div class="tile t-story">
+            <ol id="sLines"></ol>
+        </div>
+    </div>
 </div>
 
 <script type="importmap">
@@ -223,6 +286,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /* ══════════════════════════════════════════════════════════
    1. 서버 연결
@@ -715,6 +779,8 @@ function buildHat(g, head, M) {
    6. 얼굴 — 반짝이는 큰 눈 · 눈꺼풀 · 동그란 코 · 입 모양
    ══════════════════════════════════════════════════════════ */
 
+const EYE_W = 1.2;       // 눈 가로 길이 배율
+
 function buildFace(g, head, P, M, pal) {
     const { size, W } = head;
     const f = P.gender === 'f';
@@ -730,7 +796,7 @@ function buildFace(g, head, P, M, pal) {
         const [x, y, z] = head.surface(sx * eyeUx, eyeUy);
         const c = [x, y, z - eyeR * 0.45];
         eyeFront = c[2] + eyeR;
-        g.add(ball(M.eyeWhite, c, [eyeR, eyeR * 1.02, eyeR * 0.92]));
+        g.add(ball(M.eyeWhite, c, [eyeR * EYE_W, eyeR * 1.02, eyeR * 0.92]));
         g.add(ball(M.iris, [c[0] + sx * -eyeR * 0.04, c[1] - eyeR * 0.02, c[2] + eyeR * 0.78], [eyeR * 0.6, eyeR * 0.64, eyeR * 0.24]));
         g.add(ball(M.pupil, [c[0] + sx * -eyeR * 0.04, c[1] - eyeR * 0.02, c[2] + eyeR * 0.88], [eyeR * 0.3, eyeR * 0.32, eyeR * 0.14]));
         g.add(ball(M.spark, [c[0] + eyeR * 0.2, c[1] + eyeR * 0.2, c[2] + eyeR * 0.95], [eyeR * 0.13, eyeR * 0.13, eyeR * 0.06]));
@@ -739,7 +805,8 @@ function buildFace(g, head, P, M, pal) {
         // 위 눈꺼풀 + 속눈썹 (같이 기울입니다)
         const lid = new THREE.Group();
         lid.position.set(c[0], c[1], c[2]);
-        lid.rotation.set(lidRot, 0, sx * (f ? -0.08 : 0.05));
+        lid.rotation.set(lidRot, 0, 0);          // 눈꼬리는 수평으로
+        lid.scale.x = EYE_W;
         lid.add(mesh(new THREE.SphereGeometry(eyeR * 1.07, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), M.skin));
         const arc = Math.PI * 0.95;
         const lashG = new THREE.TorusGeometry(eyeR * 1.07, eyeR * (f ? 0.09 : 0.055), 8, 32, arc);
@@ -748,10 +815,10 @@ function buildFace(g, head, P, M, pal) {
         g.add(lid);
         // 아래 눈꺼풀
         g.add(mesh(new THREE.SphereGeometry(eyeR * 1.05, 32, 10, 0, Math.PI * 2, Math.PI * 0.74, Math.PI * 0.26),
-            M.skin, c, null, [-0.32, 0, 0]));
+            M.skin, c, [EYE_W, 1, 1], [-0.32, 0, 0]));
 
         // 눈썹 — 아치형 관
-        const pts = [[-0.15, 0.25], [0.02, 0.295], [0.17, 0.255]].map(([dx, dy]) => {
+        const pts = [[-0.17, 0.25], [0.02, 0.295], [0.2, 0.255]].map(([dx, dy]) => {
             const [bx, by, bz] = head.surface(sx * (eyeUx + dx), eyeUy + dy + eyeR / size * 0.6);
             return [bx, by, bz + size * 0.012];
         });
@@ -808,7 +875,7 @@ function buildFace(g, head, P, M, pal) {
         const [ex, ey] = head.point(sx * 0.98, eyeUy - 0.16, 0);
         if (hidden) {
             if (f) g.add(mesh(new THREE.TorusGeometry(size * 0.036, size * 0.0065, 10, 32), M.gold,
-                [ex + sx * size * 0.06, ey - size * 0.17, head.D * 0.05], null, [0, Math.PI / 2, 0]));
+                [ex + sx * size * 0.035, ey - size * 0.17, head.D * 0.12], null, [0, Math.PI / 2, 0]));
             continue;
         }
         const ear = new THREE.Group();
@@ -1137,13 +1204,12 @@ function frontAt(pts, y, k, depth) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   8. 네 방향 몽타주판
+   8. 아바타 화면 — 정방형 하나. 드래그로 돌리고, 휠·핀치로 상반신 ↔ 전신
    ══════════════════════════════════════════════════════════ */
 
-const board = document.getElementById('board');
-const bg = document.getElementById('bg');
+const stage = document.getElementById('stage');
 const gl = document.getElementById('gl');
-const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true, preserveDrawingBuffer: true });
+const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1156,36 +1222,45 @@ const scene = new THREE.Scene();
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.55;
-
 scene.add(new THREE.HemisphereLight(0xfff4ea, 0xb39a85, 0.55));
+
+const camera = new THREE.PerspectiveCamera(26, 1, 0.05, 60);
+scene.add(camera);
+// 빛은 카메라에 붙여서, 어느 쪽에서 보든 왼편 위 주광 + 뒤쪽 윤곽광
 const key = new THREE.DirectionalLight(0xfff1e2, 2.3);
+key.position.set(-2.4, 2.8, 1);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
-Object.assign(key.shadow.camera, { left: -1.3, right: 1.3, top: 1.3, bottom: -1.3, near: 0.5, far: 12 });
+Object.assign(key.shadow.camera, { left: -1.3, right: 1.3, top: 1.3, bottom: -1.3, near: 0.5, far: 14 });
 key.shadow.bias = -0.0006;
 key.shadow.normalBias = 0.012;
 key.shadow.radius = 4;
-scene.add(key, key.target);
+camera.add(key);
+scene.add(key.target);
 const rim = new THREE.DirectionalLight(0xffffff, 1.1);
-scene.add(rim, rim.target);
+rim.position.set(2.6, 2, -9);
+camera.add(rim);
+scene.add(rim.target);
 
 // 바닥: 발밑 접지 그림자
 const contact = mesh(new THREE.PlaneGeometry(0.9, 0.6),
     new THREE.MeshBasicMaterial({ map: TEX.blob, transparent: true, depthWrite: false }), [0, 0.002, 0.03], null, [-Math.PI / 2, 0, 0]);
 scene.add(contact);
 
-const VIEWS = [
-    { dir: [0, 0, 1],  label: 'FRONT 정면' },
-    { dir: [1, 0, 0],  label: 'LEFT 좌측' },
-    { dir: [0, 0, -1], label: 'BACK 후면' },
-    { dir: [-1, 0, 0], label: 'RIGHT 우측' }
-];
-const TILT = 0.06;                   // 살짝 내려다봐서 바닥 그림자가 보이게
-const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 30);
+const controls = new OrbitControls(camera, gl);
+controls.enablePan = false;
+controls.enableDamping = true;
+controls.dampingFactor = 0.09;
+controls.rotateSpeed = 0.8;
+controls.zoomSpeed = 0.9;
+controls.minPolarAngle = Math.PI * 0.32;
+controls.maxPolarAngle = Math.PI * 0.6;
 
 let person = null;
 let look = randomLook();
-let layout = null;
+let frame = { yU: 1.4, yF: 0.9, dU: 2, dF: 6 };
+let dirty = true;
+let tween = null;
 
 function disposeDeep(obj) {
     obj.traverse((o) => {
@@ -1196,156 +1271,128 @@ function disposeDeep(obj) {
     });
 }
 
-function setLook(next) {
+// 상반신(얼굴이 가운데) ~ 전신 사이의 거리와 높이
+function fit() {
+    const H = look.height / 100;
+    const head = person.userData.head;
+    const half = Math.tan(camera.fov * Math.PI / 360);
+    const top = H + (look.hat === 'beanie' || look.hair === 'bun' ? 0.14 : 0.07);
+    frame = {
+        yU: head.cy - head.size * 0.62,
+        dU: (head.size * 3.1 / 2) / half,
+        yF: top / 2 - top * 0.06,            // 아래 버튼에 발이 가리지 않게 살짝 내려서
+        dF: (top * 1.28 / 2) / half
+    };
+    controls.minDistance = frame.dU * 0.72;
+    controls.maxDistance = frame.dF * 1.08;
+}
+
+// 멀어질수록 바라보는 높이를 전신 가운데로 옮깁니다
+function follow() {
+    const d = camera.position.distanceTo(controls.target);
+    const t = clamp((d - frame.dU) / (frame.dF - frame.dU), 0, 1);
+    const y = frame.yU + (frame.yF - frame.yU) * t;
+    const dy = y - controls.target.y;
+    controls.target.y += dy;
+    camera.position.y += dy;
+    key.target.position.copy(controls.target);
+    rim.target.position.copy(controls.target);
+    views.zoom.textContent = t > 0.6 ? '상반신' : '전신';
+}
+
+function place(az, d) {
+    const polar = Math.PI / 2 - 0.08;
+    const t = clamp((d - frame.dU) / (frame.dF - frame.dU), 0, 1);
+    const y = frame.yU + (frame.yF - frame.yU) * t;
+    controls.target.set(0, y, 0);
+    camera.position.set(Math.sin(az) * Math.sin(polar) * d, y + Math.cos(polar) * d, Math.cos(az) * Math.sin(polar) * d);
+}
+
+function currentAz() {
+    return Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+}
+
+// 버튼으로 방향 · 거리 바꾸기 (부드럽게)
+function goTo(az, d) {
+    let from = currentAz();
+    while (az - from > Math.PI) from += Math.PI * 2;
+    while (az - from < -Math.PI) from -= Math.PI * 2;
+    tween = { a0: from, a1: az, d0: camera.position.distanceTo(controls.target), d1: d, start: performance.now() };
+}
+
+function setLook(next, resetView = false) {
     look = next;
     if (person) { scene.remove(person); disposeDeep(person); }
     person = buildPerson(look);
     scene.add(person);
-    draw();
+    fit();
+    if (resetView) place(0, frame.dU);
+    else {
+        const d = clamp(camera.position.distanceTo(controls.target), controls.minDistance, controls.maxDistance);
+        place(currentAz(), d);
+    }
+    paintStage();
+    dirty = true;
     syncControls();
 }
 
-// 위 줄은 온몸(키에 맞춰), 아래 줄은 얼굴 확대. 둘 다 네 방향.
+function paintStage() {
+    const pal = person.userData.pal;
+    stage.style.background = `radial-gradient(120% 90% at 50% 20%, #${mix(pal.bg, '#ffffff', 0.45).getHexString()} 0%, ${pal.bg} 70%)`;
+    document.getElementById('hchip').textContent = `${look.height}cm`;
+    const nick = document.getElementById('tNick');
+    if (nick) nick.style.background = `#${mix(pal.bg, '#ffffff', 0.2).getHexString()}`;
+}
+
 function measure() {
-    const w = board.clientWidth;
-    const cols = w < 520 ? 2 : 4;
-    const rows = 4 / cols;
-    const pw = w / cols;
-    const ph = Math.round(pw * (cols === 2 ? 1.6 : 1.72));
-    const fh = Math.round(pw * 0.95);
-    const h = (ph + fh) * rows;
-    board.style.height = `${h}px`;
-    layout = { w, h, cols, rows, pw, ph, fh, faceTop: ph * rows };
-    renderer.setSize(w, h, false);
-    gl.style.width = `${w}px`; gl.style.height = `${h}px`;
-    const dpr = Math.min(devicePixelRatio, 2);
-    bg.width = w * dpr; bg.height = h * dpr;
-    bg.style.width = `${w}px`; bg.style.height = `${h}px`;
+    const s = stage.clientWidth;
+    if (!s) return;
+    renderer.setSize(s, s, false);
+    gl.style.width = `${s}px`; gl.style.height = `${s}px`;
+    camera.aspect = 1;
+    camera.updateProjectionMatrix();
+    dirty = true;
 }
 
-// 판마다 보여 줄 높이 범위 (m)
-function frames() {
-    const H = look.height / 100;
-    const head = person.userData.head;
-    return {
-        body: { y0: -0.06, y1: H + (look.hat === 'beanie' || look.hair === 'bun' ? 0.17 : 0.11) },
-        face: (() => {
-            const up = look.hat === 'beanie' && look.hair === 'bun' ? 1.25 : look.hat === 'beanie' || look.hair === 'bun' ? 1.0 : 0.85;
-            return { y0: head.cy - head.size * (1.85 - up), y1: head.cy + head.size * up };
-        })()
-    };
-}
-
-function panels() {
-    const { cols, pw, ph, fh, faceTop } = layout;
-    const out = [];
-    VIEWS.forEach((v, i) => {
-        const col = i % cols, row = Math.floor(i / cols);
-        out.push({ v, i, kind: 'body', x: col * pw, y: row * ph, w: pw, h: ph });
-        out.push({ v, i, kind: 'face', x: col * pw, y: faceTop + row * fh, w: pw, h: fh });
-    });
-    return out;
-}
-
-// 키 재는 벽: 10cm 마다 줄, 50cm 마다 굵은 줄. 바탕은 옷 팔레트의 배경색.
-function drawWall() {
-    const { w, h } = layout;
-    const dpr = bg.width / w;
-    const c = bg.getContext('2d');
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, w, h);
-    const fr = frames();
-    const base = person.userData.pal.bg;
-    const css = (col) => `#${col.getHexString()}`;
-
-    panels().forEach(({ v, i, kind, x: ox, y: oy, w: pw, h: ph }) => {
-        const { y0, y1 } = fr[kind];
-        const yPx = (m) => oy + (1 - (m - y0) / (y1 - y0)) * ph;
-        const tone = kind === 'face' ? shade(base, 0.95) : shade(base, i % 2 ? 0.985 : 1);
-        const grad = c.createLinearGradient(0, oy, 0, oy + ph);
-        grad.addColorStop(0, css(mix(tone, '#ffffff', 0.25)));
-        grad.addColorStop(1, css(tone));
-        c.fillStyle = grad;
-        c.fillRect(ox, oy, pw, ph);
-
-        if (kind === 'body') {
-            for (let cm = 0; cm <= 200; cm += 10) {
-                const y = yPx(cm / 100);
-                if (y < oy) continue;
-                const major = cm % 50 === 0;
-                c.strokeStyle = major ? 'rgba(70,52,36,.22)' : 'rgba(70,52,36,.09)';
-                c.lineWidth = major ? 1 : 0.7;
-                c.beginPath(); c.moveTo(ox, y); c.lineTo(ox + pw, y); c.stroke();
-                if (cm >= 100 && (major || pw > 150) && y > oy + 24) {
-                    c.fillStyle = major ? 'rgba(70,52,36,.5)' : 'rgba(70,52,36,.28)';
-                    c.font = `${major ? 500 : 400} 9px "IBM Plex Mono", monospace`;
-                    c.fillText(String(cm), ox + 5, y - 3);
-                }
-            }
-            const top = yPx(look.height / 100);
-            c.strokeStyle = 'rgba(198,54,36,.6)';
-            c.setLineDash([4, 3]);
-            c.beginPath(); c.moveTo(ox, top); c.lineTo(ox + pw, top); c.stroke();
-            c.setLineDash([]);
-            if (i === 0 || pw > 150) {
-                c.fillStyle = 'rgba(198,54,36,.9)';
-                c.font = '500 10px "IBM Plex Mono", monospace';
-                const t = `${look.height}cm`;
-                c.fillText(t, ox + pw - c.measureText(t).width - 6, top - 4);
-            }
-        } else {
-            c.fillStyle = 'rgba(70,52,36,.16)';
-            c.fillRect(ox, oy, pw, 1);
-        }
-        c.fillStyle = 'rgba(70,52,36,.55)';
-        c.font = '500 9.5px "IBM Plex Mono", monospace';
-        if (kind === 'face') c.fillText(v.label.replace(/^\w+/, (s) => s + ' FACE'), ox + 8, oy + 16);
-        else c.fillText(v.label, ox + 8, oy + ph - 10);
-        if (ox > 0) { c.fillStyle = 'rgba(70,52,36,.14)'; c.fillRect(ox, oy, 1, ph); }
-    });
-}
-
-function draw() {
-    if (!layout || !person) return;
-    drawWall();
-    const fr = frames();
-    const midY = (look.height / 100) * 0.55;
-    renderer.setScissorTest(true);
-    renderer.setViewport(0, 0, layout.w, layout.h);
-    renderer.setScissor(0, 0, layout.w, layout.h);
-    renderer.clear();
-    panels().forEach(({ v, kind, x, y: top, w, h }) => {
-        const { y0, y1 } = fr[kind];
-        const vh = y1 - y0, cy = (y0 + y1) / 2;
-        const y = layout.h - top - h;                 // WebGL 은 아래에서부터 셉니다
-        renderer.setViewport(x, y, w, h);
-        renderer.setScissor(x, y, w, h);
-        camera.left = -vh * w / h / 2; camera.right = vh * w / h / 2;
-        camera.top = vh / 2; camera.bottom = -vh / 2;
-        camera.updateProjectionMatrix();
-        const [dx, , dz] = v.dir;
-        const tilt = kind === 'body' ? TILT : 0.02;
-        camera.position.set(dx * 8, cy + 8 * Math.tan(tilt), dz * 8);
-        camera.lookAt(0, cy, 0);
-        // 빛: 보는 쪽 왼편 위에서 주광, 오른편 뒤에서 윤곽광
-        const rx = dz, rz = -dx;                       // 카메라 기준 오른쪽
-        key.position.set(dx * 3 - rx * 2.2, midY + 3.2, dz * 3 - rz * 2.2);
-        key.target.position.set(0, midY, 0);
-        rim.position.set(-dx * 3 + rx * 2.5, midY + 2.4, -dz * 3 + rz * 2.5);
-        rim.target.position.set(0, midY, 0);
+renderer.setAnimationLoop(() => {
+    let moved = false;
+    if (tween) {
+        const t = Math.min(1, (performance.now() - tween.start) / 480);
+        const e = 1 - Math.pow(1 - t, 3);
+        place(tween.a0 + (tween.a1 - tween.a0) * e, tween.d0 + (tween.d1 - tween.d0) * e);
+        if (t >= 1) tween = null;
+        moved = true;
+    }
+    if (controls.update()) moved = true;
+    if ((moved || dirty) && stage.clientWidth) {
+        follow();
         renderer.render(scene, camera);
-    });
-    renderer.setScissorTest(false);
-}
+        dirty = false;
+    }
+});
 
-new ResizeObserver(() => { measure(); draw(); }).observe(board);
-document.fonts?.ready.then(() => draw());
+new ResizeObserver(measure).observe(stage);
+
+const views = {
+    front: document.querySelector('[data-v="front"]'),
+    side: document.querySelector('[data-v="side"]'),
+    back: document.querySelector('[data-v="back"]'),
+    zoom: document.querySelector('[data-v="zoom"]')
+};
+views.front.addEventListener('click', () => goTo(0, camera.position.distanceTo(controls.target)));
+views.side.addEventListener('click', () => goTo(Math.PI / 2, camera.position.distanceTo(controls.target)));
+views.back.addEventListener('click', () => goTo(Math.PI, camera.position.distanceTo(controls.target)));
+views.zoom.addEventListener('click', () => {
+    const d = camera.position.distanceTo(controls.target);
+    const far = (d - frame.dU) / (frame.dF - frame.dU) > 0.6;
+    goTo(currentAz(), far ? frame.dU : frame.dF);
+});
 
 /* ══════════════════════════════════════════════════════════
-   9. 몽타주 고치기 (빌더)
+   9. 아바타 고치기 (빌더)
    ══════════════════════════════════════════════════════════ */
 
-const controls = document.getElementById('controls');
+const controlsBox = document.getElementById('controls');
 const inputs = {};
 
 function buildControls() {
@@ -1399,7 +1446,7 @@ function buildControls() {
             box.appendChild(r);
             inputs[s.key] = { set: (v) => { r.value = v; val.textContent = s.unit ? `${v}${s.unit}` : ''; } };
         }
-        controls.appendChild(box);
+        controlsBox.appendChild(box);
     });
     const row = document.createElement('div');
     row.className = 'row';
@@ -1408,7 +1455,7 @@ function buildControls() {
     dice.textContent = '아무나';
     dice.addEventListener('click', () => setLook(randomLook(look.gender)));
     row.appendChild(dice);
-    controls.appendChild(row);
+    controlsBox.appendChild(row);
 }
 
 let pending = 0;
@@ -1426,20 +1473,22 @@ function syncControls() {
    ══════════════════════════════════════════════════════════ */
 
 const el = {
+    formScreen: document.getElementById('formScreen'),
+    resultScreen: document.getElementById('resultScreen'),
     name: document.getElementById('name'),
     age: document.getElementById('age'),
     job: document.getElementById('job'),
     ending: document.getElementById('ending'),
     go: document.getElementById('go'),
     hint: document.getElementById('hint'),
-    head: document.getElementById('sHead'),
-    body: document.getElementById('sBody'),
     title: document.getElementById('sTitle'),
-    who: document.getElementById('sWho'),
+    nick: document.getElementById('sNick'),
+    nickSub: document.getElementById('sNickSub'),
+    stats: document.getElementById('stats'),
     lines: document.getElementById('sLines'),
     copy: document.getElementById('copy'),
     again: document.getElementById('again'),
-    tag: document.getElementById('tag')
+    back: document.getElementById('back')
 };
 
 const form = { gender: '', mbti: ['', '', '', ''], outcome: '', dopamine: 'mid', target: 'auto' };
@@ -1510,10 +1559,20 @@ function warn(text) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   11. 썰 받기
+   11. 썰 받기 → 결과 화면
    ══════════════════════════════════════════════════════════ */
 
 let busy = false;
+
+function screen(name, push = true) {
+    const result = name === 'result';
+    el.formScreen.hidden = result;
+    el.resultScreen.hidden = !result;
+    if (push && result) history.pushState({ screen: 'result' }, '');
+    scrollTo({ top: 0 });
+    if (result) measure();
+}
+addEventListener('popstate', () => screen('form', false));
 
 async function make() {
     if (busy) return;
@@ -1533,6 +1592,7 @@ async function make() {
     el.go.disabled = true;
     el.again.disabled = true;
     el.go.textContent = '주선자에게 연락하는 중…';
+    el.again.textContent = '주선 중…';
     el.hint.classList.remove('warn');
     el.hint.textContent = '보통 5초 안쪽';
 
@@ -1553,41 +1613,51 @@ async function make() {
         const data = await res.json().catch(() => null);
         if (!res.ok || !data) throw new Error(data?.error || `주선자가 답이 없습니다 (${res.status})`);
         show(data);
-        el.hint.textContent = '마음에 안 들면 다른 썰';
+        el.hint.textContent = '입력은 이 기기에만 기억됩니다';
     } catch (err) {
-        warn(err instanceof TypeError ? '서버에 닿지 않습니다. blind-date 함수가 배포됐는지 확인해 주세요' : err.message);
+        const msg = err instanceof TypeError ? '서버에 닿지 않습니다. blind-date 함수가 배포됐는지 확인해 주세요' : err.message;
+        if (!el.resultScreen.hidden) alert(msg);
+        warn(msg);
     } finally {
         busy = false;
         el.go.disabled = false;
         el.again.disabled = false;
         el.go.textContent = '썰 만들기';
+        el.again.textContent = '다른 썰';
     }
 }
 
 function show(data) {
     const p = data.p ?? {};
+    const target = data.target === 'f' ? 'f' : 'm';
     el.title.textContent = data.t || '그날의 소개팅';
-    el.who.innerHTML = '';
-    [p.name, p.age && `${p.age}세`, p.h && `${p.h}cm`, p.job, p.school, p.mbti].filter(Boolean).forEach((t) => {
-        const s = document.createElement('span');
-        s.textContent = t;
-        el.who.appendChild(s);
-    });
+    el.nick.textContent = data.n || `${(p.job || '').split(/\s/).pop() || '그'}${target === 'f' ? '녀' : '남'}`;
+    el.nickSub.textContent = [p.name, p.age && `${p.age}세`].filter(Boolean).join(' · ');
+
+    el.stats.innerHTML = '';
+    [['키', p.h && `${p.h}cm`], ['직업', p.job], ['학교', p.school], ['MBTI', p.mbti], ['취미', p.hobby], ['나이', p.age && `${p.age}세`]]
+        .filter(([, v]) => v).slice(0, 5).forEach(([k, v]) => {
+            const t = document.createElement('div');
+            t.className = 'tile stat';
+            t.innerHTML = '<p class="k"></p><p class="v"></p>';
+            t.querySelector('.k').textContent = k;
+            t.querySelector('.v').textContent = v;
+            el.stats.appendChild(t);
+        });
+
     el.lines.innerHTML = '';
     (data.s ?? []).slice(0, 10).forEach((line) => {
         const li = document.createElement('li');
         li.textContent = line;
         el.lines.appendChild(li);
     });
-    el.head.hidden = false;
-    el.body.hidden = false;
-    el.tag.textContent = `${[p.name || '상대', p.age && `${p.age}세`].filter(Boolean).join(' · ')} 참고인 몽타주`;
-    setLook(lookFrom(data.a, p, data.target));
-    el.head.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (el.resultScreen.hidden) screen('result');
+    setLook(lookFrom(data.a, p, target), true);
 }
 
 el.copy.addEventListener('click', async () => {
-    const text = [el.title.textContent, ...[...el.lines.children].map((li) => li.textContent)].join('\n');
+    const text = [el.title.textContent, `${el.nick.textContent} (${el.nickSub.textContent})`,
+        ...[...el.lines.children].map((li) => li.textContent)].join('\n');
     try {
         await navigator.clipboard.writeText(text);
         el.copy.textContent = '복사됨';
@@ -1598,6 +1668,7 @@ el.copy.addEventListener('click', async () => {
 });
 el.go.addEventListener('click', make);
 el.again.addEventListener('click', make);
+el.back.addEventListener('click', () => history.state?.screen === 'result' ? history.back() : screen('form', false));
 [el.name, el.age, el.job, el.ending].forEach((i) => {
     i.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); make(); } });
     i.addEventListener('input', () => { el.hint.classList.remove('warn'); });
@@ -1607,8 +1678,7 @@ recall();
 paints.forEach((p) => p());
 paintMbti();
 buildControls();
-measure();
-setLook(look);
+setLook(look, true);
 </script>
 </body>
 </html>
