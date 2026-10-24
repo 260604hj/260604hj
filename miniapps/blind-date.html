@@ -573,14 +573,20 @@ function sleeve(len, rFn, m) {
     return mesh(new THREE.LatheGeometry(arr, 32), m);
 }
 
-// 가슴 앞면에 붙는 띠 (셔츠 V, 넥타이, 주머니). half(t) 는 위(0)→아래(1) 반폭.
+// 가슴 앞면에 붙는 띠 (셔츠 V, 주머니). half(t) 는 위(0)→아래(1) 반폭.
 function onChest(pts, k, depth, y0, y1, half, lift, m) {
-    const rows = 14, cols = 6, pos = [], uv = [], idx = [];
+    return onSurface(pts, k, depth, y0, y1, (t) => { const h = Math.max(0.0005, half(t)); return [-h, h]; }, lift, m);
+}
+
+// 몸판 앞면을 따라 붙는 조각 (라펠, 깃). span(t) 는 위(0)→아래(1) 에서 [왼쪽 x, 오른쪽 x].
+function onSurface(pts, k, depth, y0, y1, span, lift, m) {
+    const rows = 18, cols = 6, pos = [], uv = [], idx = [];
     for (let i = 0; i <= rows; i++) {
         const t = i / rows, y = y0 + (y1 - y0) * t;
-        const R = profileR(pts, y) * k, hw = Math.max(0.0005, half(t));
+        const R = profileR(pts, y) * k;
+        const [xa, xb] = span(t);
         for (let j = 0; j <= cols; j++) {
-            const x = -hw + 2 * hw * j / cols;
+            const x = xa + (xb - xa) * j / cols;
             pos.push(x, y, depth * Math.sqrt(Math.max(0, R * R - x * x)) + lift);
             uv.push(j / cols, 1 - t);
         }
@@ -905,9 +911,15 @@ function buildFace(g, head, P, M, pal) {
                 const lens = mesh(new THREE.CircleGeometry(r * 0.98, 40), M.lens, [x, y, fz - 0.002], [1.05, 0.95, 1]);
                 g.add(lens);
             }
+            // 테 바깥쪽 → 경첩(가로 다리) → 귀로 가는 다리. 얼굴이 테보다 넓어도 끊기지 않게 이어 줍니다.
             const temple = head.D * 1.1;
+            const rimX = ex + (sq ? r * 1.12 * Math.SQRT1_2 * 1.1 : r * 0.98);
+            const tx = Math.max(rimX, W * 1.04);
+            const ty = y + r * 0.2;
+            g.add(mesh(new THREE.BoxGeometry(tx - rimX + size * 0.016, size * 0.014, size * 0.014), M.frame,
+                [sx * (rimX + tx) / 2, ty, fz]));
             g.add(mesh(new THREE.BoxGeometry(size * 0.012, size * 0.014, temple), M.frame,
-                [sx * Math.max(ex + r, W * 1.04), y + r * 0.2, fz - temple / 2]));
+                [sx * tx, ty, fz - temple / 2]));
         }
         g.add(tube([[-ex + r * 0.9, ey + r * 0.25, fz], [0, ey + r * 0.4, fz + size * 0.008], [ex - r * 0.9, ey + r * 0.25, fz]], size * 0.01, M.frame, 12));
     }
@@ -952,7 +964,10 @@ function materials(P, pal) {
         gold: gloss('#D9B45A', 0.2, 0.9),
         top: pal.stripe && P.outfit === 'casual'
             ? fabric('#fff', { map: stripeTex(pal.inner, pal.top, 9) })
-            : fabric(pal.top, { bump: 'rib', rep: [14, 1], bumpScale: 1.6 }),
+            : P.outfit === 'dandy' && !f
+                ? fabric(pal.top, { bump: 'twill', rep: [8, 14], bumpScale: 0.35, sheen: 0.5, rough: 0.75 })   // 울 블레이저
+                : fabric(pal.top, { bump: 'rib', rep: [14, 1], bumpScale: 1.6 }),
+        lapel: fabric(shade(pal.top, 0.86), { bump: 'twill', rep: [3, 6], bumpScale: 0.3, sheen: 0.7, rough: 0.6 }),
         topDark: fabric(shade(pal.top, 0.9), { bump: 'rib', rep: [26, 1], bumpScale: 1.2 }),
         rib: fabric(shade(pal.top, 0.92), { bump: 'rib', rep: [30, 1], bumpScale: 1.8 }),
         inner: pal.stripe
@@ -1056,22 +1071,64 @@ function buildPerson(P) {
         // 안: 여성은 터틀넥, 남성은 셔츠 + 넥타이. 겉: 앞이 열린 니트 가디건 / 블레이저 + 칼라
         topK = f ? 1.1 : 1.15;
         const inner = f ? M.inner : M.shirt;
-        g.add(lathe(pts, beltY - H * 0.02, torsoTop, 1.03, inner, depth));
+        if (f) g.add(lathe(pts, beltY - H * 0.02, torsoTop, 1.03, inner, depth));
+        else {   // 셔츠도 목 앞은 열어 둡니다 (첫 단추 푼 모양)
+            g.add(lathe(pts, beltY - H * 0.02, shoulderY + H * 0.02, 1.03, inner, depth));
+            g.add(lathe(pts, shoulderY + H * 0.018, torsoTop, 1.03, inner, depth, 0.9));
+        }
         const hem = f ? crotchY + H * 0.005 : crotchY + H * 0.01;
         const open = f ? 0.42 : 0.36;
         // 코트 자락은 엉덩이 아래로 곧게 떨어집니다 (몸통 옆선을 그대로 쓰면 다리 사이로 말려 들어감)
         const coat = [[hem - 0.01, hipR * (f ? 1.1 : 1.04)], [crotchY + 0.03, hipR * 1.04], ...pts.slice(2)];
-        g.add(lathe(coat, hem, torsoTop - H * 0.004, topK, M.top, depth, open));
-        if (f) g.add(lathe(coat, hem - 0.005, hem + H * 0.03, topK * 1.015, M.rib, depth, open));   // 가디건 골지 밑단
-        for (const s of [-1, 1]) {
-            const edge = [];
-            for (let i = 0; i <= 12; i++) {
-                const y = hem + (shoulderY + H * 0.024 - hem) * i / 12;
-                const R = profileR(coat, y) * topK + 0.004;
-                edge.push([s * R * Math.sin(open), y, R * Math.cos(open) * depth]);
+        if (f) {
+            g.add(lathe(coat, hem, torsoTop - H * 0.004, topK, M.top, depth, open));
+            g.add(lathe(coat, hem - 0.005, hem + H * 0.03, topK * 1.015, M.rib, depth, open));   // 가디건 골지 밑단
+            for (const s of [-1, 1]) {
+                const edge = [];
+                for (let i = 0; i <= 12; i++) {
+                    const y = hem + (shoulderY + H * 0.024 - hem) * i / 12;
+                    const R = profileR(coat, y) * topK + 0.004;
+                    edge.push([s * R * Math.sin(open), y, R * Math.cos(open) * depth]);
+                }
+                edge.push([s * neckR * 1.2, shoulderY + H * 0.034, -neckR * 0.6]);
+                g.add(tube(edge, 0.014 * kw, M.rib, 40));
             }
-            edge.push([s * neckR * 1.2, shoulderY + H * 0.034, -neckR * 0.6]);
-            g.add(tube(edge, f ? 0.014 * kw : 0.016 * kw, f ? M.rib : M.topDark, 40));
+        } else {
+            // 블레이저: 몸판은 닫고, 그 위에 셔츠가 보이는 V · 삼각 라펠 · 셔츠 깃을 겹 순서대로 얹습니다.
+            //   몸판 < 셔츠 V(+3mm) < 셔츠 깃(+4mm) < 라펠(+5mm) < 목 V · 단추(+6~7mm)  — 서로 파고들지 않게
+            // 몸판은 V 꼭대기까지만 닫고, 그 위(목 앞)는 앞을 크게 비워 목 아래에서 이어지지 않게
+            const vTop = shoulderY + H * 0.02, vBot = beltY + H * 0.045;
+            g.add(lathe(coat, hem, vTop, topK, M.top, depth));
+            g.add(lathe(coat, vTop - 0.002, torsoTop - H * 0.004, topK, M.top, depth, 1.25));
+            const vHalf = (t) => neckR * 1.55 * Math.pow(1 - t, 0.9);           // t: 위 0 → 아래 1
+            g.add(onSurface(coat, topK, depth, vTop, vBot, (t) => [-vHalf(t), vHalf(t)], 0.003, M.shirt));
+            // 삼각 라펠: V 가장자리에서 바깥으로, 가슴께가 가장 넓고 위쪽에 노치
+            const lw = 0.062 * kw;
+            const lapelW = (t) => (t < 0.28 ? lw * (0.45 + 0.55 * t / 0.28) * (t < 0.12 ? 0.55 : 1) : lw * (1 - (t - 0.28) / 0.72));
+            for (const s of [-1, 1]) {
+                g.add(onSurface(coat, topK, depth, vTop - 0.004, vBot, (t) => {
+                    const a = vHalf(t), b = vHalf(t) + lapelW(t);
+                    return s > 0 ? [a, b] : [-b, -a];
+                }, 0.005, M.lapel));
+                // 셔츠 깃: 목 옆에서 아래 바깥으로 뾰족한 삼각형, 라펠 아래에 깔림
+                g.add(onSurface(coat, topK, depth, vTop + 0.004, vTop - H * 0.05, (t) => {
+                    const a = neckR * (0.25 + 1.0 * t), b = neckR * (1.15 + 0.9 * t) * (1 - t * 0.35);
+                    return s > 0 ? [a, Math.max(a + 0.002, b)] : [-Math.max(a + 0.002, b), -a];
+                }, 0.004, M.shirt));
+            }
+            // 첫 단추를 푼 목 V, 셔츠 단추, 블레이저 단추
+            g.add(onSurface(coat, topK, depth, vTop - 0.004, vTop - H * 0.06, (t) => [-neckR * 0.7 * (1 - t), neckR * 0.7 * (1 - t)], 0.006, M.skin));
+            for (let i = 0; i < 3; i++) {
+                const y = vTop - H * (0.085 + 0.05 * i);
+                g.add(ball(M.sole, [0, y, frontAt(coat, y, topK, depth) + 0.007], [0.005, 0.005, 0.0025]));
+            }
+            for (let i = 0; i < 2; i++) {
+                const y = vBot - H * (0.012 + 0.05 * i);
+                g.add(ball(M.button, [0, y, frontAt(coat, y, topK, depth) + 0.004], [0.009, 0.009, 0.004]));
+            }
+            // 셔츠 깃 뒤쪽 스탠드 (앞은 비워 둡니다)
+            const stand = new THREE.CylinderGeometry(neckR * 1.06, neckR * 1.12, H * 0.016, 32, 1, true, 1.5, Math.PI * 2 - 3);
+            g.add(mesh(stand, M.shirt, [0, shoulderY + H * 0.036, -0.002]));
         }
         if (f) {
             for (let i = 0; i < 4; i++) {                                                       // 가디건 단추
@@ -1080,21 +1137,6 @@ function buildPerson(P) {
                 g.add(ball(M.button, [-R * Math.sin(open), y, R * Math.cos(open) * depth], [0.008, 0.008, 0.005]));
             }
             g.add(rod(M.inner, shoulderY + H * 0.05, shoulderY + H * 0.01, neckR * 1.32, neckR * 1.5, 0, 0, true));   // 터틀넥
-        } else {
-            // 타이 없이 첫 단추를 푼 와이셔츠: 열린 V 사이로 목, 벌어진 깃, 앞섶 단추
-            const y0 = shoulderY + H * 0.026, vBot = shoulderY - H * 0.045;
-            g.add(onChest(pts, 1.03, depth, y0, vBot, (t) => neckR * 0.95 * (1 - t), 0.004, M.skin));
-            for (const s of [-1, 1]) {
-                const z0 = frontAt(pts, y0, 1.03, depth);
-                g.add(tube([[s * 0.004, vBot + 0.004, frontAt(pts, vBot, 1.03, depth) + 0.006],
-                    [s * neckR * 0.9, y0 - 0.004, z0 + 0.006],
-                    [s * neckR * 1.5, y0 + 0.006, z0 - 0.01],
-                    [s * neckR * 1.5, y0 + 0.01, -0.004]], 0.007, M.shirt, 16));
-            }
-            for (let i = 0; i < 4; i++) {
-                const y = vBot - H * (0.025 + 0.048 * i);
-                g.add(ball(M.sole, [0, y, frontAt(pts, y, 1.03, depth) + 0.003], [0.006, 0.006, 0.003]));
-            }
         }
     } else {
         // 오버핏 후드티: 넉넉한 몸판 + 밑단 + 캥거루 주머니 + 후드 + 끈
