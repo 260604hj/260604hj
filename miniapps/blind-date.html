@@ -595,11 +595,22 @@ const hairline = (front, back, bangs = null) => (ax, az) => {
     return line;
 };
 
-// 뒤로 늘어지는 머리 (단발·긴 머리). 원기둥을 뒤쪽 호만 남깁니다.
-function drape(head, yTop, yBot, rTop, rBot, arc, m) {
-    const g = new THREE.CylinderGeometry(rTop, rBot, yTop - yBot, 64, 12, true, Math.PI - arc / 2, arc);
-    const out = mesh(g, m, [0, (yTop + yBot) / 2, -head.D * 0.1]);
-    out.scale.z = (head.D / head.W) * 1.02;
+// 뒤로 늘어지는 머리 (단발·긴 머리). 머리 껍질의 귀 높이 둘레에서 이어 내려서 각이 지지 않게,
+// 옆은 얼굴선을 따라 내려오고 끝은 안으로 살짝 말립니다. 뒤쪽 호(arc)만 남깁니다.
+function drape(head, k, yBot, flare, arc, m) {
+    const { W, D, cy, Hy } = head;
+    const yTop = cy - Hy * 0.05;
+    const rTop = W * k * head.shape.f(-0.05);
+    const span = yTop - yBot;
+    const pts = [];
+    for (let i = 0; i <= 24; i++) {
+        const t = 1 - i / 24;                                  // 0 = 위, 1 = 아래 (점은 아래부터)
+        const grow = Math.sin(Math.min(1, t * 1.15) * Math.PI / 2);
+        const curl = t > 0.9 ? (t - 0.9) / 0.1 : 0;
+        pts.push(new THREE.Vector2(rTop * (1 + (flare - 1) * grow) * (1 - 0.08 * curl), yTop - span * t));
+    }
+    const out = mesh(new THREE.LatheGeometry(pts, 72, Math.PI - arc / 2, arc), m);
+    out.scale.z = (D * k * 1.08) / (W * k * head.shape.f(-0.05));
     return out;
 }
 
@@ -656,21 +667,20 @@ function buildHair(g, head, P, M) {
             break;
         case 'bob':
             g.add(shell(head, hairline(0.3, -0.62, 0.2), 1.09, m));
-            g.add(drape(head, cy + Hy * 0.25, head.chin + size * 0.06, W * 1.2, W * 1.3, Math.PI * 1.25, m));
+            g.add(drape(head, 1.09, head.chin + size * 0.06, 1.1, Math.PI * 1.3, m));
             break;
         case 'long':
             g.add(shell(head, hairline(0.34, -0.62), 1.07, m));
-            g.add(drape(head, cy + Hy * 0.2, cy - size * 1.6, W * 1.14, W * 1.34, Math.PI * 1.04, m));
+            g.add(drape(head, 1.07, cy - size * 1.6, 1.22, Math.PI * 1.16, m));
             break;
         case 'wave': {
             g.add(shell(head, hairline(0.32, -0.62), 1.1, m));
-            const top = cy + Hy * 0.2, bot = cy - size * 1.4;
-            const d = drape(head, top, bot, W * 1.2, W * 1.62, Math.PI * 1.06, m);
+            const top = cy - Hy * 0.05, bot = cy - size * 1.4;
+            const d = drape(head, 1.1, bot, 1.42, Math.PI * 1.16, m);
             const p = d.geometry.attributes.position;
-            const half = (top - bot) / 2;
             for (let i = 0; i < p.count; i++) {
                 const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-                const down = clamp((half - y) / (half * 2), 0, 1);
+                const down = clamp((top - y) / (top - bot), 0, 1);
                 const k = 1 + 0.1 * down * Math.sin(Math.atan2(x, z) * 9 + y * 40);
                 p.setXYZ(i, x * k, y, z * k);
             }
@@ -741,7 +751,7 @@ function buildFace(g, head, P, M, pal) {
             M.skin, c, null, [-0.32, 0, 0]));
 
         // 눈썹 — 아치형 관
-        const pts = [[-0.15, 0.25], [0.02, 0.32], [0.17, 0.25]].map(([dx, dy]) => {
+        const pts = [[-0.15, 0.25], [0.02, 0.295], [0.17, 0.255]].map(([dx, dy]) => {
             const [bx, by, bz] = head.surface(sx * (eyeUx + dx), eyeUy + dy + eyeR / size * 0.6);
             return [bx, by, bz + size * 0.012];
         });
@@ -751,16 +761,18 @@ function buildFace(g, head, P, M, pal) {
 
     // 코 — 콧등에서 동그란 코끝으로
     const ns = size * (0.05 + 0.042 * P.nose);
-    const noseUy = eyeUy - 0.36;
+    const noseUy = eyeUy - 0.32;
+    // 코끝을 앞으로 더 빼서 콧대를 세우고, 콧볼은 작게 안쪽으로
     const [tx, ty, tz] = head.surface(0, noseUy);
-    const tip = [tx, ty, tz + ns * 0.5];
-    const [, by0, bz0] = head.surface(0, eyeUy - 0.08);
-    const mid = [0, (by0 + tip[1]) / 2, (bz0 + tip[2]) / 2];
-    const len = Math.hypot(by0 - tip[1], bz0 - tip[2]);
-    g.add(ball(M.skin, mid, [ns * 0.42, len / 2, ns * 0.5], [-Math.atan2(tip[2] - bz0, by0 - tip[1]), 0, 0]));
-    g.add(ball(M.noseTip, tip, [ns * 0.82, ns * 0.74, ns * 0.74]));
+    const tip = [tx, ty, tz + ns * 0.95];
+    const [, by0, bz0] = head.surface(0, eyeUy - 0.06);
+    const bridgeTop = [0, by0, bz0 + ns * 0.15];
+    const mid = [0, (bridgeTop[1] + tip[1]) / 2, (bridgeTop[2] + tip[2]) / 2 - ns * 0.08];
+    const len = Math.hypot(bridgeTop[1] - tip[1], bridgeTop[2] - tip[2]);
+    g.add(ball(M.skin, mid, [ns * 0.36, len / 2, ns * 0.42], [-Math.atan2(tip[2] - bridgeTop[2], bridgeTop[1] - tip[1]), 0, 0]));
+    g.add(ball(M.noseTip, tip, [ns * 0.62, ns * 0.6, ns * 0.6]));
     for (const sx of [-1, 1]) {
-        g.add(ball(M.skin, [sx * ns * 0.66, tip[1] - ns * 0.22, tip[2] - ns * 0.42], [ns * 0.42, ns * 0.36, ns * 0.38]));
+        g.add(ball(M.skin, [sx * ns * 0.44, tip[1] - ns * 0.24, tip[2] - ns * 0.48], [ns * 0.26, ns * 0.24, ns * 0.26]));
     }
 
     // 입 — 살짝 올라간 입꼬리. 여성은 립 컬러로 입술을 도톰하게.
@@ -790,9 +802,15 @@ function buildFace(g, head, P, M, pal) {
         g.add(blush);
     }
 
-    // 귀 — 크고 발그레하게
+    // 귀 — 크고 발그레하게. 귀를 덮는 머리(단발·긴 머리)면 귀걸이만 살짝 보입니다.
+    const hidden = ['bob', 'long', 'wave'].includes(P.hair);
     for (const sx of [-1, 1]) {
         const [ex, ey] = head.point(sx * 0.98, eyeUy - 0.16, 0);
+        if (hidden) {
+            if (f) g.add(mesh(new THREE.TorusGeometry(size * 0.036, size * 0.0065, 10, 32), M.gold,
+                [ex + sx * size * 0.06, ey - size * 0.17, head.D * 0.05], null, [0, Math.PI / 2, 0]));
+            continue;
+        }
         const ear = new THREE.Group();
         ear.position.set(ex + sx * size * 0.012, ey, -head.D * 0.06);
         ear.rotation.y = sx * 0.4;
@@ -874,6 +892,8 @@ function materials(P, pal) {
         shirt: fabric(white, { sheen: 0.3, rough: 0.7 }),
         tie: fabric(pal.accent, { sheen: 0.4, rough: 0.5 }),
         pants: fabric(pal.pants, { bump: 'twill', rep: [4, 8], bumpScale: 0.5, sheen: 0.5 }),
+        skirt: fabric(pal.pants, { bump: 'rib', rep: [20, 1], bumpScale: 0.7, sheen: 0.6 }),
+        button: gloss(shade(pal.top, 0.55), 0.25),
         cuff: fabric(mix(pal.pants, '#ffffff', 0.08), { bump: 'twill', rep: [6, 1], bumpScale: 0.5, sheen: 0.5 }),
         sock: fabric(P.outfit === 'dandy' ? pal.inner : '#F5F3EE', { bump: 'rib', rep: [10, 1], bumpScale: 1 }),
         sneaker: gloss('#F7F5F0', 0.45),
@@ -964,15 +984,16 @@ function buildPerson(P) {
         g.add(mesh(new THREE.TorusGeometry(neckR * 1.55, 0.018 * kw, 12, 36), M.rib,
             [0, shoulderY + H * 0.03, 0], [1, 1, 0.85], [Math.PI / 2, 0, 0]));
     } else if (O === 'dandy') {
-        // 안: 여성은 터틀넥, 남성은 셔츠 + 넥타이. 겉: 앞이 열린 니트 코트 / 블레이저 + 숄칼라
-        topK = 1.15;
+        // 안: 여성은 터틀넥, 남성은 셔츠 + 넥타이. 겉: 앞이 열린 니트 가디건 / 블레이저 + 칼라
+        topK = f ? 1.1 : 1.15;
         const inner = f ? M.inner : M.shirt;
         g.add(lathe(pts, beltY - H * 0.02, torsoTop, 1.03, inner, depth));
-        const hem = f ? crotchY - H * 0.1 : crotchY + H * 0.01;
-        const open = f ? 0.46 : 0.36;
+        const hem = f ? crotchY + H * 0.005 : crotchY + H * 0.01;
+        const open = f ? 0.42 : 0.36;
         // 코트 자락은 엉덩이 아래로 곧게 떨어집니다 (몸통 옆선을 그대로 쓰면 다리 사이로 말려 들어감)
-        const coat = [[hem - 0.01, hipR * (f ? 1.16 : 1.04)], [crotchY + 0.03, hipR * 1.02], ...pts.slice(2)];
+        const coat = [[hem - 0.01, hipR * (f ? 1.1 : 1.04)], [crotchY + 0.03, hipR * 1.04], ...pts.slice(2)];
         g.add(lathe(coat, hem, torsoTop - H * 0.004, topK, M.top, depth, open));
+        if (f) g.add(lathe(coat, hem - 0.005, hem + H * 0.03, topK * 1.015, M.rib, depth, open));   // 가디건 골지 밑단
         for (const s of [-1, 1]) {
             const edge = [];
             for (let i = 0; i <= 12; i++) {
@@ -981,9 +1002,14 @@ function buildPerson(P) {
                 edge.push([s * R * Math.sin(open), y, R * Math.cos(open) * depth]);
             }
             edge.push([s * neckR * 1.2, shoulderY + H * 0.034, -neckR * 0.6]);
-            g.add(tube(edge, f ? 0.026 * kw : 0.016 * kw, M.topDark, 40));
+            g.add(tube(edge, f ? 0.014 * kw : 0.016 * kw, f ? M.rib : M.topDark, 40));
         }
         if (f) {
+            for (let i = 0; i < 4; i++) {                                                       // 가디건 단추
+                const y = beltY + H * (0.02 + 0.05 * i);
+                const R = profileR(coat, y) * topK + 0.006;
+                g.add(ball(M.button, [-R * Math.sin(open), y, R * Math.cos(open) * depth], [0.008, 0.008, 0.005]));
+            }
             g.add(rod(M.inner, shoulderY + H * 0.05, shoulderY + H * 0.01, neckR * 1.32, neckR * 1.5, 0, 0, true));   // 터틀넥
         } else {
             const y0 = shoulderY + H * 0.026, y1 = beltY + H * 0.02;
@@ -1014,18 +1040,33 @@ function buildPerson(P) {
         }
     }
 
-    // ── 바지 · 양말 · 신발
-    g.add(lathe(pts, crotchY - 0.02, beltY + 0.02, 1.0, M.pants, depth));
-    const style = O === 'hiphop' ? 'wide' : O === 'dandy' ? (f ? 'wide' : 'slim') : 'straight';
-    const crop = O === 'casual' || (O === 'dandy' && f) ? H * 0.055 : 0;      // 발목이 보이게 롤업
-    const hemY = ankleY + 0.012 + crop;
+    // ── 바지(치마) · 양말 · 신발
+    const skirt = O === 'dandy' && f;
     const hipX = hipR * 0.5;
     const thighR = (f ? 0.074 : 0.072) * kw * B.limb, calfR = 0.05 * kw * B.limb, ankR = 0.032 * kw;
+    const fl = 0.28 * H / 1.75 * (f ? 0.92 : 1);
+    if (skirt) {
+        // 발목까지 오는 슬림한 니트 롱스커트: 엉덩이에서 곧게 떨어져 밑단이 살짝 좁아집니다
+        const hemY = ankleY + H * 0.035;
+        const sk = [
+            [hemY, hipR * 0.8], [kneeY, hipR * 0.9], [crotchY - H * 0.04, hipR * 1.0],
+            [crotchY + H * 0.07, hipR * 1.03], [beltY + H * 0.02, waistR * 1.04], [beltY + H * 0.04, waistR * 1.02]
+        ];
+        g.add(lathe(sk, hemY, beltY + H * 0.04, 1, M.skirt, depth * 1.05));
+        g.add(lathe(sk, hemY - 0.004, hemY + H * 0.012, 1.02, M.skirt, depth * 1.05));
+        for (const sx of [-1, 1]) {
+            const x = sx * hipX * 0.8;
+            g.add(rod(M.skin, hemY + 0.02, 0.05, ankR * 1.05, ankR, x, 0, true));
+            loafer(g, x * 1.02, fl, kw, M);
+        }
+    } else g.add(lathe(pts, crotchY - 0.02, beltY + 0.02, 1.0, M.pants, depth));
+    const style = O === 'hiphop' ? 'wide' : O === 'dandy' ? 'slim' : 'straight';
+    const crop = O === 'casual' ? H * 0.055 : 0;      // 발목이 보이게 롤업
+    const hemY = ankleY + 0.012 + crop;
     const R = style === 'wide' ? [thighR * 1.42, thighR * 1.4, thighR * 1.5]
         : style === 'slim' ? [thighR * 1.1, calfR * 1.3, calfR * 1.18]
         : [thighR * 1.22, thighR * 1.1, thighR * 1.05];
-    const fl = 0.28 * H / 1.75 * (f ? 0.92 : 1);
-    for (const sx of [-1, 1]) {
+    for (const sx of skirt ? [] : [-1, 1]) {
         const x = sx * hipX * (style === 'wide' ? 1.08 : 1);
         g.add(rod(M.pants, crotchY + 0.02, kneeY, R[0], R[1], x));
         g.add(rod(M.pants, kneeY, hemY, R[1], R[2], x));
@@ -1044,7 +1085,7 @@ function buildPerson(P) {
     const armK = 0.92 + 0.18 * P.limb;
     const upperL = H * 0.165 * armK, foreL = H * 0.142 * armK, handL = H * 0.108 * armK;
     const uaR = (f ? 0.036 : 0.042) * kw * B.limb, faR = (f ? 0.03 : 0.035) * kw * B.limb, wrR = 0.024 * kw;
-    const balloon = O === 'dandy' && f;
+    const balloon = false;     // 벌룬 소매 (지금은 쓰지 않음)
     const thick = O === 'hiphop' ? 1.75 : O === 'casual' ? 1.6 : 1.3;
     const lerp = (a, b, t) => a + (b - a) * t;
     for (const sx of [-1, 1]) {
