@@ -3,14 +3,14 @@
 // Gemini API 키는 다른 함수와 같은 GEMINI_API_KEY (Edge Function Secrets, 프로젝트 전체 공용)
 // 이 함수도 로그인 없이 누구나 부를 수 있습니다 (Visitor 용). Verify JWT 를 꺼 두세요.
 //
-// 작성자 정보 + 결말 + 도파민(상·중·하) → 근황토크용 가짜 소개팅 썰(10줄 이내) + 상대 프로필 + 몽타주 수치
+// 작성자 정보 + 결말 + 도파민(상·중·하) → 근황토크용 가짜 소개팅 썰(4단 줄거리, 단마다 6~8문장) + 상대 프로필 + 몽타주 수치
 // 몽타주(4방향 3D)는 브라우저(blind-date.html)가 만듭니다. 서버는 정해진 어휘와 0~1 수치만 고릅니다.
 //
 // 토큰 아끼기: 짧은 프롬프트 · 스트리밍 없음 · 생각(thinking) 끔 · 출력 상한 · 가벼운 모델부터
 
 const GEMINI_MODELS = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash"];
 const TRY_NEXT = [404, 429, 500, 503];
-const MAX_OUT = 1200;
+const MAX_OUT = 3000;     // 줄거리 4단 × 6~8문장이 잘리지 않을 만큼
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,9 +35,11 @@ const FOODS = [
   "이탈리안 파스타", "와인바", "이자카야", "브런치", "한우 오마카세", "텐동", "쌀국수", "타코",
   "양갈비", "중식 코스", "곱창", "비건 레스토랑", "프렌치 비스트로", "수제버거", "솥밥", "스페인 타파스",
 ];
+// 주선자 — 호칭(형·누나·오빠·언니)이 들어가지 않게 성별 중립으로. 호칭은 작성자 성별에 맞춰 모델이 고릅니다.
 const LINKS = [
-  "회사 동기의 대학 동기", "헬스장 트레이너의 사촌", "전 직장 선배의 와이프 친구", "필라테스 강사님 지인",
-  "사촌 누나 회사 후배", "동호회 형의 고등학교 친구", "단골 미용실 원장님 조카", "엄마 친구 딸의 직장 동료",
+  "회사 동기의 대학 동기", "헬스장 트레이너의 사촌", "전 직장 선배의 배우자 친구", "필라테스 강사님 지인",
+  "사촌의 회사 후배", "동호회 지인의 고등학교 친구", "단골 미용실 원장님 조카", "엄마 친구 딸의 직장 동료",
+  "대학 조별과제 동기의 회사 동료", "요가원 회원의 친척",
 ];
 
 // 상대 직업 — 분야를 가리지 않고 넓게. 요청마다 몇 개만 후보로 보냅니다.
@@ -114,9 +116,9 @@ const MBTI_STYLE: Record<string, string> = {
 
 // 도파민 — 하: 소소하게, 중: 반전 하나, 상: 자극적인 사건
 const DOPAMINE: Record<string, string> = {
-  low: "도파민 하: 잔잔하고 현실적인 소소한 에피소드. 과장 금지, 들키지 않게 생활감 있게.",
-  mid: "도파민 중: 현실적이되 웃긴 반전 하나. 친구들이 '헐' 할 정도.",
-  high: "도파민 상: 자극적이고 극적인 전개. 황당한 우연·반전·긴장감을 2개 이상, 마지막 줄은 강한 한 방. 단 성적 묘사·범죄·특정인 비하 금지.",
+  low: "썰 강도 하: 잔잔하고 현실적인 소소한 에피소드. 과장 금지, 들키지 않게 생활감 있게.",
+  mid: "썰 강도 중: 현실적이되 웃긴 반전 하나. 친구들이 '헐' 할 정도.",
+  high: "썰 강도 상: 자극적이고 극적인 전개. 황당한 우연·반전·긴장감을 2개 이상, 마지막 줄은 강한 한 방. 단 성적 묘사·범죄·특정인 비하 금지.",
 };
 const TWISTS = [
   "상대가 내 전 애인의 사촌", "상대 휴대폰에 엄마 전화 7통", "옆 테이블이 회사 팀장님", "주선자가 사실 상대를 좋아함",
@@ -135,18 +137,24 @@ const BUILDS = ["slim", "average", "athletic", "chubby"];
 const OUTFITS = ["dandy", "casual", "hiphop"];
 const TONES = ["navy", "black", "beige", "grey", "white", "olive", "burgundy"];
 
-const SYSTEM_PROMPT = `너는 친구들 근황토크용 '그럴듯한 가짜 소개팅 썰'을 쓴다. 작성자 1인칭 시점, 문장은 "~함", "~했음", "~임", "~였음"으로 끝나는 깔끔한 음슴체(개조식). "~했잖아", "~더라" 같은 구어체 어미 금지. 대사만 따옴표 안에서 자연스럽게.
+const SYSTEM_PROMPT = `너는 친구들 근황토크용 '그럴듯한 가짜 소개팅 썰'을 쓴다. 작성자 1인칭 시점의 담백한 보고서 톤: 모든 문장은 "~했다", "~였다", "~이다"로 끝나는 평서체. 감탄·과장·구어체 어미("~했잖아", "~더라", "~함") 금지. 대사만 따옴표 안에서 자연스럽게.
+- 호칭은 작성자(나) 성별에 맞춘다: 내가 여자면 손위 남자는 '오빠', 손위 여자는 '언니'. 내가 남자면 '형', '누나'. 상대 성별도 주어진 대로만 (남자 상대를 '그녀'라 부르지 않기).
 - 주선자: 듣는 친구들이 확인 못 할 먼 사이. 이름 없이 관계로만(후보 참고).
 - 장소: 후보 동네 하나, 메뉴와 1인 가격대, 가게 분위기.
 - 상대(p): 가명, 나이, 키(cm), 직업(후보 중), 출신 학교, MBTI(주어진 것), 취미(후보 중). 외모·성격·매너를 구체적으로, 직업다운 디테일 하나.
 - n: 상대 별칭 한 단어, '~남' 또는 '~녀'로 끝나고 8자 이내 (예: 솥밥남, 클라이밍녀). 썰의 핵심 디테일에서.
 - 대화: 주제 후보에서 골라 실제 오간 대사 2개 이상을 따옴표로. 상대 MBTI가 드러나는 말투.
 - 취미 이야기를 꼭 넣는다: 상대 취미로 대화가 흘러간 장면 1~2줄 (구체적 에피소드, 내 반응 포함).
-- 자극 정도는 '도파민' 지시를 따른다. 반전 후보가 있으면 하나 녹인다.
+- 작성자(나) 정보도 줄거리에 녹인다: 내 나이·직업군(직장인/전문직/학생/자영업)·MBTI가 대화나 상황에 1~2번 자연스럽게 드러나게 (예: 내 직업 얘기에 상대가 보인 반응, 두 사람 MBTI 궁합).
+- '도파민', '반전 후보', '주제 후보' 같은 지시문 용어는 줄거리에 쓰지 않는다.
+- 자극 정도는 '썰 강도' 지시를 따른다. 반전 후보가 있으면 하나 녹인다.
 - 결말은 주어진 결과를 그대로. 유명인·실존 인물 금지, 비하·성적 표현 금지.
-- s: 6~10줄, 줄마다 60자 안팎, 모든 줄 음슴체로 끝냄 (예: "을지로 와인바에서 만났음.", "계산은 각자 함."). t: 썰 제목 18자 이내.
+- s: 줄거리를 정확히 4단으로, 순서대로 [만나기 전 연락, 장소 분위기와 매너, 대화 내용, 감상평]. 각 단은 문장 6~8개 배열, 문장마다 50~70자, "~했다"로 끝냄.
+  단마다 구체적 디테일을 촘촘히: 연락(첫 메시지 문구·답장 속도·약속 잡는 과정·사진 첫인상), 장소(가게 외관·좌석·주문 메뉴와 가격·상대 옷차림과 첫인상·매너 행동), 대화(대사 3개 이상·취미 장면·내 직업/MBTI 이야기·어색했던 순간), 감상평(좋았던 점·걸린 점·결말로 이어진 과정·친구들에게 할 한 줄 총평).
+  예: [["주선자에게 번호를 받고 다음 날 먼저 연락이 왔다.","답장 속도는 빨랐고 맞춤법이 정확했다."],["을지로 와인바에서 만났다. 1인 4만원대였다.", "..."],["...대사..."],["..."]]
+- t: 썰 제목 18자 이내.
 - a(몽타주)는 썰 속 외모와 맞게. 0~1 수치(eye 눈크기, eyeY 눈높이, gap 눈간격, nose 코크기, mouth 입크기, mouthY 입높이, limb 팔다리길이).
-JSON만: {"t":"","n":"","p":{"name":"","age":0,"h":0,"job":"","school":"","mbti":"","hobby":""},"a":{"face":"","skin":0,"hair":"","hc":"","glasses":"","eye":0,"eyeY":0,"gap":0,"nose":0,"mouth":0,"mouthY":0,"build":"","limb":0,"outfit":"","tone":""},"s":[""]}`;
+JSON만: {"t":"","n":"","p":{"name":"","age":0,"h":0,"job":"","school":"","mbti":"","hobby":""},"a":{"face":"","skin":0,"hair":"","hc":"","glasses":"","eye":0,"eyeY":0,"gap":0,"nose":0,"mouth":0,"mouthY":0,"build":"","limb":0,"outfit":"","tone":""},"s":[[""],[""],[""],[""]]}`;
 
 const num01 = { type: "NUMBER" };
 const RESPONSE_SCHEMA = {
@@ -184,7 +192,8 @@ const RESPONSE_SCHEMA = {
       required: ["face", "skin", "hair", "hc", "glasses", "eye", "eyeY", "gap", "nose", "mouth", "mouthY",
         "build", "limb", "outfit", "tone"],
     },
-    s: { type: "ARRAY", maxItems: 10, items: { type: "STRING" } },
+    // 4단: 만나기 전 연락 · 장소 분위기와 매너 · 대화 내용 · 감상평
+    s: { type: "ARRAY", minItems: 4, maxItems: 4, items: { type: "ARRAY", maxItems: 9, items: { type: "STRING" } } },
   },
   required: ["t", "n", "p", "a", "s"],
 };
@@ -258,17 +267,16 @@ Deno.serve(async (req) => {
     const target = body.target === "f" || body.target === "m" ? body.target : (gender === "남" ? "f" : "m");
     const dopamine = DOPAMINE[String(body.dopamine)] ? String(body.dopamine) : "mid";
 
-    if (!name) return reply({ error: "이름을 적어주세요." }, 400);
-    if (!(age >= 20 && age <= 60)) return reply({ error: "나이는 20~60 사이로 적어주세요." }, 400);
+    if (!(age >= 20 && age <= 60)) return reply({ error: "나이를 골라주세요." }, 400);
     if (!gender) return reply({ error: "성별을 골라주세요." }, 400);
-    if (!job) return reply({ error: "직업을 적어주세요." }, 400);
+    if (!job) return reply({ error: "직업을 골라주세요." }, 400);
     if (!/^[EI][NS][TF][JP]$/.test(mbti)) return reply({ error: "MBTI 4글자를 확인해주세요." }, 400);
     if (!outcome) return reply({ error: "결말을 골라주세요." }, 400);
 
     // 넓은 풀에서 요청마다 몇 개만 뽑아 보냅니다 (토큰은 그대로, 다양성은 크게)
     const theirMbti = sample(Object.keys(MBTI_STYLE), 1)[0];
     const ask = [
-      `작성자: <me>${name}, ${age}세 ${gender}, ${job}, ${mbti}</me>`,
+      `작성자(나): <me>${name ? `${name}, ` : ""}${age}세 ${gender}, 직업군 ${job}, ${mbti}</me>`,
       `상대: ${target === "f" ? "여" : "남"}, 작성자와 ±4세, MBTI ${theirMbti}(${MBTI_STYLE[theirMbti]})`,
       `상대 직업 후보: ${sample(JOBS, 3).join(", ")} · 취미 후보: ${sample(HOBBIES, 2).join(", ")}`,
       `대화 주제 후보: ${sample(TOPICS, 3).join(", ")}`,
@@ -329,7 +337,15 @@ Deno.serve(async (req) => {
       return reply({ error: `${why}. 다시 눌러 주세요.` }, 502);
     }
     if (!Array.isArray(story?.s) || !story.s.length) return reply({ error: "빈 썰이 돌아왔습니다. 다시 눌러 주세요." }, 502);
-    story.s = story.s.map((l: unknown) => String(l)).filter(Boolean).slice(0, 10);
+    // 4단 × 문장 배열로 맞춥니다. 평평한 문장 목록이 오면 넷으로 나눕니다.
+    let parts: string[][] = (story.s as unknown[]).map((x) =>
+      (Array.isArray(x) ? x : [x]).map((l) => String(l).trim()).filter(Boolean));
+    if (parts.length !== 4) {
+      const flat = parts.flat();
+      const n = Math.max(1, Math.ceil(flat.length / 4));
+      parts = [0, 1, 2, 3].map((i) => flat.slice(i * n, i * n + n));
+    }
+    story.s = parts.map((p) => p.slice(0, 9));
     story.target = target;
 
     return reply(story);

@@ -50,6 +50,12 @@
         padding:8px 2px; font:inherit; font-size:16px; color:var(--ink); outline:none;
         transition:border-color .2s ease;
     }
+    .f select{
+        width:100%; min-height:42px; border:0; border-bottom:1px solid var(--line); border-radius:0;
+        background:transparent; padding:8px 2px; font:inherit; font-size:16px; color:var(--ink); outline:none;
+        cursor:pointer;
+    }
+    .f select:focus{ border-bottom-color:var(--ink); }
     .f input:focus{ border-bottom-color:var(--ink); }
     .f input::placeholder{ color:var(--faint); }
 
@@ -137,6 +143,14 @@
 
     .t-builder{ grid-column:1 / -1; padding:0; background:transparent; }
 
+    /* 줄거리 4단: 만나기 전 연락 · 장소와 매너 · 대화 · 감상평 */
+    .parts{ display:contents; }
+    .t-part{ grid-column:span 3; background:var(--paper); border:1px solid var(--line); padding:22px 24px 22px; }
+    .t-part .k{ display:flex; align-items:baseline; gap:10px; }
+    .t-part .k b{ font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; color:var(--faint); }
+    .t-part .k span{ font-size:13px; font-weight:600; letter-spacing:-0.01em; }
+    .t-part p{ margin-top:12px; font-size:15px; line-height:1.85; color:#2b2e34; word-break:keep-all; }
+    .t-part.wide{ grid-column:1 / -1; }
     .t-story{ grid-column:1 / -1; background:var(--paper); border:1px solid var(--line); padding:24px 26px 22px; }
     .t-story ol{ list-style:none; counter-reset:l; }
     .t-story li{
@@ -197,8 +211,8 @@
         .grid, .controls{ grid-template-columns:minmax(0,1fr); }
         .tile{ border-radius:18px; }
         .t-title{ padding:24px 20px 26px; }
-        .t-story{ padding:20px 16px 18px; }
-        .t-story li{ font-size:14.5px; }
+        .t-part{ grid-column:1 / -1; padding:20px 18px; }
+        .t-part p{ font-size:14.5px; }
     }
     :focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
 </style>
@@ -212,15 +226,17 @@
     <section class="block">
         <h2>나</h2>
         <div class="grid">
-            <label class="f"><span>이름</span><input id="name" type="text" maxlength="20" placeholder="희진" autocomplete="given-name"></label>
-            <label class="f"><span>나이</span><input id="age" type="number" min="20" max="60" inputmode="numeric" placeholder="29"></label>
+            <label class="f"><span>나이</span><select id="age"></select></label>
             <div class="f"><span>성별</span><div class="seg" id="gender"></div></div>
-            <label class="f"><span>직업</span><input id="job" type="text" maxlength="30" placeholder="건축 설계"></label>
+            <div class="f wide"><span>직업</span><div class="seg" id="job"></div></div>
             <div class="f wide"><span>MBTI</span><div class="seg mbti" id="mbti"></div></div>
             <div class="f wide"><span>결말</span><div class="seg" id="outcome"></div></div>
-            <label class="f wide"><span>결말 한 줄 <small style="color:var(--faint)">(선택)</small></span><input id="ending" type="text" maxlength="60" placeholder="예: 두 번째 만남에서 둘 다 고수 못 먹는 걸 알게 됨"></label>
-            <div class="f wide"><span>도파민 <small style="color:var(--faint)">(상으로 갈수록 자극적인 썰)</small></span><div class="seg" id="dopamine"></div></div>
-            <div class="f wide"><span>상대</span><div class="seg" id="target"></div></div>
+            <label class="f"><span>도파민 <small style="color:var(--faint)">(상으로 갈수록 자극적)</small></span><select id="dopamine">
+                <option value="low">하 · 잔잔한 썰</option>
+                <option value="mid" selected>중 · 반전 하나</option>
+                <option value="high">상 · 자극적인 썰</option>
+            </select></label>
+            <div class="f"><span>상대</span><div class="seg" id="target"></div></div>
         </div>
         <button class="go" id="go" type="button">썰 만들기</button>
         <p class="hint" id="hint">입력은 이 기기에만 기억됩니다</p>
@@ -270,9 +286,7 @@
         </div>
 
         <p class="sec"><b>03</b> 줄거리</p>
-        <div class="tile t-story">
-            <ol id="sLines"></ol>
-        </div>
+        <div class="parts" id="sParts"></div>
     </div>
 </div>
 
@@ -973,6 +987,7 @@ function materials(P, pal) {
         inner: pal.stripe
             ? fabric('#fff', { map: stripeTex(pal.inner, pal.top, 8) })
             : fabric(pal.inner, { bump: 'rib', rep: [24, 1], bumpScale: 0.8 }),
+        innerRim: fabric(shade(pal.inner, 0.92), { sheen: 0.5 }),
         shirt: fabric(white, { sheen: 0.3, rough: 0.7 }),
         tie: fabric(pal.accent, { sheen: 0.4, rough: 0.5 }),
         pants: fabric(pal.pants, { bump: 'twill', rep: [4, 8], bumpScale: 0.5, sheen: 0.5 }),
@@ -1070,11 +1085,10 @@ function buildPerson(P) {
     } else if (O === 'dandy') {
         // 안: 여성은 터틀넥, 남성은 셔츠 + 넥타이. 겉: 앞이 열린 니트 가디건 / 블레이저 + 칼라
         topK = f ? 1.1 : 1.15;
-        const inner = f ? M.inner : M.shirt;
-        if (f) g.add(lathe(pts, beltY - H * 0.02, torsoTop, 1.03, inner, depth));
-        else {   // 셔츠도 목 앞은 열어 둡니다 (첫 단추 푼 모양)
-            g.add(lathe(pts, beltY - H * 0.02, shoulderY + H * 0.02, 1.03, inner, depth));
-            g.add(lathe(pts, shoulderY + H * 0.018, torsoTop, 1.03, inner, depth, 0.9));
+        if (f) g.add(lathe(pts, beltY - H * 0.02, torsoTop, 1.03, M.inner, depth));
+        else {   // 보트넥 티: 쇄골 높이에서 가로로 넓게 끝나고, 그 위는 맨살
+            g.add(lathe(pts, beltY - H * 0.02, shoulderY + H * 0.012, 1.03, M.inner, depth));
+            g.add(lathe(pts, shoulderY - H * 0.01, torsoTop, 1.0, M.skin, depth));
         }
         const hem = f ? crotchY + H * 0.005 : crotchY + H * 0.01;
         const open = f ? 0.42 : 0.36;
@@ -1094,14 +1108,17 @@ function buildPerson(P) {
                 g.add(tube(edge, 0.014 * kw, M.rib, 40));
             }
         } else {
-            // 블레이저: 몸판은 닫고, 그 위에 셔츠가 보이는 V · 삼각 라펠 · 셔츠 깃을 겹 순서대로 얹습니다.
-            //   몸판 < 셔츠 V(+3mm) < 셔츠 깃(+4mm) < 라펠(+5mm) < 목 V · 단추(+6~7mm)  — 서로 파고들지 않게
-            // 몸판은 V 꼭대기까지만 닫고, 그 위(목 앞)는 앞을 크게 비워 목 아래에서 이어지지 않게
-            const vTop = shoulderY + H * 0.02, vBot = beltY + H * 0.045;
+            // 블레이저 + 카라 없는 보트넥 티: 몸판은 V 꼭대기(보트넥 높이)까지만 닫고 그 위 목 앞은 비웁니다.
+            //   몸판 < 티 V(+3mm) < 라펠(+5mm) < 단추(+4mm, 라펠 바깥)  — 서로 파고들지 않게
+            const vTop = shoulderY + H * 0.012, vBot = beltY + H * 0.045;
             g.add(lathe(coat, hem, vTop, topK, M.top, depth));
             g.add(lathe(coat, vTop - 0.002, torsoTop - H * 0.004, topK, M.top, depth, 1.25));
-            const vHalf = (t) => neckR * 1.55 * Math.pow(1 - t, 0.9);           // t: 위 0 → 아래 1
-            g.add(onSurface(coat, topK, depth, vTop, vBot, (t) => [-vHalf(t), vHalf(t)], 0.003, M.shirt));
+            const vHalf = (t) => neckR * 1.7 * Math.pow(1 - t, 0.9);            // t: 위 0 → 아래 1
+            g.add(onSurface(coat, topK, depth, vTop, vBot, (t) => [-vHalf(t), vHalf(t)], 0.003, M.inner));
+            // 보트넥 목선: 가로로 넓고 얕게 말린 단
+            const nz = frontAt(coat, vTop, topK, depth) + 0.004;
+            g.add(tube([[-vHalf(0) * 0.98, vTop + 0.001, nz - 0.006], [0, vTop - 0.004, nz], [vHalf(0) * 0.98, vTop + 0.001, nz - 0.006]],
+                0.0035, M.innerRim, 16));
             // 삼각 라펠: V 가장자리에서 바깥으로, 가슴께가 가장 넓고 위쪽에 노치
             const lw = 0.062 * kw;
             const lapelW = (t) => (t < 0.28 ? lw * (0.45 + 0.55 * t / 0.28) * (t < 0.12 ? 0.55 : 1) : lw * (1 - (t - 0.28) / 0.72));
@@ -1110,25 +1127,11 @@ function buildPerson(P) {
                     const a = vHalf(t), b = vHalf(t) + lapelW(t);
                     return s > 0 ? [a, b] : [-b, -a];
                 }, 0.005, M.lapel));
-                // 셔츠 깃: 목 옆에서 아래 바깥으로 뾰족한 삼각형, 라펠 아래에 깔림
-                g.add(onSurface(coat, topK, depth, vTop + 0.004, vTop - H * 0.05, (t) => {
-                    const a = neckR * (0.25 + 1.0 * t), b = neckR * (1.15 + 0.9 * t) * (1 - t * 0.35);
-                    return s > 0 ? [a, Math.max(a + 0.002, b)] : [-Math.max(a + 0.002, b), -a];
-                }, 0.004, M.shirt));
             }
-            // 첫 단추를 푼 목 V, 셔츠 단추, 블레이저 단추
-            g.add(onSurface(coat, topK, depth, vTop - 0.004, vTop - H * 0.06, (t) => [-neckR * 0.7 * (1 - t), neckR * 0.7 * (1 - t)], 0.006, M.skin));
-            for (let i = 0; i < 3; i++) {
-                const y = vTop - H * (0.085 + 0.05 * i);
-                g.add(ball(M.sole, [0, y, frontAt(coat, y, topK, depth) + 0.007], [0.005, 0.005, 0.0025]));
-            }
-            for (let i = 0; i < 2; i++) {
+            for (let i = 0; i < 2; i++) {                                                       // 블레이저 단추
                 const y = vBot - H * (0.012 + 0.05 * i);
                 g.add(ball(M.button, [0, y, frontAt(coat, y, topK, depth) + 0.004], [0.009, 0.009, 0.004]));
             }
-            // 셔츠 깃 뒤쪽 스탠드 (앞은 비워 둡니다)
-            const stand = new THREE.CylinderGeometry(neckR * 1.06, neckR * 1.12, H * 0.016, 32, 1, true, 1.5, Math.PI * 2 - 3);
-            g.add(mesh(stand, M.shirt, [0, shoulderY + H * 0.036, -0.002]));
         }
         if (f) {
             for (let i = 0; i < 4; i++) {                                                       // 가디건 단추
@@ -1229,7 +1232,7 @@ function buildPerson(P) {
             fore.add(sleeve(foreL - cuffL, (t) => faR * thick * lerp(1.05, 0.95, t), M.top));
         }
         const cuffR = balloon ? faR * 1.25 : faR * thick * 0.86;
-        fore.add(rod(O === 'dandy' && !f ? M.shirt : M.rib, -(foreL - cuffL), -foreL, cuffR, cuffR * 0.96, 0, 0, true));
+        fore.add(rod(O === 'dandy' && !f ? M.top : M.rib, -(foreL - cuffL), -foreL, cuffR, cuffR * 0.96, 0, 0, true));
         fore.add(rod(M.skin, -foreL + 0.005, -foreL - 0.03, wrR, wrR * 1.05, 0, 0, true));
         // 손: 손바닥 + 엄지
         const hy = -foreL - 0.025 - handL * 0.42;
@@ -1527,23 +1530,25 @@ function syncControls() {
 const el = {
     formScreen: document.getElementById('formScreen'),
     resultScreen: document.getElementById('resultScreen'),
-    name: document.getElementById('name'),
     age: document.getElementById('age'),
-    job: document.getElementById('job'),
-    ending: document.getElementById('ending'),
+    dopamine: document.getElementById('dopamine'),
     go: document.getElementById('go'),
     hint: document.getElementById('hint'),
     title: document.getElementById('sTitle'),
     nick: document.getElementById('sNick'),
     nickSub: document.getElementById('sNickSub'),
     stats: document.getElementById('stats'),
-    lines: document.getElementById('sLines'),
+    parts: document.getElementById('sParts'),
     copy: document.getElementById('copy'),
     again: document.getElementById('again'),
     back: document.getElementById('back')
 };
 
-const form = { gender: '', mbti: ['', '', '', ''], outcome: '', dopamine: 'mid', target: 'auto' };
+const form = { gender: '', job: '', mbti: ['', '', '', ''], outcome: '', target: 'auto' };
+
+// 나이 20~40 (스크롤해서 고르기)
+el.age.innerHTML = '<option value="">선택</option>' +
+    Array.from({ length: 21 }, (_, i) => `<option value="${20 + i}">${20 + i}세</option>`).join('');
 
 function seg(id, options, key, onPick) {
     const wrap = document.getElementById(id);
@@ -1561,8 +1566,8 @@ function seg(id, options, key, onPick) {
 
 const paints = [
     seg('gender', [['m', '남'], ['f', '여']], 'gender', (v) => { form.gender = v; }),
+    seg('job', [['직장인', '직장인'], ['전문직', '전문직'], ['학생', '학생'], ['자영업', '자영업']], 'job', (v) => { form.job = v; }),
     seg('outcome', [['success', '애프터 성공'], ['reject', '내가 거절'], ['rejected', '내가 차임'], ['fizzle', '흐지부지']], 'outcome', (v) => { form.outcome = v; }),
-    seg('dopamine', [['low', '하 · 잔잔'], ['mid', '중 · 반전 하나'], ['high', '상 · 자극']], 'dopamine', (v) => { form.dopamine = v; }),
     seg('target', [['auto', '자동 (이성)'], ['m', '남'], ['f', '여']], 'target', (v) => { form.target = v; })
 ];
 
@@ -1590,7 +1595,7 @@ const SAVE = 'blind-date:me';
 function remember() {
     try {
         localStorage.setItem(SAVE, JSON.stringify({
-            name: el.name.value, age: el.age.value, job: el.job.value, ...form, mbti: form.mbti.join('')
+            age: el.age.value, dopamine: el.dopamine.value, ...form, mbti: form.mbti.join('')
         }));
     } catch { /* 기억 못 해도 괜찮습니다 */ }
 }
@@ -1598,9 +1603,11 @@ function recall() {
     try {
         const s = JSON.parse(localStorage.getItem(SAVE) || 'null');
         if (!s) return;
-        el.name.value = s.name ?? ''; el.age.value = s.age ?? ''; el.job.value = s.job ?? '';
+        const age = Number(s.age);
+        el.age.value = age >= 20 && age <= 40 ? String(age) : '';
+        el.dopamine.value = ['low', 'mid', 'high'].includes(s.dopamine) ? s.dopamine : 'mid';
         form.gender = s.gender ?? ''; form.outcome = s.outcome ?? ''; form.target = s.target ?? 'auto';
-        form.dopamine = ['low', 'mid', 'high'].includes(s.dopamine) ? s.dopamine : 'mid';
+        form.job = ['직장인', '전문직', '학생', '자영업'].includes(s.job) ? s.job : '';
         form.mbti = String(s.mbti ?? '').padEnd(4, ' ').slice(0, 4).split('').map((c) => c.trim());
     } catch { /* 처음처럼 */ }
 }
@@ -1615,6 +1622,7 @@ function warn(text) {
    ══════════════════════════════════════════════════════════ */
 
 let busy = false;
+const PARTS = ['만나기 전 연락', '장소 분위기와 매너', '대화 내용', '감상평'];
 
 function screen(name, push = true) {
     const result = name === 'result';
@@ -1628,14 +1636,12 @@ addEventListener('popstate', () => screen('form', false));
 
 async function make() {
     if (busy) return;
-    const name = el.name.value.trim();
     const age = Number(el.age.value);
-    const job = el.job.value.trim();
+    const job = form.job;
     const mbti = form.mbti.join('');
-    if (!name) { warn('이름을 적어 주세요'); el.name.focus(); return; }
-    if (!(age >= 20 && age <= 60)) { warn('나이는 20~60 사이로'); el.age.focus(); return; }
+    if (!(age >= 20 && age <= 40)) { warn('나이를 골라 주세요'); el.age.focus(); return; }
     if (!form.gender) { warn('성별을 골라 주세요'); return; }
-    if (!job) { warn('직업을 적어 주세요'); el.job.focus(); return; }
+    if (!job) { warn('직업을 골라 주세요'); return; }
     if (mbti.length !== 4) { warn('MBTI 네 칸을 다 골라 주세요'); return; }
     if (!form.outcome) { warn('결말을 골라 주세요'); return; }
     remember();
@@ -1657,8 +1663,8 @@ async function make() {
                 Authorization: `Bearer ${SUPABASE_KEY}`
             },
             body: JSON.stringify({
-                name, age, gender: form.gender, job, mbti,
-                outcome: form.outcome, ending: el.ending.value.trim(), dopamine: form.dopamine,
+                age, gender: form.gender, job, mbti,
+                outcome: form.outcome, dopamine: el.dopamine.value,
                 target: form.target === 'auto' ? '' : form.target
             })
         });
@@ -1697,11 +1703,22 @@ function show(data) {
             el.stats.appendChild(t);
         });
 
-    el.lines.innerHTML = '';
-    (data.s ?? []).slice(0, 10).forEach((line) => {
-        const li = document.createElement('li');
-        li.textContent = line;
-        el.lines.appendChild(li);
+    // 줄거리 4단. 예전 서버처럼 문장 목록만 오면 넷으로 나눠 담습니다.
+    let parts = Array.isArray(data.s) ? data.s.map((x) => (Array.isArray(x) ? x : [x]).map(String).filter(Boolean)) : [];
+    if (parts.length !== 4) {
+        const flat = parts.flat(), n = Math.max(1, Math.ceil(flat.length / 4));
+        parts = [0, 1, 2, 3].map((i) => flat.slice(i * n, i * n + n));
+    }
+    el.parts.innerHTML = '';
+    PARTS.forEach((title, i) => {
+        if (!parts[i]?.length) return;
+        const t = document.createElement('div');
+        t.className = 'tile t-part';
+        t.innerHTML = '<p class="k"><b></b><span></span></p><p class="txt"></p>';
+        t.querySelector('b').textContent = String(i + 1).padStart(2, '0');
+        t.querySelector('span').textContent = title;
+        t.querySelector('.txt').textContent = parts[i].join(' ');
+        el.parts.appendChild(t);
     });
     if (el.resultScreen.hidden) screen('result');
     setLook(lookFrom(data.a, p, target), true);
@@ -1709,7 +1726,7 @@ function show(data) {
 
 el.copy.addEventListener('click', async () => {
     const text = [el.title.textContent, `${el.nick.textContent} (${el.nickSub.textContent})`,
-        ...[...el.lines.children].map((li) => li.textContent)].join('\n');
+        ...[...el.parts.children].map((t) => `\n[${t.querySelector('span').textContent}]\n${t.querySelector('.txt').textContent}`)].join('\n');
     try {
         await navigator.clipboard.writeText(text);
         el.copy.textContent = '복사됨';
@@ -1721,10 +1738,7 @@ el.copy.addEventListener('click', async () => {
 el.go.addEventListener('click', make);
 el.again.addEventListener('click', make);
 el.back.addEventListener('click', () => history.state?.screen === 'result' ? history.back() : screen('form', false));
-[el.name, el.age, el.job, el.ending].forEach((i) => {
-    i.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); make(); } });
-    i.addEventListener('input', () => { el.hint.classList.remove('warn'); });
-});
+[el.age, el.dopamine].forEach((i) => i.addEventListener('change', () => { el.hint.classList.remove('warn'); }));
 
 recall();
 paints.forEach((p) => p());
