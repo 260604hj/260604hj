@@ -143,6 +143,12 @@
 
     .t-builder{ grid-column:1 / -1; padding:0; background:transparent; }
 
+    /* 썰을 기다리는 동안: 후보 아바타만 바뀌고 나머지 카드는 숨김 */
+    .loading .stats, .loading .t-builder, .loading .parts, .loading .story-sec, .loading #copy, .loading #again{ display:none; }
+    .loading .t-title .title, .loading .t-nick .nick{ animation:breathe 1.6s ease-in-out infinite; }
+    .loading .t-stage{ grid-column:1 / -1; max-width:560px; width:100%; justify-self:center; }
+    @keyframes breathe{ 0%,100%{ opacity:.45 } 50%{ opacity:1 } }
+
     /* 줄거리 4단: 만나기 전 연락 · 장소와 매너 · 대화 · 감상평 */
     .parts{ display:contents; }
     .t-part{ grid-column:span 3; background:var(--paper); border:1px solid var(--line); padding:22px 24px 22px; }
@@ -221,7 +227,6 @@
 <div class="wrap" id="formScreen">
     <a class="back" href="../visitor.html">←</a>
     <h1>Blind Date</h1>
-    <p class="lead">근황토크에서 할 말이 없을 때 꺼내는 (가짜) 소개팅 썰. 친구들이 확인할 수 없을 만큼 먼 주선자를 끼워 드립니다.</p>
 
     <section class="block">
         <h2>나</h2>
@@ -231,12 +236,7 @@
             <div class="f wide"><span>직업</span><div class="seg" id="job"></div></div>
             <div class="f wide"><span>MBTI</span><div class="seg mbti" id="mbti"></div></div>
             <div class="f wide"><span>결말</span><div class="seg" id="outcome"></div></div>
-            <label class="f"><span>도파민 <small style="color:var(--faint)">(상으로 갈수록 자극적)</small></span><select id="dopamine">
-                <option value="low">하 · 잔잔한 썰</option>
-                <option value="mid" selected>중 · 반전 하나</option>
-                <option value="high">상 · 자극적인 썰</option>
-            </select></label>
-            <div class="f"><span>상대</span><div class="seg" id="target"></div></div>
+            <div class="f wide"><span>도파민</span><div class="seg" id="dopamine"></div></div>
         </div>
         <button class="go" id="go" type="button">썰 만들기</button>
         <p class="hint" id="hint">입력은 이 기기에만 기억됩니다</p>
@@ -285,7 +285,7 @@
             </details>
         </div>
 
-        <p class="sec"><b>03</b> 줄거리</p>
+        <p class="sec story-sec"><b>03</b> 줄거리</p>
         <div class="parts" id="sParts"></div>
     </div>
 </div>
@@ -1509,7 +1509,6 @@ const el = {
     formScreen: document.getElementById('formScreen'),
     resultScreen: document.getElementById('resultScreen'),
     age: document.getElementById('age'),
-    dopamine: document.getElementById('dopamine'),
     go: document.getElementById('go'),
     hint: document.getElementById('hint'),
     title: document.getElementById('sTitle'),
@@ -1522,7 +1521,7 @@ const el = {
     back: document.getElementById('back')
 };
 
-const form = { gender: '', job: '', mbti: ['', '', '', ''], outcome: '', target: 'auto' };
+const form = { gender: '', job: '', mbti: ['', '', '', ''], outcome: '', dopamine: 'mid' };
 
 // 나이 20~40 (스크롤해서 고르기)
 el.age.innerHTML = '<option value="">선택</option>' +
@@ -1546,7 +1545,7 @@ const paints = [
     seg('gender', [['m', '남'], ['f', '여']], 'gender', (v) => { form.gender = v; }),
     seg('job', [['직장인', '직장인'], ['전문직', '전문직'], ['학생', '학생'], ['자영업', '자영업']], 'job', (v) => { form.job = v; }),
     seg('outcome', [['success', '애프터 성공'], ['reject', '내가 거절'], ['rejected', '내가 차임'], ['fizzle', '흐지부지']], 'outcome', (v) => { form.outcome = v; }),
-    seg('target', [['auto', '자동 (이성)'], ['m', '남'], ['f', '여']], 'target', (v) => { form.target = v; })
+    seg('dopamine', [['low', '하'], ['mid', '중'], ['high', '상']], 'dopamine', (v) => { form.dopamine = v; })
 ];
 
 // MBTI — 네 쌍 중 하나씩
@@ -1573,7 +1572,7 @@ const SAVE = 'blind-date:me';
 function remember() {
     try {
         localStorage.setItem(SAVE, JSON.stringify({
-            age: el.age.value, dopamine: el.dopamine.value, ...form, mbti: form.mbti.join('')
+            age: el.age.value, ...form, mbti: form.mbti.join('')
         }));
     } catch { /* 기억 못 해도 괜찮습니다 */ }
 }
@@ -1583,8 +1582,8 @@ function recall() {
         if (!s) return;
         const age = Number(s.age);
         el.age.value = age >= 20 && age <= 40 ? String(age) : '';
-        el.dopamine.value = ['low', 'mid', 'high'].includes(s.dopamine) ? s.dopamine : 'mid';
-        form.gender = s.gender ?? ''; form.outcome = s.outcome ?? ''; form.target = s.target ?? 'auto';
+        form.dopamine = ['low', 'mid', 'high'].includes(s.dopamine) ? s.dopamine : 'mid';
+        form.gender = s.gender ?? ''; form.outcome = s.outcome ?? '';
         form.job = ['직장인', '전문직', '학생', '자영업'].includes(s.job) ? s.job : '';
         form.mbti = String(s.mbti ?? '').padEnd(4, ' ').slice(0, 4).split('').map((c) => c.trim());
     } catch { /* 처음처럼 */ }
@@ -1610,7 +1609,7 @@ function screen(name, push = true) {
     scrollTo({ top: 0 });
     if (result) measure();
 }
-addEventListener('popstate', () => screen('form', false));
+addEventListener('popstate', () => { current?.abort(); stopCasting(); screen('form', false); });
 
 async function make() {
     if (busy) return;
@@ -1626,41 +1625,72 @@ async function make() {
 
     busy = true;
     el.go.disabled = true;
-    el.again.disabled = true;
-    el.go.textContent = '주선자에게 연락하는 중…';
-    el.again.textContent = '주선 중…';
     el.hint.classList.remove('warn');
-    el.hint.textContent = '보통 5초 안쪽';
+    el.hint.textContent = '';
+    const run = (current = new AbortController());
+    startCasting();
 
     try {
         const res = await fetch(DESK, {
             method: 'POST',
+            signal: run.signal,
             headers: {
                 'Content-Type': 'application/json',
                 apikey: SUPABASE_KEY,
                 Authorization: `Bearer ${SUPABASE_KEY}`
             },
-            body: JSON.stringify({
-                age, gender: form.gender, job, mbti,
-                outcome: form.outcome, dopamine: el.dopamine.value,
-                target: form.target === 'auto' ? '' : form.target
-            })
+            body: JSON.stringify({ age, gender: form.gender, job, mbti, outcome: form.outcome, dopamine: form.dopamine })
         });
         const data = await res.json().catch(() => null);
         if (!res.ok || !data) throw new Error(data?.error || `주선자가 답이 없습니다 (${res.status})`);
+        if (run.signal.aborted) return;
+        stopCasting();
         show(data);
         el.hint.textContent = '입력은 이 기기에만 기억됩니다';
     } catch (err) {
+        stopCasting();
+        if (run.signal.aborted) return;                               // 기다리다 '다시 쓰기'로 나간 경우
         const msg = err instanceof TypeError ? '서버에 닿지 않습니다. blind-date 함수가 배포됐는지 확인해 주세요' : err.message;
-        if (!el.resultScreen.hidden) alert(msg);
+        leaveResult();
         warn(msg);
     } finally {
+        if (current === run) current = null;
         busy = false;
         el.go.disabled = false;
-        el.again.disabled = false;
-        el.go.textContent = '썰 만들기';
-        el.again.textContent = '다른 썰';
     }
+}
+
+// 썰을 기다리는 동안: 결과 화면으로 먼저 넘어가 이성 후보 아바타를 1초에 한 명씩 바꿔 보여 줍니다.
+let current = null;
+let casting = 0;
+let castCount = 0;
+function startCasting() {
+    const other = form.gender === 'f' ? 'm' : 'f';
+    el.resultScreen.classList.add('loading');
+    el.title.textContent = '주선자에게 연락하는 중…';
+    el.nick.textContent = '후보를 고르는 중';
+    castCount = 0;
+    const next = () => {
+        castCount += 1;
+        el.nickSub.textContent = `후보 ${castCount}`;
+        setLook(randomLook(other), true);
+    };
+    if (el.resultScreen.hidden) screen('result');
+    next();
+    clearInterval(casting);
+    casting = setInterval(next, 1000);
+}
+function stopCasting() {
+    clearInterval(casting);
+    casting = 0;
+    el.resultScreen.classList.remove('loading');
+}
+// 결과 화면을 떠나 입력 화면으로 (기다리던 요청은 취소)
+function leaveResult() {
+    current?.abort();
+    stopCasting();
+    if (history.state?.screen === 'result') history.back();
+    else screen('form', false);
 }
 
 function show(data) {
@@ -1715,8 +1745,8 @@ el.copy.addEventListener('click', async () => {
 });
 el.go.addEventListener('click', make);
 el.again.addEventListener('click', make);
-el.back.addEventListener('click', () => history.state?.screen === 'result' ? history.back() : screen('form', false));
-[el.age, el.dopamine].forEach((i) => i.addEventListener('change', () => { el.hint.classList.remove('warn'); }));
+el.back.addEventListener('click', leaveResult);
+el.age.addEventListener('change', () => { el.hint.classList.remove('warn'); });
 
 recall();
 paints.forEach((p) => p());
