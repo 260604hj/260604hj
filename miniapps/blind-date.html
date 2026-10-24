@@ -167,6 +167,7 @@
             <div class="f wide"><span>MBTI</span><div class="seg mbti" id="mbti"></div></div>
             <div class="f wide"><span>결말</span><div class="seg" id="outcome"></div></div>
             <label class="f wide"><span>결말 한 줄 <small style="color:var(--faint)">(선택)</small></span><input id="ending" type="text" maxlength="60" placeholder="예: 두 번째 만남에서 둘 다 고수 못 먹는 걸 알게 됨"></label>
+            <div class="f wide"><span>도파민 <small style="color:var(--faint)">(상으로 갈수록 자극적인 썰)</small></span><div class="seg" id="dopamine"></div></div>
             <div class="f wide"><span>상대</span><div class="seg" id="target"></div></div>
         </div>
         <button class="go" id="go" type="button">썰 만들기</button>
@@ -512,12 +513,13 @@ function buildFace(g, head, P, skin) {
     // 눈
     const eyeUy = -0.02 + 0.18 * (P.eyeY - 0.5);
     const eyeUx = 0.36 + 0.14 * (P.gap - 0.5);
-    const eyeR = size * (0.034 + 0.02 * P.eye);
+    const eyeR = size * (0.03 + 0.04 * P.eye);
     for (const sx of [-1, 1]) {
         const [x, y, z] = head.surface(sx * eyeUx, eyeUy);
-        g.add(ball('#F4F1EA', [x, y, z - eyeR * 0.2], [eyeR * 1.4, eyeR * 0.8, eyeR * 0.5], 0.3));
+        g.add(ball('#F4F1EA', [x, y, z - eyeR * 0.2], [eyeR * 1.4, eyeR * (0.8 + 0.15 * P.eye), eyeR * 0.5], 0.3));
         g.add(ball(dark, [x, y - eyeR * 0.04, z + eyeR * 0.16], [eyeR * 0.7, eyeR * 0.7, eyeR * 0.3], 0.25));
-        g.add(ball(shade(skin, 0.88), [x, y + eyeR * 0.62, z - eyeR * 0.12], [eyeR * 1.5, eyeR * 0.28, eyeR * 0.5], 0.6));  // 눈두덩
+        g.add(ball('#FFFFFF', [x + eyeR * 0.22, y + eyeR * 0.2, z + eyeR * 0.3], [eyeR * 0.14, eyeR * 0.14, eyeR * 0.1], 0.1));  // 눈빛
+        g.add(ball(shade(skin, 0.88), [x, y + eyeR * 0.82, z - eyeR * 0.15], [eyeR * 1.5, eyeR * 0.2, eyeR * 0.5], 0.6));  // 눈두덩
         const [bx, by, bz] = head.surface(sx * eyeUx, eyeUy + 0.18);
         g.add(mesh(new THREE.BoxGeometry(eyeR * 3, size * 0.017, size * 0.018), mat(brow),
             [bx, by, bz], null, [0, sx * -0.3, sx * -0.07]));
@@ -1008,7 +1010,7 @@ const el = {
     tag: document.getElementById('tag')
 };
 
-const form = { gender: '', mbti: ['', '', '', ''], outcome: '', target: 'auto' };
+const form = { gender: '', mbti: ['', '', '', ''], outcome: '', dopamine: 'mid', target: 'auto' };
 
 function seg(id, options, key, onPick) {
     const wrap = document.getElementById(id);
@@ -1027,6 +1029,7 @@ function seg(id, options, key, onPick) {
 const paints = [
     seg('gender', [['m', '남'], ['f', '여']], 'gender', (v) => { form.gender = v; }),
     seg('outcome', [['success', '애프터 성공'], ['reject', '내가 거절'], ['rejected', '내가 차임'], ['fizzle', '흐지부지']], 'outcome', (v) => { form.outcome = v; }),
+    seg('dopamine', [['low', '하 · 잔잔'], ['mid', '중 · 반전 하나'], ['high', '상 · 자극']], 'dopamine', (v) => { form.dopamine = v; }),
     seg('target', [['auto', '자동 (이성)'], ['m', '남'], ['f', '여']], 'target', (v) => { form.target = v; })
 ];
 
@@ -1064,6 +1067,7 @@ function recall() {
         if (!s) return;
         el.name.value = s.name ?? ''; el.age.value = s.age ?? ''; el.job.value = s.job ?? '';
         form.gender = s.gender ?? ''; form.outcome = s.outcome ?? ''; form.target = s.target ?? 'auto';
+        form.dopamine = ['low', 'mid', 'high'].includes(s.dopamine) ? s.dopamine : 'mid';
         form.mbti = String(s.mbti ?? '').padEnd(4, ' ').slice(0, 4).split('').map((c) => c.trim());
     } catch { /* 처음처럼 */ }
 }
@@ -1110,7 +1114,7 @@ async function make() {
             },
             body: JSON.stringify({
                 name, age, gender: form.gender, job, mbti,
-                outcome: form.outcome, ending: el.ending.value.trim(),
+                outcome: form.outcome, ending: el.ending.value.trim(), dopamine: form.dopamine,
                 target: form.target === 'auto' ? '' : form.target
             })
         });

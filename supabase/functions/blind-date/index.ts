@@ -3,7 +3,7 @@
 // Gemini API 키는 다른 함수와 같은 GEMINI_API_KEY (Edge Function Secrets, 프로젝트 전체 공용)
 // 이 함수도 로그인 없이 누구나 부를 수 있습니다 (Visitor 용). Verify JWT 를 꺼 두세요.
 //
-// 작성자 정보 + 결말 → 근황토크용 가짜 소개팅 썰(10줄 이내) + 상대 프로필 + 몽타주 수치
+// 작성자 정보 + 결말 + 도파민(상·중·하) → 근황토크용 가짜 소개팅 썰(10줄 이내) + 상대 프로필 + 몽타주 수치
 // 몽타주(4방향 3D)는 브라우저(blind-date.html)가 만듭니다. 서버는 정해진 어휘와 0~1 수치만 고릅니다.
 //
 // 토큰 아끼기: 짧은 프롬프트 · 스트리밍 없음 · 생각(thinking) 끔 · 출력 상한 · 가벼운 모델부터
@@ -40,6 +40,82 @@ const LINKS = [
   "사촌 누나 회사 후배", "동호회 형의 고등학교 친구", "단골 미용실 원장님 조카", "엄마 친구 딸의 직장 동료",
 ];
 
+// 상대 직업 — 분야를 가리지 않고 넓게. 요청마다 몇 개만 후보로 보냅니다.
+const JOBS = [
+  // 사무·경영·금융
+  "회계사", "세무사", "은행원", "증권사 애널리스트", "보험계리사", "인사담당자", "마케터", "MD", "공기업 사무직",
+  "물류회사 SCM", "스타트업 PM", "컨설턴트", "감정평가사", "노무사", "관세사",
+  // IT·공학·연구
+  "백엔드 개발자", "게임 QA", "데이터 분석가", "반도체 공정 엔지니어", "배터리 연구원", "자동차 설계 엔지니어",
+  "토목 현장기사", "조선소 용접 검사관", "항공 정비사", "변리사", "화학 연구원", "기상청 예보관", "천문대 연구원",
+  "UX 디자이너", "보안 관제 요원",
+  // 의료·보건
+  "치과의사", "한의사", "약사", "간호사", "물리치료사", "수의사", "응급구조사", "임상병리사", "치위생사", "언어재활사",
+  // 교육·인문·사회
+  "중학교 국어 선생님", "초등 교사", "학원 수학 강사", "대학원생(고고학)", "도서관 사서", "학예연구사", "번역가",
+  "통역사", "출판사 편집자", "기자", "PD", "사회복지사", "상담심리사", "변호사", "법원 공무원", "외교부 사무관",
+  // 예술·디자인·미디어
+  "웹툰 작가", "일러스트레이터", "가구 디자이너", "조향사", "사진작가", "영상 편집자", "작곡가", "뮤지컬 배우",
+  "오케스트라 첼리스트", "타투이스트", "패션 MD", "도예가", "건축가", "조경 설계사", "광고 카피라이터",
+  // 체육·몸 쓰는 일
+  "필라테스 강사", "헬스 트레이너", "프로 볼링 선수", "골프 캐디", "수영 코치", "클라이밍짐 사장", "축구 심판",
+  "스키 강사", "요가 강사",
+  // 서비스·현장·자영업
+  "소방관", "경찰관", "해양경찰", "직업군인", "승무원", "호텔리어", "바리스타", "제빵사", "셰프", "소믈리에",
+  "플로리스트", "미용사", "자동차 정비사", "택배 대리점 사장", "부동산 중개사", "농부(스마트팜)", "어부 2세",
+  "양봉업자", "편의점 점주", "웨딩플래너", "장례지도사", "동물병원 테크니션", "유튜버", "보드게임 카페 사장",
+];
+
+// 대화 주제 — 문과·이과·예체능·생활 전 분야
+const TOPICS = [
+  // 인문·사회
+  "조선시대 왕 서열 논쟁", "좋아하는 철학자", "로마 제국 생각 자주 하는지", "MBTI는 과학인가", "가장 최근에 읽은 책",
+  "언어별 욕의 어감", "투표 성향 안 묻기", "명절 잔소리 대처법", "부동산 청약 점수", "경제 뉴스 읽는 습관",
+  "역사 속 가고 싶은 시대", "사투리 성대모사", "고전 소설 결말 불만",
+  // 이과·기술
+  "블랙홀 사진", "AI가 내 직업 대체할지", "엑셀 단축키 자랑", "커피의 화학", "공룡 깃털 여부", "우주 엘리베이터",
+  "양자역학 아는 척", "스마트폰 배터리 관리", "코딩 테스트 악몽", "날씨 앱 정확도", "인체의 신비(맹장)",
+  "바다 깊은 곳 생물", "전기차 vs 하이브리드",
+  // 예술·문화
+  "인생 영화", "좋아하는 화가", "뮤지컬 덕질", "K-팝 최애 시절", "재즈 바 경험", "넷플릭스 정주행 목록",
+  "사진 찍는 법", "웹툰 결말 스포", "노래방 18번", "전시회 굿즈", "인디밴드 공연", "드라마 OST",
+  // 체육·몸
+  "러닝 크루", "등산 vs 바다", "야구 응원 팀", "골프 입문", "헬스 3대 중량", "클라이밍", "테니스 유행",
+  "마라톤 완주", "수영 영법", "축구 국대 경기",
+  // 생활·취향
+  "민초 vs 반민초", "부먹 vs 찍먹", "고양이 vs 강아지", "여행 계획형 vs 즉흥형", "최악의 알바 경험",
+  "자취 요리", "식물 키우기 실패담", "중고거래 진상", "MBTI 궁합", "로또 되면 할 일", "어릴 때 장래희망",
+  "해외여행 사건사고", "가족 단톡방", "주식 물린 이야기", "다이어트 실패", "사주·타로", "캠핑 장비 욕심",
+  "좋아하는 편의점 조합", "술버릇", "첫 월급 쓴 곳",
+];
+
+// MBTI 16유형 — 상대 말투·행동 힌트
+const MBTI_STYLE: Record<string, string> = {
+  ISTJ: "약속 시간 10분 전 도착, 말이 정확하고 계획적", ISFJ: "세심하게 챙기고 리액션이 따뜻함",
+  INFJ: "조용한데 갑자기 깊은 질문", INTJ: "효율 따지고 직설적, 은근한 자기 세계",
+  ISTP: "말수 적고 손재주 자랑, 쿨함", ISFP: "취향 확고, 감성 사진 찍음",
+  INFP: "상상력 풍부, 혼자 감동받음", INTP: "궁금한 거 끝까지 파고듦, 엉뚱한 지식",
+  ESTP: "즉흥적, 2차 가자고 함", ESFP: "분위기 메이커, 리액션 과함",
+  ENFP: "말 많고 텐션 높음, 주제가 튐", ENTP: "토론 좋아하고 장난스럽게 반박",
+  ESTJ: "주도적으로 메뉴·동선 정함", ESFJ: "주변 사람 이야기 많고 다정함",
+  ENFJ: "칭찬 잘하고 리드함", ENTJ: "목표 지향, 5년 계획 이야기",
+};
+
+// 도파민 — 하: 소소하게, 중: 반전 하나, 상: 자극적인 사건
+const DOPAMINE: Record<string, string> = {
+  low: "도파민 하: 잔잔하고 현실적인 소소한 에피소드. 과장 금지, 들키지 않게 생활감 있게.",
+  mid: "도파민 중: 현실적이되 웃긴 반전 하나. 친구들이 '헐' 할 정도.",
+  high: "도파민 상: 자극적이고 극적인 전개. 황당한 우연·반전·긴장감을 2개 이상, 마지막 줄은 강한 한 방. 단 성적 묘사·범죄·특정인 비하 금지.",
+};
+const TWISTS = [
+  "상대가 내 전 애인의 사촌", "상대 휴대폰에 엄마 전화 7통", "옆 테이블이 회사 팀장님", "주선자가 사실 상대를 좋아함",
+  "계산하려는데 상대 카드 정지", "상대가 내 중학교 짝꿍", "식당이 상대 부모님 가게", "상대가 첫 만남에 반지 얘기",
+  "같이 간 노래방에서 상대가 오디션 출신", "상대가 내 SNS를 이미 다 봄", "갑자기 쏟아진 비에 우산 하나",
+  "상대가 쌍둥이였고 다른 한 명이 등장", "상대 전 애인이 같은 식당 알바생", "택시 기사님이 상대 아버지",
+  "상대가 내가 쓴 리뷰를 보고 그 식당을 고름", "엘리베이터에 30분 갇힘", "상대가 유튜브 구독자 50만",
+  "디저트 가게 사장님이 둘 다 아는 사람", "상대가 내 회사 면접관이었음", "강아지가 목줄 풀고 끼어듦",
+];
+
 const FACES = ["oval", "round", "square", "long", "heart"];
 const HAIRS = ["buzz", "short", "two_block", "perm", "slick", "bob", "long", "wave", "ponytail", "bun"];
 const HAIR_COLORS = ["black", "dark_brown", "brown", "ash", "blonde"];
@@ -51,9 +127,9 @@ const TONES = ["navy", "black", "beige", "grey", "white", "olive", "burgundy"];
 const SYSTEM_PROMPT = `너는 친구들 근황토크용 '그럴듯한 가짜 소개팅 썰'을 쓴다. 작성자가 친구들에게 1인칭 반말 구어체로 말하듯("~했잖아", "~더라").
 - 주선자: 듣는 친구들이 확인 못 할 먼 사이. 이름 없이 관계로만(후보 참고).
 - 장소: 후보 동네 하나, 메뉴와 1인 가격대, 가게 분위기.
-- 상대(p): 가명, 나이, 키(cm), 직업, 출신 학교. 외모·성격·매너를 구체적으로. 현실적이되 웃긴 디테일 하나.
-- 대화: 실제 오간 대사 2개 이상을 따옴표로. 상대 MBTI가 드러나는 말투.
-- 너무 완벽하거나 과장되면 들킨다. 사소하고 생활감 있게.
+- 상대(p): 가명, 나이, 키(cm), 직업(후보 중), 출신 학교, MBTI(주어진 것). 외모·성격·매너를 구체적으로, 직업다운 디테일 하나.
+- 대화: 주제 후보에서 골라 실제 오간 대사 2개 이상을 따옴표로. 상대 MBTI가 드러나는 말투.
+- 자극 정도는 '도파민' 지시를 따른다. 반전 후보가 있으면 하나 녹인다.
 - 결말은 주어진 결과를 그대로. 유명인·실존 인물 금지, 비하·성적 표현 금지.
 - s: 6~10줄, 줄마다 60자 안팎. t: 썰 제목 18자 이내.
 - a(몽타주)는 썰 속 외모와 맞게. 0~1 수치(eye 눈크기, eyeY 눈높이, gap 눈간격, nose 코크기, mouth 입크기, mouthY 입높이, limb 팔다리길이).
@@ -118,10 +194,12 @@ function thinkingFor(model: string) {
   return model.startsWith("gemini-2.5") ? { thinkingBudget: 0 } : { thinkingLevel: "minimal" };
 }
 
-function askGemini(model: string, apiKey: string, ask: string, step: number) {
+const TEMPERATURE: Record<string, number> = { low: 0.9, mid: 1.1, high: 1.25 };
+
+function askGemini(model: string, apiKey: string, ask: string, step: number, dopamine: string) {
   const generationConfig: Record<string, unknown> = {
     responseMimeType: "application/json",
-    temperature: 1.1,
+    temperature: TEMPERATURE[dopamine] ?? 1.1,
     maxOutputTokens: MAX_OUT,
   };
   if (step < 2) generationConfig.responseSchema = RESPONSE_SCHEMA;
@@ -163,6 +241,7 @@ Deno.serve(async (req) => {
     const outcome = OUTCOMES[String(body.outcome)] ? String(body.outcome) : "";
     const ending = clip(body.ending, 60);
     const target = body.target === "f" || body.target === "m" ? body.target : (gender === "남" ? "f" : "m");
+    const dopamine = DOPAMINE[String(body.dopamine)] ? String(body.dopamine) : "mid";
 
     if (!name) return reply({ error: "이름을 적어주세요." }, 400);
     if (!(age >= 20 && age <= 60)) return reply({ error: "나이는 20~60 사이로 적어주세요." }, 400);
@@ -171,10 +250,15 @@ Deno.serve(async (req) => {
     if (!/^[EI][NS][TF][JP]$/.test(mbti)) return reply({ error: "MBTI 4글자를 확인해주세요." }, 400);
     if (!outcome) return reply({ error: "결말을 골라주세요." }, 400);
 
+    // 넓은 풀에서 요청마다 몇 개만 뽑아 보냅니다 (토큰은 그대로, 다양성은 크게)
+    const theirMbti = sample(Object.keys(MBTI_STYLE), 1)[0];
     const ask = [
       `작성자: <me>${name}, ${age}세 ${gender}, ${job}, ${mbti}</me>`,
-      `상대 성별: ${target === "f" ? "여" : "남"}, 나이는 작성자와 ±4세`,
+      `상대: ${target === "f" ? "여" : "남"}, 작성자와 ±4세, MBTI ${theirMbti}(${MBTI_STYLE[theirMbti]})`,
+      `상대 직업 후보: ${sample(JOBS, 3).join(", ")}`,
+      `대화 주제 후보: ${sample(TOPICS, 3).join(", ")}`,
       `결말: ${OUTCOMES[outcome]}${ending ? ` / ${ending}` : ""}`,
+      DOPAMINE[dopamine] + (dopamine === "low" ? "" : ` 반전 후보: ${sample(TWISTS, dopamine === "high" ? 2 : 1).join(", ")}`),
       `동네 후보: ${sample(AREAS, 3).join(", ")} · 메뉴 후보: ${sample(FOODS, 3).join(", ")}`,
       `주선자 후보: ${sample(LINKS, 2).join(", ")}`,
       `skin 0(밝음)~5(어두움). 씨앗 ${Math.random().toString(36).slice(2, 8)}`,
@@ -188,7 +272,7 @@ Deno.serve(async (req) => {
     search:
     for (model of GEMINI_MODELS) {
       while (step < 3) {
-        res = await askGemini(model, apiKey, ask, step);
+        res = await askGemini(model, apiKey, ask, step, dopamine);
         if (res.ok) break search;
 
         const status = res.status;
