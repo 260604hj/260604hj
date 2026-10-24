@@ -954,7 +954,6 @@ function materials(P, pal) {
     const skin = SKINS[P.skin] ?? SKINS[1];
     const hair = HAIR_HEX[P.hc] ?? HAIR_HEX.black;
     const f = P.gender === 'f';
-    const white = pal.top === '#F3EEE4' ? '#E9ECF2' : '#F4F3EE';
     return {
         skin: skinMat(skin),
         noseTip: skinMat(mix(skin, '#F08C7C', 0.12)),
@@ -978,18 +977,13 @@ function materials(P, pal) {
         gold: gloss('#D9B45A', 0.2, 0.9),
         top: pal.stripe && P.outfit === 'casual'
             ? fabric('#fff', { map: stripeTex(pal.inner, pal.top, 9) })
-            : P.outfit === 'dandy' && !f
-                ? fabric(pal.top, { bump: 'twill', rep: [8, 14], bumpScale: 0.35, sheen: 0.5, rough: 0.75 })   // 울 블레이저
-                : fabric(pal.top, { bump: 'rib', rep: [14, 1], bumpScale: 1.6 }),
-        lapel: fabric(shade(pal.top, 0.86), { bump: 'twill', rep: [3, 6], bumpScale: 0.3, sheen: 0.7, rough: 0.6 }),
+            : fabric(pal.top, { bump: 'rib', rep: [14, 1], bumpScale: 1.6 }),
         topDark: fabric(shade(pal.top, 0.9), { bump: 'rib', rep: [26, 1], bumpScale: 1.2 }),
         rib: fabric(shade(pal.top, 0.92), { bump: 'rib', rep: [30, 1], bumpScale: 1.8 }),
         inner: pal.stripe
             ? fabric('#fff', { map: stripeTex(pal.inner, pal.top, 8) })
             : fabric(pal.inner, { bump: 'rib', rep: [24, 1], bumpScale: 0.8 }),
-        innerRim: fabric(shade(pal.inner, 0.92), { sheen: 0.5 }),
-        shirt: fabric(white, { sheen: 0.3, rough: 0.7 }),
-        tie: fabric(pal.accent, { sheen: 0.4, rough: 0.5 }),
+        turtle: fabric(pal.inner, { bump: 'rib', rep: [10, 1], bumpScale: 1.6 }),
         pants: fabric(pal.pants, { bump: 'twill', rep: [4, 8], bumpScale: 0.5, sheen: 0.5 }),
         skirt: fabric(pal.pants, { bump: 'rib', rep: [20, 1], bumpScale: 0.7, sheen: 0.6 }),
         button: gloss(shade(pal.top, 0.55), 0.25),
@@ -1083,63 +1077,47 @@ function buildPerson(P) {
         g.add(mesh(new THREE.TorusGeometry(neckR * 1.55, 0.018 * kw, 12, 36), M.rib,
             [0, shoulderY + H * 0.03, 0], [1, 1, 0.85], [Math.PI / 2, 0, 0]));
     } else if (O === 'dandy') {
-        // 안: 여성은 터틀넥, 남성은 셔츠 + 넥타이. 겉: 앞이 열린 니트 가디건 / 블레이저 + 칼라
-        topK = f ? 1.1 : 1.15;
-        if (f) g.add(lathe(pts, beltY - H * 0.02, torsoTop, 1.03, M.inner, depth));
-        else {   // 보트넥 티: 쇄골 높이에서 가로로 넓게 끝나고, 그 위는 맨살
-            g.add(lathe(pts, beltY - H * 0.02, shoulderY + H * 0.012, 1.03, M.inner, depth));
-            g.add(lathe(pts, shoulderY - H * 0.01, torsoTop, 1.0, M.skin, depth));
-        }
-        const hem = f ? crotchY + H * 0.005 : crotchY + H * 0.01;
-        const open = f ? 0.42 : 0.36;
-        // 코트 자락은 엉덩이 아래로 곧게 떨어집니다 (몸통 옆선을 그대로 쓰면 다리 사이로 말려 들어감)
-        const coat = [[hem - 0.01, hipR * (f ? 1.1 : 1.04)], [crotchY + 0.03, hipR * 1.04], ...pts.slice(2)];
         if (f) {
-            g.add(lathe(coat, hem, torsoTop - H * 0.004, topK, M.top, depth, open));
-            g.add(lathe(coat, hem - 0.005, hem + H * 0.03, topK * 1.015, M.rib, depth, open));   // 가디건 골지 밑단
+            // 여성: 골지 터틀넥 위에 앞이 열린 니트 가디건
+            topK = 1.1;
+            // 터틀넥 몸판은 치마 허리 안으로 넣어 입습니다 (밑단이 치마 허리띠 안쪽에서 끝남)
+            g.add(lathe(pts, beltY + H * 0.035, torsoTop, 1.03, M.inner, depth));
+            const hem = crotchY + H * 0.005, open = 0.42;
+            // 가디건 자락은 엉덩이 아래로 곧게 떨어집니다 (몸통 옆선을 그대로 쓰면 다리 사이로 말려 들어감)
+            const coat = [[hem - 0.01, hipR * 1.1], [crotchY + 0.03, hipR * 1.04], ...pts.slice(2)];
+            // 가디건 목선은 터틀넥보다 넉넉히 바깥(어깨 경사 중간)에서 끝나고, 골지 밴드가 그 테두리를 따라 목 뒤로 돕니다
+            const neckY = shoulderY + H * 0.012;
+            g.add(lathe(coat, hem, neckY, topK, M.top, depth, open));
+            g.add(lathe(coat, hem - 0.005, hem + H * 0.03, topK * 1.015, M.rib, depth, open));   // 골지 밑단
+            const bandR = 0.012 * kw;
             for (const s of [-1, 1]) {
                 const edge = [];
-                for (let i = 0; i <= 12; i++) {
-                    const y = hem + (shoulderY + H * 0.024 - hem) * i / 12;
-                    const R = profileR(coat, y) * topK + 0.004;
+                for (let i = 0; i <= 12; i++) {                                // 앞섶: 밑단 → 목선
+                    const y = hem + (neckY - hem) * i / 12;
+                    const R = profileR(coat, y) * topK + bandR * 0.4;
                     edge.push([s * R * Math.sin(open), y, R * Math.cos(open) * depth]);
                 }
-                edge.push([s * neckR * 1.2, shoulderY + H * 0.034, -neckR * 0.6]);
-                g.add(tube(edge, 0.014 * kw, M.rib, 40));
+                const Rn = profileR(coat, neckY) * topK + bandR * 0.4;
+                for (let i = 1; i <= 8; i++) {                                 // 목선: 앞 → 목 뒤 가운데
+                    const p = open + (Math.PI - open) * i / 8;
+                    edge.push([s * Rn * Math.sin(p), neckY, Rn * Math.cos(p) * depth]);
+                }
+                g.add(tube(edge, bandR, M.rib, 60));
             }
-        } else {
-            // 블레이저 + 카라 없는 보트넥 티: 몸판은 V 꼭대기(보트넥 높이)까지만 닫고 그 위 목 앞은 비웁니다.
-            //   몸판 < 티 V(+3mm) < 라펠(+5mm) < 단추(+4mm, 라펠 바깥)  — 서로 파고들지 않게
-            const vTop = shoulderY + H * 0.012, vBot = beltY + H * 0.045;
-            g.add(lathe(coat, hem, vTop, topK, M.top, depth));
-            g.add(lathe(coat, vTop - 0.002, torsoTop - H * 0.004, topK, M.top, depth, 1.25));
-            const vHalf = (t) => neckR * 1.7 * Math.pow(1 - t, 0.9);            // t: 위 0 → 아래 1
-            g.add(onSurface(coat, topK, depth, vTop, vBot, (t) => [-vHalf(t), vHalf(t)], 0.003, M.inner));
-            // 보트넥 목선: 가로로 넓고 얕게 말린 단
-            const nz = frontAt(coat, vTop, topK, depth) + 0.004;
-            g.add(tube([[-vHalf(0) * 0.98, vTop + 0.001, nz - 0.006], [0, vTop - 0.004, nz], [vHalf(0) * 0.98, vTop + 0.001, nz - 0.006]],
-                0.0035, M.innerRim, 16));
-            // 삼각 라펠: V 가장자리에서 바깥으로, 가슴께가 가장 넓고 위쪽에 노치
-            const lw = 0.062 * kw;
-            const lapelW = (t) => (t < 0.28 ? lw * (0.45 + 0.55 * t / 0.28) * (t < 0.12 ? 0.55 : 1) : lw * (1 - (t - 0.28) / 0.72));
-            for (const s of [-1, 1]) {
-                g.add(onSurface(coat, topK, depth, vTop - 0.004, vBot, (t) => {
-                    const a = vHalf(t), b = vHalf(t) + lapelW(t);
-                    return s > 0 ? [a, b] : [-b, -a];
-                }, 0.005, M.lapel));
-            }
-            for (let i = 0; i < 2; i++) {                                                       // 블레이저 단추
-                const y = vBot - H * (0.012 + 0.05 * i);
-                g.add(ball(M.button, [0, y, frontAt(coat, y, topK, depth) + 0.004], [0.009, 0.009, 0.004]));
-            }
-        }
-        if (f) {
             for (let i = 0; i < 4; i++) {                                                       // 가디건 단추
                 const y = beltY + H * (0.02 + 0.05 * i);
                 const R = profileR(coat, y) * topK + 0.006;
                 g.add(ball(M.button, [-R * Math.sin(open), y, R * Math.cos(open) * depth], [0.008, 0.008, 0.005]));
             }
-            g.add(rod(M.inner, shoulderY + H * 0.05, shoulderY + H * 0.01, neckR * 1.32, neckR * 1.5, 0, 0, true));   // 터틀넥
+            g.add(rod(M.turtle, shoulderY + H * 0.05, shoulderY + H * 0.01, neckR * 1.32, neckR * 1.5, 0, 0, true));
+        } else {
+            // 남성: 겉옷 없이 골지 니트 터틀넥 한 벌 (몸판 · 골지 밑단 · 접어 올린 목)
+            topK = 1.08;
+            g.add(lathe(pts, crotchY + H * 0.03, torsoTop, topK, M.top, depth));
+            g.add(lathe(pts, crotchY + H * 0.012, crotchY + H * 0.036, 1.06, M.rib, depth));
+            g.add(rod(M.top, shoulderY + H * 0.058, shoulderY + H * 0.012, neckR * 1.4, neckR * 1.6, 0, 0, true));
+            g.add(mesh(new THREE.TorusGeometry(neckR * 1.4, 0.009 * kw, 10, 36), M.rib,
+                [0, shoulderY + H * 0.058, 0], [1, 1, 0.9], [Math.PI / 2, 0, 0]));
         }
     } else {
         // 오버핏 후드티: 넉넉한 몸판 + 밑단 + 캥거루 주머니 + 후드 + 끈
@@ -1170,13 +1148,13 @@ function buildPerson(P) {
     if (skirt) {
         // 발목까지 오는 슬림한 니트 롱스커트: 엉덩이에서 곧게 떨어져 밑단이 살짝 좁아집니다
         const hemY = ankleY + H * 0.035;
+        // 허리는 터틀넥 밑단(1.03배)보다 바깥, 가디건(1.1배)보다 안쪽에 오게 1.07배로 — 세 겹이 서로 뚫지 않게
         const sk = [
             [hemY, hipR * 0.8], [kneeY, hipR * 0.9], [crotchY - H * 0.04, hipR * 1.0],
-            [crotchY + H * 0.07, hipR * 1.03], [beltY + H * 0.02, waistR * 1.04], [beltY + H * 0.04, waistR * 1.02]
+            [crotchY + H * 0.07, hipR * 1.03], [beltY + H * 0.02, waistR * 1.07], [beltY + H * 0.055, waistR * 1.07]
         ];
-        g.add(lathe(sk, hemY, beltY + H * 0.04, 1, M.skirt, depth * 1.05));
-        g.add(lathe(sk, hemY - 0.004, hemY + H * 0.012, 1.02, M.skirt, depth * 1.05));
-        for (const sx of [-1, 1]) {
+        g.add(lathe(sk, hemY, beltY + H * 0.055, 1, M.skirt, depth * 1.02));
+        g.add(lathe(sk, hemY - 0.004, hemY + H * 0.012, 1.02, M.skirt, depth * 1.02));        for (const sx of [-1, 1]) {
             const x = sx * hipX * 0.8;
             g.add(rod(M.skin, hemY + 0.02, 0.05, ankR * 1.05, ankR, x, 0, true));
             loafer(g, x * 1.02, fl, kw, M);
@@ -1232,7 +1210,7 @@ function buildPerson(P) {
             fore.add(sleeve(foreL - cuffL, (t) => faR * thick * lerp(1.05, 0.95, t), M.top));
         }
         const cuffR = balloon ? faR * 1.25 : faR * thick * 0.86;
-        fore.add(rod(O === 'dandy' && !f ? M.top : M.rib, -(foreL - cuffL), -foreL, cuffR, cuffR * 0.96, 0, 0, true));
+        fore.add(rod(M.rib, -(foreL - cuffL), -foreL, cuffR, cuffR * 0.96, 0, 0, true));
         fore.add(rod(M.skin, -foreL + 0.005, -foreL - 0.03, wrR, wrR * 1.05, 0, 0, true));
         // 손: 손바닥 + 엄지
         const hy = -foreL - 0.025 - handL * 0.42;
@@ -1245,7 +1223,7 @@ function buildPerson(P) {
     g.traverse((o) => {
         if (!o.isMesh) return;
         const lit = !(o.material.isMeshBasicMaterial) && !o.material.transparent;
-        o.castShadow = lit;
+        o.castShadow = lit && o.material !== M.frame;     // 안경테 그림자가 볼에 사선으로 지지 않게
         o.receiveShadow = lit;
     });
     g.userData.head = head;
