@@ -45,6 +45,8 @@
                 coreRatio: 20,         // 코어비 % (코어 면적 합 ÷ 바닥면적)
                 coreAuto: true         // true 면 코어 크기를 코어비에 맞춤 (각 코어의 중심·가로세로 비율은 유지)
             },
+            // 가시성 — 지도 레이어 표시 여부
+            view: { zoning: false, stations: false, texture: true },
             // 플러그인별 개인 데이터 — plugins[pluginId]
             plugins: {}
         };

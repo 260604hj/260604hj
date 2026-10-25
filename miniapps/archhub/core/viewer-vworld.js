@@ -93,15 +93,49 @@
             })(viewer.scene.primitives);
             return out;
         }
+        // 건물 스타일 = 철거(show 조건) + 재질 끄기(텍스처 대신 흰색으로 덮음)
+        let noTexture = false;
         function applyDemolished() {
-            const style = demolished.length
-                ? new C.Cesium3DTileStyle({ show: { conditions: demolished.map(id => ["${TD_ID} === '" + String(id).replace(/'/g, '') + "'", 'false']).concat([['true', 'true']]) } })
-                : undefined;
-            buildingTilesets().forEach(t => { t.style = style; });
+            const spec = {};
+            if (demolished.length) spec.show = { conditions: demolished.map(id => ["${TD_ID} === '" + String(id).replace(/'/g, '') + "'", 'false']).concat([['true', 'true']]) };
+            if (noTexture) spec.color = "color('#f2f2f0')";
+            const style = Object.keys(spec).length ? new C.Cesium3DTileStyle(spec) : undefined;
+            buildingTilesets().forEach(t => {
+                t.style = style;
+                t.colorBlendMode = noTexture ? C.Cesium3DTileColorBlendMode.REPLACE : C.Cesium3DTileColorBlendMode.HIGHLIGHT;
+            });
             kick(1500);
         }
         // 건물 타일셋이 늦게 올라오면 그때 다시 적용
-        [1500, 4000, 8000].forEach(ms => setTimeout(() => { if (demolished.length) applyDemolished(); }, ms));
+        [1500, 4000, 8000].forEach(ms => setTimeout(() => { if (demolished.length || noTexture) applyDemolished(); if (noTexture) setImagery(false); }, ms));
+
+        // 항공사진(바탕 영상) — VWORLD 영상 타일(Layer=tile)과 지구 바탕(BlueMarble). 끄면 지면을 밝은 회색으로.
+        // VWORLD 가 바탕 영상을 늦게 붙이므로 끌 때마다 주소로 찾음 (용도지역 WMS 등 다른 영상은 그대로)
+        const baseColor0 = viewer.scene.globe.baseColor;
+        const isBaseImagery = l => {
+            const p = l.imageryProvider || {};
+            const url = String(p.url || p._url || (p._resource && p._resource.url) || '');
+            return /BlueMarble|[?&]Layer=tile(&|$)/.test(url);
+        };
+        function setImagery(on) {
+            for (let i = 0; i < viewer.imageryLayers.length; i++) {
+                const l = viewer.imageryLayers.get(i);
+                if (isBaseImagery(l)) l.show = on;
+            }
+            viewer.scene.globe.baseColor = on ? baseColor0 : C.Color.fromCssColorString('#e8e8e5');
+            kick(1500);
+        }
+
+        // 용도지역 — VWORLD 지도에 들어 있는 용도지역 WMS 레이어(도시·관리·농림·자연환경보전)
+        const ZONING_LAYERS = ['lt_c_uq111', 'lt_c_uq112', 'lt_c_uq113', 'lt_c_uq114'];
+        function setZoning(on) {
+            ZONING_LAYERS.forEach(id => {
+                // 이미 같은 상태면 건드리지 않음 (VWORLD 는 안 켜진 레이어를 hide 하면 내부에서 오류)
+                try { const e = map.getLayerElement(id); if (e && !!e.visible !== on) { if (on) e.show(); else e.hide(); } }
+                catch (err) { console.warn('용도지역 레이어 전환 실패(' + id + '):', err); }
+            });
+            kick(3000);
+        }
         const featureId = f => (f instanceof C.Cesium3DTileFeature && f.getProperty('TD_ID')) || null;
         // 지도 클릭 → 건물 한 동 철거/복원 (허브가 프로젝트 데이터로 관리)
         new C.ScreenSpaceEventHandler(viewer.scene.canvas).setInputAction(ev => {
@@ -153,8 +187,15 @@
                 if (kind === 'label') {
                     return viewer.entities.add({ position: pos3(s.pos), label: {
                         text: s.text, font: '600 ' + s.size + 'px sans-serif',
-                        fillColor: C.Color.WHITE, outlineColor: color(s.color, 1), outlineWidth: 3,
-                        style: C.LabelStyle.FILL_AND_OUTLINE, disableDepthTestDistance: Number.POSITIVE_INFINITY
+                        fillColor: s.dark ? color(s.color, 1) : C.Color.WHITE, outlineColor: s.dark ? C.Color.WHITE : color(s.color, 1), outlineWidth: s.dark ? 4 : 3,
+                        style: C.LabelStyle.FILL_AND_OUTLINE, disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                        distanceDisplayCondition: s.maxDistance ? new C.DistanceDisplayCondition(0, s.maxDistance) : undefined
+                    } });
+                }
+                if (kind === 'point') {
+                    return viewer.entities.add({ position: pos3(s.pos), point: {
+                        pixelSize: s.size, color: color(s.color, 1), outlineColor: color(s.outlineColor, 1), outlineWidth: s.outlineWidth,
+                        disableDepthTestDistance: Number.POSITIVE_INFINITY
                     } });
                 }
             },
@@ -175,6 +216,11 @@
             },
             setView(v) { pendingView = v; applyView(v); },
             setDemolished(ids) { demolished = (ids || []).slice(); applyDemolished(); },
+            setLayers(o) {
+                const wantNoTexture = o.texture === false;
+                if (wantNoTexture !== noTexture) { noTexture = wantNoTexture; applyDemolished(); setImagery(!noTexture); }
+                setZoning(!!o.zoning);
+            },
             // 폴리곤(대지 좌표) 안쪽을 격자로 훑어 위에서 수직으로 찔러 맞는 건물 TD_ID 목록 (지도에 보이는 타일 기준)
             async findBuildingsIn(poly) {
                 const bb = G.bbox(poly);

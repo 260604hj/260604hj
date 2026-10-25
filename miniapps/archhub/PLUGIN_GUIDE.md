@@ -15,9 +15,12 @@ miniapps/archhub/
 │  ├─ viewer-vworld.js     ← 3D 뷰: VWORLD 지도
 │  ├─ viewer-three.js      ← 3D 뷰: 간이 3D (VWORLD 못 쓸 때)
 │  └─ hub.js               ← UI, 플러그인 로더
+├─ data/
+│  └─ seoul-subway.js     ← 수도권 전철 노선(노선색)·역 — © OpenStreetMap contributors (ODbL), 가시성 탭에서 사용
 └─ plugins/
    ├─ registry.js          ← 플러그인 목록 (새 플러그인은 여기 한 줄 추가)
    ├─ _template/plugin.js  ← 복사해서 시작하는 예제
+   ├─ seoul-screening/     ← 서울 대지 스크리닝
    ├─ scale-review/        ← 규모검토
    ├─ column-grid/         ← 기둥 위치 스터디
    └─ sun-study/           ← 일조 시뮬레이션
@@ -47,6 +50,7 @@ miniapps/archhub/
 | `building.shape` | `{type, w, d, cutW, cutD, setback}` 형태 입력값 (`rect` `L` `U` `site` `custom`). `site` = 대지경계에서 setback 이상 떨어진 최대 직사각형(기준축 방향) | |
 | `building.footprint` | 평면 외곽 `[{x,y}]` — **형태의 최종 결과, 플러그인은 이걸 쓰세요** | 건물 |
 | `building.cores` | `[{id, x, y, w, d}]` 코어 (중심점·크기) | 건물 |
+| `view` | `{zoning, stations, texture}` 가시성 탭의 지도 레이어 켜기·끄기 | |
 | `plugins.<id>` | 각 플러그인 전용 데이터 | |
 
 - **대지 좌표**: 대지 기준 동/북. **건물 좌표**: 건물 중심이 (0,0), 건물 회전에 맞춰 돌아간 축.
@@ -109,7 +113,8 @@ ArchHub.registerPlugin({
 | `ctx.data.get()` / `set(obj)` / `update(fn)` | 내 전용 데이터(`plugins.<id>`) — 프로젝트 파일에 같이 저장됨 |
 | `ctx.scene.layer(name, {frame})` | 3D 레이어. `frame: 'building'` 이면 건물 좌표 (건물 이동·회전에 따라감) |
 | `ctx.geo` | 면적, 중심, 포함 판정, 볼록껍질, 후퇴(inset), 좌표 변환, 위경도↔미터 |
-| `ctx.vworld` | `geocode`, `parcelAt`, `zoningAt`, `landCharacteristics`, `features`, `jsonp` |
+| `ctx.vworld` | `geocode`, `parcelAt`, `zoningAt`, `landCharacteristics`, `features(layer, WKT 또는 {attrFilter}, size)`, `jsonp` |
+| `ctx.hub.loadSite(lon, lat, 이름)` | 좌표의 필지를 대지로 설정 (주소 검색과 같은 처리 — 경계·인접 필지·카메라) |
 | `ctx.ui.h(tag, attrs, …children)` | DOM 만들기 도우미, `ctx.ui.toast(msg)`, `ctx.ui.fmt(n)` |
 | `ctx.bus.emit(type, data)` / `on(type, fn)` | 플러그인끼리 신호 주고받기 (예: `'columns:changed'`) |
 
@@ -146,6 +151,7 @@ L.label({ x, y, z }, '텍스트', { color: '#15171c' });                    // �
 
 | 플러그인 | 읽는 것 | 쓰는 것 |
 |---|---|---|
+| 서울 대지 스크리닝 ✅ | (VWORLD 구 경계·지적도·용도지역도) | 대지 설정은 `ctx.hub.loadSite` |
 | 규모검토 ✅ | site, building, metrics | `site.area`, `site.zoning` |
 | 기둥 위치 스터디 ✅ | footprint, cores, levels | `plugins.column-grid.columns` |
 | 일조 시뮬레이션 ✅ | site.origin, footprint, 높이 | (그리기만) |

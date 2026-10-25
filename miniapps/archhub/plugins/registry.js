@@ -2,6 +2,12 @@
 // glyph: 홈 화면 아이콘 — 24×24 좌표의 SVG 선 그림(안쪽 마크업만). 없으면 이름 첫 글자가 아이콘이 됨.
 ArchHub.setRegistry([
     {
+        id: 'seoul-screening', name: '대지 스크리닝',
+        src: 'plugins/seoul-screening/plugin.js',
+        glyph: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/><path d="M8 10.5h5M10.5 8v5"/>',
+        description: '서울의 구·필지 크기·용도지역 조건으로 필지 1개를 무작위 추천'
+    },
+    {
         id: 'scale-review', name: '규모검토',
         src: 'plugins/scale-review/plugin.js',
         glyph: '<path d="M4 5h16v14H4z"/><path d="M8 9h6v6H8z"/><path d="M4 19l4-4M14 9l6-4"/>',

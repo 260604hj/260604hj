@@ -43,9 +43,15 @@
         return this._add('line', { points: points.map(p => ({ x: p.x, y: p.y, z: p.z == null ? (o.z || 0) : p.z })),
             closed: !!o.closed, color: o.color || '#222', mapColor: o.mapColor || null, width: o.width || 2, ground: !!o.ground, opacity: o.opacity == null ? 1 : o.opacity });
     };
+    // 글자 — maxDistance(m): 카메라가 이보다 멀면 숨김 (VWORLD 3D) · dark: 진한 글자 + 흰 테두리 (밝은 바탕용)
     Layer.prototype.label = function (pos, text, o) {
         o = o || {};
-        return this._add('label', { pos: { x: pos.x, y: pos.y, z: pos.z || 0 }, text: String(text), color: o.color || '#15171c', size: o.size || 13 });
+        return this._add('label', { pos: { x: pos.x, y: pos.y, z: pos.z || 0 }, text: String(text), color: o.color || '#15171c', size: o.size || 13, maxDistance: o.maxDistance || 0, dark: !!o.dark });
+    };
+    // 점 (역 등) — 화면 픽셀 크기, 항상 위에 보임
+    Layer.prototype.point = function (pos, o) {
+        o = o || {};
+        return this._add('point', { pos: { x: pos.x, y: pos.y, z: pos.z || 0 }, color: o.color || '#ffffff', size: o.size || 8, outlineColor: o.outlineColor || '#1d1d1f', outlineWidth: o.outlineWidth == null ? 2 : o.outlineWidth });
     };
     Layer.prototype.clear = function () { this.items.forEach(undrawItem); this.items = []; return this; };
     Layer.prototype.visible = function (on) {
@@ -60,7 +66,7 @@
         const t = p => layer._toSite(p);
         if (kind === 'extrude' || kind === 'polygon') return Object.assign({}, s, { poly: s.poly.map(t) });
         if (kind === 'line') return Object.assign({}, s, { points: s.points.map(t) });
-        if (kind === 'label') return Object.assign({}, s, { pos: t(s.pos) });
+        if (kind === 'label' || kind === 'point') return Object.assign({}, s, { pos: t(s.pos) });
         return s;
     }
     function drawItem(layer, item) {

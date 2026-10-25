@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Arch Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -210,6 +210,10 @@
     .ok{ color:var(--ok); font-weight:600; }
     .ng{ color:var(--ng); font-weight:600; }
 
+    /* 가시성: 가까운 역 목록 (노선색 점) */
+    #stationInfo .st{ display:inline-flex; align-items:center; gap:3px; margin:0 10px 4px 0; color:var(--secondary); }
+    #stationInfo .st i{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+
     /* 필지 표 · 높이 카드 옆 층수 · 배치 슬라이더 */
     .kv{ width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
     .kv td{ padding:5px 0; border-bottom:1px solid var(--hairline); }
@@ -233,13 +237,40 @@
 
     @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
 
-    @media (max-width: 900px){
-        #toolbar{ top:10px; left:10px; right:10px; flex-wrap:wrap; height:auto; padding:8px 12px; border-radius:var(--radius-card); row-gap:8px; }
-        #projectName{ flex:1; width:auto; min-width:100px; }
-        #toolbar .spacer{ display:none; }
-        .panel{ width:auto !important; left:10px !important; right:10px !important; }
-        #dataPanel{ top:auto; bottom:calc(45vh + 18px); max-height:34vh; }
-        #pluginPanel{ top:auto; bottom:10px; max-height:45vh; }
+    /* 모바일 아래 독 (데이터 / 플러그인 전환) — 넓은 화면에서는 숨김 */
+    #dock{ display:none; }
+
+    /* 중간 폭(가로 태블릿 등): 떠 있는 두 패널을 좁게 */
+    @media (max-width: 1100px){
+        .panel{ width:min(320px, 40vw) !important; }
+        #projectName{ width:140px; }
+    }
+
+    /* 세로 화면 · 휴대폰: 패널은 아래에서 올라오는 시트, 한 번에 하나만 (독으로 전환) */
+    @media (max-width: 700px), (orientation: portrait) and (max-width: 1000px){
+        #toolbar{
+            top:calc(8px + env(safe-area-inset-top)); left:8px; right:8px; height:auto;
+            flex-wrap:wrap; gap:6px 8px; padding:6px 8px 6px 14px; border-radius:var(--radius-card);
+        }
+        #projectName{ display:none; }
+        .brand{ font-size:15px; }
+        #toolbar .seg button{ padding:5px 10px; font-size:12px; }
+        #toolbar .btn.text{ padding:4px 6px; }
+        .panel{
+            width:auto !important; left:8px !important; right:8px !important;
+            top:auto; bottom:calc(64px + env(safe-area-inset-bottom)); max-height:min(56vh, calc(100vh - 150px));
+        }
+        body:not([data-sheet="data"]) #dataPanel{ display:none; }
+        body:not([data-sheet="plugin"]) #pluginPanel{ display:none; }
+        #dataTabs button{ padding:6px 4px; font-size:12px; }
+        #dataCollapse, #pluginHead .icon-btn[title="접기"]{ display:none; }   /* 시트는 독으로 닫음 */
+        #dock{
+            display:flex; position:fixed; z-index:12; left:50%; transform:translateX(-50%);
+            bottom:calc(12px + env(safe-area-inset-bottom)); padding:4px; border-radius:var(--radius-pill);
+        }
+        #dock .seg button{ padding:8px 18px; font-size:14px; }
+        .apps{ grid-template-columns:repeat(auto-fill, minmax(68px, 1fr)); gap:14px 6px; }
+        .toast{ bottom:calc(72px + env(safe-area-inset-bottom)); }
     }
 </style>
 </head>
@@ -271,6 +302,7 @@
             <button data-tab="parcel">필지</button>
             <button data-tab="shape">형태</button>
             <button data-tab="core">코어</button>
+            <button data-tab="visibility">가시성</button>
         </div>
         <button class="icon-btn" id="dataCollapse" title="접기">–</button>
     </div>
@@ -284,6 +316,13 @@
         <div id="pluginPanels"></div>
     </div>
 </section>
+
+<nav id="dock" class="float" aria-label="패널 전환">
+    <div class="seg">
+        <button data-sheet="data">데이터</button>
+        <button data-sheet="plugin">플러그인</button>
+    </div>
+</nav>
 
 <div class="toast" id="toast"></div>
 

@@ -233,6 +233,19 @@
                     h('p', { class: 'hint', id: 'coreInfo' })
                 ),
                 section('코어', h('div', { id: 'cores' }), h('p', { class: 'hint' }, '건물 좌표 기준 (건물 중심 = 0,0) · 크기 자동이면 가로·세로는 비율만 반영'))
+            ),
+            pane('visibility',
+                section('시점',
+                    h('div', { class: 'row', id: 'viewPresets' }),
+                    h('p', { class: 'hint', style: { marginTop: '8px' } }, '코너 = 기준축 방향 대지 네 모서리에서 수평으로 본 2점투시 · 탑뷰 = 대지 장변이 화면 가로')
+                ),
+                section('지도 레이어',
+                    h('label', { class: 'field' }, check('view.zoning'), ' 용도지역'),
+                    h('label', { class: 'field' }, check('view.stations'), ' 지하철 노선·역 (수도권 전철)'),
+                    h('p', { class: 'hint', id: 'stationInfo', style: { marginBottom: '6px' } }),
+                    h('label', { class: 'field' }, check('view.texture'), ' 건물 재질 (끄면 흰 매스 모형)'),
+                    h('p', { class: 'hint' }, '용도지역·재질은 VWORLD 3D 보기에서 적용됩니다. 지하철 노선·역: © OpenStreetMap contributors')
+                )
             )
         );
         renderCores();
@@ -289,6 +302,11 @@
         toast('주소 검색 중…');
         const pt = await V.geocode(address);
         if (!pt) return toast('검색 결과가 없습니다.', 'error');
+        return loadSiteAt(pt.lon, pt.lat, pt.refined);
+    }
+    // 좌표의 필지를 대지로 설정 (주소 검색, 플러그인 ctx.hub.loadSite 공용)
+    async function loadSiteAt(lon, lat, label) {
+        const pt = { lon, lat, refined: label || '' };
         let origin = { lon: pt.lon, lat: pt.lat }, boundary = [], parcel = null;
         try { parcel = await V.parcelAt(pt.lon, pt.lat); } catch (e) { console.warn(e); }
         if (parcel && parcel.ring && parcel.ring.length >= 3) {
@@ -300,7 +318,7 @@
         }
         const area = G.round(G.area(boundary), 2);
         Store.patch({
-            'site.address': pt.refined,
+            'site.address': pt.refined || (parcel ? parcel.jibun : ''),
             'site.origin': origin,
             'site.boundary': boundary,
             'site.jibun': parcel ? parcel.jibun : '',
@@ -315,6 +333,148 @@
         }, 'hub');
         toast(boundary.length ? `대지경계를 불러왔습니다 · ${fmt(area)} ㎡` : '위치로 이동했습니다 (대지경계는 못 가져옴 — 네트워크/VWORLD 확인)', boundary.length ? '' : 'error');
         if (boundary.length) loadNeighbors(true);
+        return boundary.length > 0;
+    }
+
+    // =====================================================================
+    // 가시성 — 시점 프리셋(4코너 2점투시 · 탑뷰) + 지도 레이어
+    // =====================================================================
+    // 기준축 좌표로 본 대지(없으면 매스) 범위와 높이
+    function viewFrame() {
+        const s = Store.get(), rot = s.building.placement.rotation || 0;
+        const center = s.building.footprint.length >= 3
+            ? G.toSite(G.centroid(s.building.footprint), s.building.placement)
+            : (s.site.boundary.length >= 3 ? G.centroid(s.site.boundary) : { x: 0, y: 0 });
+        const pts = s.site.boundary.length >= 3 ? s.site.boundary : s.building.footprint.map(p => G.toSite(p, s.building.placement));
+        const local = pts.map(p => G.rotate({ x: p.x - center.x, y: p.y - center.y }, -rot));
+        const bb = local.length ? G.bbox(local) : { minX: -15, maxX: 15, minY: -15, maxY: 15, w: 30, h: 30 };
+        return { center, rot, bb, height: Math.max(Store.metrics().height, 6) };
+    }
+    const COMPASS = ['북', '북동', '동', '남동', '남', '남서', '서', '북서'];
+    const compassOf = deg => COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];   // deg: 정북 0 시계방향
+    // 대지의 네 모서리(기준축 기준) — 각 모서리 바깥에서 대지 중심을 수평으로 바라봄
+    function cornerViews() {
+        const f = viewFrame();
+        return [[1, 1], [-1, 1], [-1, -1], [1, -1]].map(([sx, sy]) => {
+            const dir = G.rotate({ x: sx * f.bb.w / 2, y: sy * f.bb.h / 2 }, f.rot);   // 중심 → 모서리 (대지 좌표)
+            const len = Math.hypot(dir.x, dir.y) || 1;
+            const ux = dir.x / len, uy = dir.y / len;
+            const camHeading = Math.atan2(-ux, -uy);                                   // 카메라 → 중심 방향
+            const fromDeg = Math.atan2(ux, uy) * 180 / Math.PI;                         // 중심에서 본 모서리 방위
+            return { label: compassOf(fromDeg) + ' 코너', build: fovy => {
+                const el = $('view-' + activeViewer);
+                const aspect = el ? el.clientWidth / Math.max(1, el.clientHeight) : 1.6;
+                const fovx = 2 * Math.atan(Math.tan(fovy / 2) * aspect);
+                // 2점투시: 카메라 수평(pitch 0), 눈높이 = 건물 높이의 절반 → 수직선이 평행하게 유지됨
+                const half = Math.hypot(f.bb.w, f.bb.h) / 2;
+                const D = Math.max((f.height / 2) / Math.tan(fovy / 2) * 1.25, half / Math.tan(fovx / 2) * 1.15) + half * 0.2;
+                return { x: f.center.x + ux * D, y: f.center.y + uy * D, z: f.height / 2, heading: camHeading, pitch: 0, fovy };
+            } };
+        });
+    }
+    function topView(fovy) {
+        const f = viewFrame();
+        const el = $('view-' + activeViewer);
+        const aspect = el ? el.clientWidth / Math.max(1, el.clientHeight) : 1.6;
+        const need = Math.max(f.bb.h, f.bb.w / aspect) / 2 * 1.25;   // 대지 장변을 화면 가로로
+        return { x: f.center.x, y: f.center.y, z: need / Math.tan(fovy / 2) + f.height,
+            heading: -f.rot * Math.PI / 180, pitch: -89.9 * Math.PI / 180, fovy };
+    }
+    function applyPreset(make) {
+        const v = activeViewer && viewers[activeViewer];
+        if (!v || !v.getView) return;
+        const fovy = v.getView().fovy || (40 * Math.PI / 180);
+        const view = make(fovy);
+        v.setView(view);
+    }
+    function renderViewButtons() {
+        const box = $('viewPresets'); if (!box) return;
+        box.innerHTML = '';
+        box.append(h('button', { class: 'btn ghost small', onclick: () => applyPreset(topView) }, '탑뷰'));
+        const cs = cornerViews(), count = {};
+        cs.forEach(c => { count[c.label] = (count[c.label] || 0) + 1; });
+        const seen = {};
+        cs.forEach(c => {
+            // 가늘고 긴 대지는 두 모서리가 같은 방위가 될 수 있음 → 번호로 구분
+            const label = count[c.label] > 1 ? c.label + ' ' + (seen[c.label] = (seen[c.label] || 0) + 1) : c.label;
+            box.append(h('button', { class: 'btn ghost small', onclick: () => applyPreset(c.build) }, label));
+        });
+        box.append(h('button', { class: 'btn ghost small', onclick: () => Scene.focus(siteBBox()) }, '조감'));
+    }
+
+    // 지하철 — 수도권 전철 노선(노선색)과 역 전체. 자료는 data/seoul-subway.js (OpenStreetMap, 처음 켤 때 한 번 읽음)
+    let subwayPromise = null, stationsKey = '';
+    function loadSubway() {
+        if (!subwayPromise) subwayPromise = loadScriptOnce('data/seoul-subway.js').then(() => {
+            const D = window.ArchSubwayData;
+            // 역마다 지나는 노선 (역 좌표에서 노선까지 80m 이내)
+            const toM = (o, p) => G.lonLatToXY(o, p[0], p[1]);
+            D.stations = D.stations.map(([name, lon, lat]) => {
+                const o = { lon, lat }, lines = [];
+                D.lines.forEach((ln, li) => {
+                    const near = ln.paths.some(path => {
+                        for (let i = 0; i < path.length - 1; i++) {
+                            const a = path[i], b = path[i + 1];
+                            if (Math.abs(a[1] - lat) > 0.01 && Math.abs(b[1] - lat) > 0.01) continue;   // 빠른 거르기
+                            if (G.distToSegment({ x: 0, y: 0 }, toM(o, a), toM(o, b)) < 80) return true;
+                        }
+                        return false;
+                    });
+                    if (near) lines.push(li);
+                });
+                return { name, lon, lat, lines };
+            }).filter(st => st.lines.length);
+            return D;
+        });
+        return subwayPromise;
+    }
+    function loadScriptOnce(src) {
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('불러올 수 없음: ' + src));
+            document.head.appendChild(s);
+        });
+    }
+    async function drawStations() {
+        const L = Scene.layer('core/stations');
+        const s = Store.get();
+        if (!s.view.stations || !s.site.origin) { L.clear(); stationsKey = ''; if ($('stationInfo')) $('stationInfo').textContent = ''; return; }
+        const key = s.site.origin.lon + ',' + s.site.origin.lat;
+        if (key === stationsKey) return;
+        stationsKey = key;
+        let D;
+        try { D = await loadSubway(); } catch (e) { stationsKey = ''; return toast('지하철 자료를 불러오지 못했습니다: ' + e.message, 'error'); }
+        if (stationsKey !== key) return;
+        const o = s.site.origin;
+        const xy = p => G.lonLatToXY(o, p[0], p[1]);
+        L.clear();
+        // 노선 — 지형·건물에 가려도 비쳐 보이게 (ground 선)
+        D.lines.forEach(ln => ln.paths.forEach(path => L.line(path.map(xy), { z: 2, ground: true, color: ln.color, mapColor: ln.color, width: 4 })));
+        // 역 — 한 노선이면 그 색, 환승역은 흰 점 + 진한 테두리. 이름은 대지 5km 안 역만, 카메라가 2.5km 안일 때 (VWORLD)
+        const near = [];
+        D.stations.forEach(st => {
+            const p = G.lonLatToXY(o, st.lon, st.lat), d = Math.hypot(p.x, p.y);
+            const single = st.lines.length === 1 ? D.lines[st.lines[0]].color : null;
+            L.point({ x: p.x, y: p.y, z: 3 }, { color: single || '#ffffff', outlineColor: single ? '#ffffff' : '#1d1d1f', size: single ? 12 : 14 });
+            if (d < 5000) L.label({ x: p.x, y: p.y, z: 18 }, st.name, { color: '#1d1d1f', dark: true, size: 13, maxDistance: 2500 });
+            if (d <= 1000) near.push({ st, d });
+        });
+        near.sort((a, b) => a.d - b.d);
+        const seen = new Set();
+        const list = near.filter(n => !seen.has(n.st.name) && seen.add(n.st.name));
+        if ($('stationInfo')) {
+            const box = $('stationInfo'); box.innerHTML = '';
+            if (!list.length) box.textContent = '반경 1km 안에 역이 없습니다.';
+            list.forEach(n => box.append(h('span', { class: 'st' },
+                ...n.st.lines.map(li => h('i', { style: { background: D.lines[li].color }, title: D.lines[li].name })),
+                `${n.st.name} ${Math.round(n.d)}m`)));
+        }
+    }
+
+    function applyMapLayers() {
+        const v = Store.get('view');
+        if (viewers.vworld && viewers.vworld.setLayers) viewers.vworld.setLayers({ zoning: v.zoning, texture: v.texture });
+        drawStations();
     }
     // 연속지적도 jibun 끝 글자가 지목 ("737대" → 대, "12-3도" → 도로)
     const jimokOf = j => { const m = String(j || '').trim().match(/[가-힣]$/); return m ? m[0] : ''; };
@@ -444,6 +604,7 @@
                 el.style.display = '';
                 viewers[kind] = await def.create(el, { origin: Store.get('site.origin'), onGroundChange: () => Scene.redraw(), onBuildingClick: toggleBuilding });
                 if (viewers[kind].setDemolished) viewers[kind].setDemolished(Store.get('site.demolished'));
+                if (viewers[kind].setLayers) viewers[kind].setLayers({ zoning: Store.get('view.zoning'), texture: Store.get('view.texture') });
             }
             Object.keys(viewers).forEach(k => viewers[k].show(k === kind));
             activeViewer = kind;
@@ -574,6 +735,8 @@
             },
             geo: G,
             vworld: V,
+            // 허브 동작 — 좌표의 필지를 대지로 설정 (주소 검색과 같은 처리: 경계·인접 필지·카메라 이동)
+            hub: { loadSite: (lon, lat, label) => loadSiteAt(lon, lat, label) },
             ui: { h, toast, fmt },
             // 플러그인 간 메시지 (예: bus.emit('columns:changed', {...}))
             bus: {
@@ -712,6 +875,8 @@
         renderMetrics();
         if (ev.touches('site') || ev.touches('building') || ev.paths.includes('*')) drawCore();
         if ((ev.touches('site.demolished') || ev.paths.includes('*')) && viewers.vworld) viewers.vworld.setDemolished(Store.get('site.demolished'));
+        if (ev.touches('view') || ev.touches('site.origin') || ev.paths.includes('*')) applyMapLayers();
+        if (ev.touches('site') || ev.touches('building') || ev.paths.includes('*')) renderViewButtons();
         if (ev.touches('site.origin')) {
             const o = Store.get('site.origin');
             if (o) Scene.setOrigin(o);
@@ -728,9 +893,18 @@
         $('fileInput').onchange = e => { if (e.target.files[0]) importProject(e.target.files[0]); e.target.value = ''; };
         $('btnNew').onclick = () => { if (confirm('현재 프로젝트를 지우고 새로 시작할까요? (먼저 저장하세요)')) Store.reset(); };
         document.querySelectorAll('[data-viewer]').forEach(b => { b.onclick = () => useViewer(b.getAttribute('data-viewer')); });
+        // 모바일 독 — 데이터/플러그인 시트 중 하나만 열고, 열린 것을 다시 누르면 닫아서 지도를 크게
+        const setSheet = name => {
+            document.body.dataset.sheet = name;
+            document.querySelectorAll('#dock [data-sheet]').forEach(b => b.classList.toggle('on', b.getAttribute('data-sheet') === name));
+        };
+        document.querySelectorAll('#dock [data-sheet]').forEach(b => {
+            b.onclick = () => setSheet(document.body.dataset.sheet === b.getAttribute('data-sheet') ? '' : b.getAttribute('data-sheet'));
+        });
+        setSheet('data');
 
         Store.on(onProjectChange);
-        syncForm(); renderMetrics(); showPlugin(null);
+        syncForm(); renderMetrics(); showPlugin(null); renderViewButtons();
         drawCore();
         // 필지 탭이 생기기 전에 저장된 프로젝트 — 인접 필지를 한 번 자동으로 불러옴
         if (Store.get('site.boundary').length >= 3 && !Store.get('site.neighbors').length) loadNeighbors(true);
@@ -742,6 +916,7 @@
             if (await useViewer(other, true)) toast(window.ArchViewers[pref].label + '를 열 수 없어 ' + window.ArchViewers[other].label + '로 표시합니다.');
             else toast('3D 뷰를 열 수 없습니다. 인터넷 연결을 확인하세요.', 'error');
         }
+        applyMapLayers();
         await restoreActive();
     }
 

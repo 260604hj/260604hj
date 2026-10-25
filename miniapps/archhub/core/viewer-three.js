@@ -20,12 +20,12 @@
         if (!window.THREE) { for (const src of LIBS) await loadScript(src); }
         const T = window.THREE;
 
-        const renderer = new T.WebGLRenderer({ antialias: true });
+        const renderer = new T.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });   // 수 km 노선과 가까운 매스를 함께 그려도 깊이 오차 없게
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         container.appendChild(renderer.domElement);
         const scene = new T.Scene();
         scene.background = new T.Color('#eceff1');
-        const camera = new T.PerspectiveCamera(40, 1, 0.5, 5000);
+        const camera = new T.PerspectiveCamera(40, 1, 0.5, 80000);
         camera.position.set(70, 80, 90);
         const controls = new T.OrbitControls(camera, renderer.domElement);
         controls.target.set(0, 10, 0);
@@ -79,6 +79,19 @@
             return sp;
         }
 
+        // 화면 크기가 일정한 점 (멀리 있어도 같은 픽셀 크기)
+        function dotSprite(fill, stroke, size) {
+            const c = document.createElement('canvas'), g = c.getContext('2d');
+            c.width = c.height = 64;
+            g.beginPath(); g.arc(32, 32, 26, 0, Math.PI * 2);
+            g.fillStyle = fill; g.fill(); g.lineWidth = 8; g.strokeStyle = stroke; g.stroke();
+            const sp = new T.Sprite(new T.SpriteMaterial({ map: new T.CanvasTexture(c), depthTest: false, sizeAttenuation: false }));
+            const k = size / Math.max(1, container.clientHeight) * 1.2;
+            sp.scale.set(k, k, 1);
+            sp.renderOrder = 11;
+            return sp;
+        }
+
         const backend = {
             kind: 'three',
             draw(kind, s) {
@@ -99,6 +112,9 @@
                     obj = s.closed ? new T.LineLoop(geo, m) : new T.Line(geo, m);
                 } else if (kind === 'label') {
                     obj = textSprite(s.text, s.color, s.size);
+                    obj.position.copy(v3(s.pos));
+                } else if (kind === 'point') {
+                    obj = dotSprite(s.color, s.outlineColor, s.size);
                     obj.position.copy(v3(s.pos));
                 }
                 if (obj) { scene.add(obj); render(); }

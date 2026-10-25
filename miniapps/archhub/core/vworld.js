@@ -54,10 +54,14 @@
     }
 
     // 데이터 API — geomFilter(WKT)에 걸리는 피처들 [{ geometry, props }]
+    // geomFilter(WKT) 대신 { attrFilter: 'sig_cd:=:11440' } 처럼 속성 조건으로도 조회 가능
     async function features(layer, geomFilter, size) {
+        const filter = (geomFilter && typeof geomFilter === 'object')
+            ? '&attrFilter=' + encodeURIComponent(geomFilter.attrFilter)
+            : '&geomFilter=' + geomFilter;
         const url = 'https://api.vworld.kr/req/data?service=data&version=2.0&request=GetFeature&format=json' +
             '&data=' + layer + '&key=' + KEY +
-            '&geomFilter=' + geomFilter + '&geometry=true&attribute=true&crs=EPSG:4326&size=' + (size || 10);
+            filter + '&geometry=true&attribute=true&crs=EPSG:4326&size=' + (size || 10);
         let d = await jsonp(url + '&domain=' + domain());
         // 등록 도메인이 아니면(localhost 등) domain 값 때문에 INCORRECT_KEY → domain 없이 한 번 더
         if (d.response && d.response.error && d.response.error.code === 'INCORRECT_KEY') d = await jsonp(url);
