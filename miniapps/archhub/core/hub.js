@@ -424,9 +424,44 @@
                 });
                 return { name, lon, lat, lines };
             }).filter(st => st.lines.length);
+            D.lines.forEach(ln => { ln.drawPaths = mergeParallel(ln.paths); });
             return D;
         });
         return subwayPromise;
+    }
+    // 한 노선의 상·하행선, 급행선 등 나란한 선로를 한 줄로 — 긴 선로부터 남기고,
+    // 이미 남긴 선로에서 25m 안을 지나는 부분은 버리고 새로 뻗는 구간만 남김
+    function mergeParallel(paths) {
+        const O = { lon: 126.98, lat: 37.56 }, TOL = 25, CELL = 50;
+        const P = paths.map(p => p.map(q => G.lonLatToXY(O, q[0], q[1])));
+        const len = p => p.reduce((s, q, i) => i ? s + G.dist(p[i - 1], q) : 0, 0);
+        const order = P.map((p, i) => i).sort((a, b) => len(P[b]) - len(P[a]));
+        const grid = new Map(), cellKey = (x, y) => Math.floor(x / CELL) + ',' + Math.floor(y / CELL);
+        const addSeg = (a, b) => {
+            const bb = G.bbox([a, b]);
+            for (let x = Math.floor((bb.minX - TOL) / CELL); x <= Math.floor((bb.maxX + TOL) / CELL); x++)
+                for (let y = Math.floor((bb.minY - TOL) / CELL); y <= Math.floor((bb.maxY + TOL) / CELL); y++) {
+                    const k = x + ',' + y; if (!grid.has(k)) grid.set(k, []); grid.get(k).push([a, b]);
+                }
+        };
+        const covered = q => (grid.get(cellKey(q.x, q.y)) || []).some(([a, b]) => G.distToSegment(q, a, b) < TOL);
+        const out = [];
+        order.forEach(i => {
+            const p = P[i], src = paths[i];
+            const cov = p.map(covered);
+            // 덮이지 않은 점들의 연속 구간 (앞뒤 한 점씩 이어 붙여 끊김 없게)
+            let run = [];
+            const flush = () => { if (run.length >= 2) out.push(run.map(j => src[j])); run = []; };
+            for (let j = 0; j < p.length; j++) {
+                if (!cov[j]) {
+                    if (!run.length && j > 0) run.push(j - 1);
+                    run.push(j);
+                } else if (run.length) { run.push(j); flush(); }
+            }
+            flush();
+            for (let j = 0; j < p.length - 1; j++) addSeg(p[j], p[j + 1]);
+        });
+        return out;
     }
     function loadScriptOnce(src) {
         return new Promise((resolve, reject) => {
@@ -449,7 +484,7 @@
         const xy = p => G.lonLatToXY(o, p[0], p[1]);
         L.clear();
         // 노선 — 지형·건물에 가려도 비쳐 보이게 (ground 선)
-        D.lines.forEach(ln => ln.paths.forEach(path => L.line(path.map(xy), { z: 2, ground: true, color: ln.color, mapColor: ln.color, width: 4 })));
+        D.lines.forEach(ln => ln.drawPaths.forEach(path => L.line(path.map(xy), { z: 2, ground: true, color: ln.color, mapColor: ln.color, width: 2, seeThrough: 1 })));
         // 역 — 한 노선이면 그 색, 환승역은 흰 점 + 진한 테두리. 이름은 대지 5km 안 역만, 카메라가 2.5km 안일 때 (VWORLD)
         const near = [];
         D.stations.forEach(st => {

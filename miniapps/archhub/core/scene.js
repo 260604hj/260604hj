@@ -41,7 +41,8 @@
     Layer.prototype.line = function (points, o) {
         o = o || {};
         return this._add('line', { points: points.map(p => ({ x: p.x, y: p.y, z: p.z == null ? (o.z || 0) : p.z })),
-            closed: !!o.closed, color: o.color || '#222', mapColor: o.mapColor || null, width: o.width || 2, ground: !!o.ground, opacity: o.opacity == null ? 1 : o.opacity });
+            closed: !!o.closed, color: o.color || '#222', mapColor: o.mapColor || null, width: o.width || 2, ground: !!o.ground, opacity: o.opacity == null ? 1 : o.opacity,
+            seeThrough: o.seeThrough == null ? 0.55 : o.seeThrough });   // 가려진 부분의 진하기 (0~1)
     };
     // 글자 — maxDistance(m): 카메라가 이보다 멀면 숨김 (VWORLD 3D) · dark: 진한 글자 + 흰 테두리 (밝은 바탕용)
     Layer.prototype.label = function (pos, text, o) {

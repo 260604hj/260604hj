@@ -176,7 +176,7 @@
                     return viewer.entities.add({ polyline: {
                         positions: pts, width: s.width,
                         material: color(c, s.opacity),
-                        depthFailMaterial: color(c, s.opacity * 0.55)
+                        depthFailMaterial: color(c, s.opacity * (s.seeThrough == null ? 0.55 : s.seeThrough))
                     } });
                 }
                 if (kind === 'line') {
@@ -194,7 +194,8 @@
                 }
                 if (kind === 'point') {
                     return viewer.entities.add({ position: pos3(s.pos), point: {
-                        pixelSize: s.size, color: color(s.color, 1), outlineColor: color(s.outlineColor, 1), outlineWidth: s.outlineWidth,
+                        // 알파를 1 미만으로 → 반투명 단계(선 그린 뒤)에 그려져 노선이 점을 가리지 않음
+                        pixelSize: s.size, color: color(s.color, 0.99), outlineColor: color(s.outlineColor, 0.99), outlineWidth: s.outlineWidth,
                         disableDepthTestDistance: Number.POSITIVE_INFINITY
                     } });
                 }
