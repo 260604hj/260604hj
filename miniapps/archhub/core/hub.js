@@ -119,10 +119,16 @@
         $('demoInfo').textContent = s.demolished.length ? `철거한 기존 건물 ${s.demolished.length}동` : '철거한 건물 없음';
         // 기준축 설명
         const bld = Store.get('building');
+        if (bld.shape.type === 'site') {
+            const fb = G.bbox(bld.footprint);
+            $('siteRectInfo').textContent = s.boundary.length < 3 ? '대지를 불러오면 후퇴선 안 최대 직사각형으로 매스를 만듭니다.'
+                : bld.footprint.length < 3 ? '후퇴 거리가 커서 직사각형이 들어가지 않습니다. 후퇴를 줄여 보세요.'
+                : `후퇴선 안 최대 직사각형 ${fmt(fb.w, 2)} × ${fmt(fb.h, 2)} m (기준축 방향)`;
+        }
         const rot = fmt(bld.placement.rotation, 1) + '°';
         $('axisInfo').textContent = {
             site: s.boundary.length >= 3 ? `대지 장변 방향(${rot})에 코어·기둥 그리드를 맞춥니다.` : '대지를 불러오면 대지 장변 방향에 맞춥니다.',
-            mass: bld.shape.type === 'site' ? `매스 주축(최소 외접 직사각형, ${rot})에 맞춥니다.` : `매스 회전(${rot})을 따릅니다. 회전값을 직접 바꿀 수 있습니다.`,
+            mass: bld.shape.type === 'site' ? `후퇴선의 주축(최소 외접 직사각형, ${rot})에 맞춥니다.` : `매스 회전(${rot})을 따릅니다. 회전값을 직접 바꿀 수 있습니다.`,
             manual: `직접 정한 각도(${rot})를 씁니다. 마우스 휠로 1°씩 돌릴 수 있습니다.`
         }[bld.axisMode] + (bld.shape.type === 'site' ? ' 건물 원점은 매스 중심입니다.' : '');
         // 코어비 실제값
@@ -142,7 +148,7 @@
             h('option', { value: 'rect' }, '직사각형'),
             h('option', { value: 'L' }, 'ㄱ자 (L형)'),
             h('option', { value: 'U' }, 'ㄷ자 (U형)'),
-            h('option', { value: 'site' }, '대지경계 후퇴'),
+            h('option', { value: 'site' }, '대지경계 후퇴 (최대 직사각형)'),
             h('option', { value: 'custom' }, '사용자 정의 (플러그인이 지정)')
         ), 'building.shape.type');
 
@@ -195,6 +201,8 @@
                         field('따냄 가로', num('building.shape.cutW', { min: 0, step: 0.5 }), 'm', { 'data-shape': 'L U' }),
                         field('따냄 세로', num('building.shape.cutD', { min: 0, step: 0.5 }), 'm', { 'data-shape': 'L U' }),
                         field('후퇴', num('building.shape.setback', { min: 0, step: 0.1 }), 'm', { 'data-shape': 'site' })
+                    ),
+                    h('p', { class: 'hint', id: 'siteRectInfo', 'data-shape': 'site' }
                     )
                 ),
                 section('층고',

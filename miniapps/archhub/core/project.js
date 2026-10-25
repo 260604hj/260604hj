@@ -74,6 +74,24 @@
         o[keys[keys.length - 1]] = val;
     }
 
+    // 대지경계(대지 좌표)에서 setback 이상 떨어진 최대 직사각형 — 같은 입력이면 다시 계산하지 않음 (슬라이더 등 잦은 변경 대비)
+    let rectMemo = { key: '', val: null };
+    function siteRect(boundary, setback, b) {
+        if (b.axisMode === 'mass') b.placement.rotation = G.round(G.mainAxisAngle(boundary), 2);
+        const rot = b.placement.rotation || 0;
+        const key = JSON.stringify([boundary, setback, rot]);
+        if (rectMemo.key === key) return rectMemo.val;
+        const frame = { x: 0, y: 0, rotation: rot };
+        const r = G.maxInscribedRect(boundary.map(p => G.toBuilding(p, frame)), setback);
+        let val = null;
+        if (r && r.w > 0.5 && r.h > 0.5) {
+            const c = G.toSite({ x: r.cx, y: r.cy }, frame);
+            val = { x: G.round(c.x, 3), y: G.round(c.y, 3), w: G.round(r.w, 3), d: G.round(r.h, 3) };
+        }
+        rectMemo = { key, val };
+        return val;
+    }
+
     // shape → footprint 등 파생값 갱신
     function derive(s) {
         const b = s.building, sh = b.shape;
@@ -83,14 +101,13 @@
         if (G.shapes[sh.type]) {
             b.footprint = G.shapes[sh.type](sh);
         } else if (sh.type === 'site') {
-            // 대지경계를 setback 만큼 후퇴한 형태. 건물 원점 = 매스 중심, 축 = 기준축 → 코어·그리드가 이 축을 따름
-            const inner = hasSite ? G.inset(s.site.boundary, sh.setback || 0) : [];
-            if (inner.length >= 3) {
-                const c = G.centroid(inner);
-                b.placement.x = G.round(c.x, 3); b.placement.y = G.round(c.y, 3);
-                if (b.axisMode === 'mass') b.placement.rotation = G.round(G.mainAxisAngle(inner), 2);
-                b.footprint = inner.map(p => G.toBuilding(p, b.placement));
-            } else b.footprint = G.shapes.rect(sh);
+            // 대지경계를 setback 만큼 후퇴한 선에 내접하는 최대 직사각형 (기준축 방향).
+            // 건물 원점 = 직사각형 중심 → 코어·그리드가 이 매스와 축을 따름
+            const rect = hasSite ? siteRect(s.site.boundary, sh.setback || 0, b) : null;
+            if (rect) {
+                b.placement.x = rect.x; b.placement.y = rect.y;
+                b.footprint = G.shapes.rect({ w: rect.w, d: rect.d });
+            } else b.footprint = hasSite ? [] : G.shapes.rect(sh);   // 대지가 있는데 안 들어가면 매스 없음
         }
         b.footprint = G.ccw(b.footprint).map(p => ({ x: G.round(p.x, 3), y: G.round(p.y, 3) }));
         b.floorsAbove = Math.max(0, Math.round(b.floorsAbove));

@@ -138,6 +138,106 @@
         return pts;
     };
 
+    // 두 선분이 서로 "가로질러" 교차하는지 (끝점 접촉·겹침은 제외)
+    G.segmentsCross = function (a, b, c, d) {
+        const o = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+        const d1 = o(c, d, a), d2 = o(c, d, b), d3 = o(a, b, c), d4 = o(a, b, d);
+        const eps = 1e-9;
+        return ((d1 > eps && d2 < -eps) || (d1 < -eps && d2 > eps)) && ((d3 > eps && d4 < -eps) || (d3 < -eps && d4 > eps));
+    };
+    // 축 정렬 직사각형 r = {minX,minY,maxX,maxY} 가 폴리곤 안(경계 포함)에 있는지
+    G.rectInPoly = function (r, poly) {
+        const c = [{ x: r.minX, y: r.minY }, { x: r.maxX, y: r.minY }, { x: r.maxX, y: r.maxY }, { x: r.minX, y: r.maxY }];
+        if (!c.every(p => G.pointInPolyOrOn(p, poly, 1e-6))) return false;
+        const e = 1e-7;
+        if (poly.some(p => p.x > r.minX + e && p.x < r.maxX - e && p.y > r.minY + e && p.y < r.maxY - e)) return false;
+        for (let i = 0; i < 4; i++) for (let j = 0; j < poly.length; j++) {
+            if (G.segmentsCross(c[i], c[(i + 1) % 4], poly[j], poly[(j + 1) % poly.length])) return false;
+        }
+        return true;
+    };
+
+    // 점에서 폴리곤 경계까지 최단 거리
+    G.distToPoly = function (p, poly) {
+        let d = Infinity;
+        for (let i = 0; i < poly.length; i++) d = Math.min(d, G.distToSegment(p, poly[i], poly[(i + 1) % poly.length]));
+        return d;
+    };
+    const segDist = (a, b, c, d) => Math.min(G.distToSegment(a, c, d), G.distToSegment(b, c, d), G.distToSegment(c, a, b), G.distToSegment(d, a, b));
+    // 직사각형이 폴리곤 안에 있고, 폴리곤 경계에서 margin 이상 떨어져 있는지
+    G.rectInPolyMargin = function (r, poly, margin) {
+        if (!G.rectInPoly(r, poly)) return false;
+        if (!(margin > 0)) return true;
+        const c = [{ x: r.minX, y: r.minY }, { x: r.maxX, y: r.minY }, { x: r.maxX, y: r.maxY }, { x: r.minX, y: r.maxY }];
+        for (let i = 0; i < 4; i++) for (let j = 0; j < poly.length; j++) {
+            if (segDist(c[i], c[(i + 1) % 4], poly[j], poly[(j + 1) % poly.length]) < margin - 1e-6) return false;
+        }
+        return true;
+    };
+
+    // 폴리곤 안, 경계에서 margin(후퇴 거리) 이상 떨어진 최대 면적의 축 정렬 직사각형 → {minX,minY,maxX,maxY,w,h,cx,cy} (없으면 null)
+    // 격자로 안쪽 칸을 표시해 최대 직사각형(히스토그램 방식)을 찾은 뒤, 각 변을 정확한 판정으로 밀어 넓힘.
+    // 오목한 필지에서도 후퇴가 정확함 (변 평행이동 방식 inset 과 달리).
+    G.maxInscribedRect = function (poly, margin) {
+        if (!poly || poly.length < 3) return null;
+        margin = margin || 0;
+        const bb = G.bbox(poly);
+        const cell = Math.max(0.2, Math.max(bb.w, bb.h) / 220);
+        const nx = Math.max(1, Math.ceil(bb.w / cell)), ny = Math.max(1, Math.ceil(bb.h / cell));
+        // 격자 꼭짓점이 쓸 수 있는 곳(안쪽 + 경계에서 margin 이상)인지
+        const corner = [];
+        for (let j = 0; j <= ny; j++) {
+            const row = new Uint8Array(nx + 1);
+            for (let i = 0; i <= nx; i++) {
+                const p = { x: bb.minX + i * cell, y: bb.minY + j * cell };
+                row[i] = G.pointInPolyOrOn(p, poly, 1e-6) && (margin <= 0 || G.distToPoly(p, poly) >= margin) ? 1 : 0;
+            }
+            corner.push(row);
+        }
+        // 칸의 네 꼭짓점이 모두 안이면 안쪽 칸
+        const heights = new Int32Array(nx);
+        let best = null, bestA = 0;
+        for (let j = 0; j < ny; j++) {
+            for (let i = 0; i < nx; i++) {
+                const inside = corner[j][i] && corner[j][i + 1] && corner[j + 1][i] && corner[j + 1][i + 1];
+                heights[i] = inside ? heights[i] + 1 : 0;
+            }
+            // 이 행을 바닥으로 하는 히스토그램의 최대 직사각형
+            const stack = [];
+            for (let i = 0; i <= nx; i++) {
+                const hh = i < nx ? heights[i] : 0;
+                while (stack.length && heights[stack[stack.length - 1]] >= hh) {
+                    const top = stack.pop(), H = heights[top];
+                    const left = stack.length ? stack[stack.length - 1] + 1 : 0;
+                    const A = H * (i - left);
+                    if (A > bestA) { bestA = A; best = { i0: left, i1: i, j0: j - H + 1, j1: j + 1 }; }
+                }
+                if (i < nx) stack.push(i);
+            }
+        }
+        if (!best) return null;
+        const r = { minX: bb.minX + best.i0 * cell, maxX: bb.minX + best.i1 * cell, minY: bb.minY + best.j0 * cell, maxY: bb.minY + best.j1 * cell };
+        // 격자 오차로 살짝 걸치면 반 칸씩 안쪽으로 (최대 여섯 번)
+        for (let k = 0; !G.rectInPolyMargin(r, poly, margin); k++) {
+            if (k === 6) return null;
+            r.minX += cell / 2; r.maxX -= cell / 2; r.minY += cell / 2; r.maxY -= cell / 2;
+            if (r.maxX <= r.minX || r.maxY <= r.minY) return null;
+        }
+        // 각 변을 이분 탐색으로 밀어 격자 오차 회수 (최대 한 칸 반)
+        ['minX', 'maxX', 'minY', 'maxY'].forEach(k => {
+            const sign = (k === 'minX' || k === 'minY') ? -1 : 1;
+            let lo = 0, hi = cell * 1.5;
+            for (let it = 0; it < 12; it++) {
+                const mid = (lo + hi) / 2, t = Object.assign({}, r);
+                t[k] += sign * mid;
+                if (G.rectInPolyMargin(t, poly, margin)) lo = mid; else hi = mid;
+            }
+            r[k] += sign * lo;
+        });
+        r.w = r.maxX - r.minX; r.h = r.maxY - r.minY; r.cx = (r.minX + r.maxX) / 2; r.cy = (r.minY + r.maxY) / 2;
+        return r;
+    };
+
     // ---------- 변환 ----------
     G.rotate = function (p, deg) {
         const c = Math.cos(deg * RAD), s = Math.sin(deg * RAD);

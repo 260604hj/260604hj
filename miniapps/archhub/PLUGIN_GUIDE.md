@@ -44,7 +44,7 @@ miniapps/archhub/
 | `building.groundFloorHeight`, `floorHeight`, `basementHeight` | 1층·기준층·지하 층고 m | |
 | `building.placement` | `{x, y, rotation}` 건물 원점의 대지 위 위치, 회전(°, 반시계) = 건물 좌표의 기준축 | 대지 |
 | `building.axisMode` | 기준축: `site` 대지 장변(기본) · `mass` 매스 주축 · `manual` 직접 회전. 대지경계 후퇴 형태는 원점이 매스 중심 | |
-| `building.shape` | `{type, w, d, cutW, cutD, setback}` 형태 입력값 (`rect` `L` `U` `site` `custom`) | |
+| `building.shape` | `{type, w, d, cutW, cutD, setback}` 형태 입력값 (`rect` `L` `U` `site` `custom`). `site` = 대지경계에서 setback 이상 떨어진 최대 직사각형(기준축 방향) | |
 | `building.footprint` | 평면 외곽 `[{x,y}]` — **형태의 최종 결과, 플러그인은 이걸 쓰세요** | 건물 |
 | `building.cores` | `[{id, x, y, w, d}]` 코어 (중심점·크기) | 건물 |
 | `plugins.<id>` | 각 플러그인 전용 데이터 | |
