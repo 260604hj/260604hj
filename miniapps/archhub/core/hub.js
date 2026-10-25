@@ -819,18 +819,25 @@
     }
     function renderHead() {
         const head = $('pluginHead'); head.innerHTML = '';
+        const close = () => h('button', { class: 'icon-btn sheet-close', 'data-close-sheet': true, title: '닫기' }, '×');
         if (!currentPlugin) {
             head.append(h('div', { class: 'panel-title' }, '플러그인'));
             head.append(h('button', { class: 'icon-btn', title: '접기', onclick: () => { $('pluginPanel').classList.toggle('collapsed'); renderHead(); } },
-                $('pluginPanel').classList.contains('collapsed') ? '+' : '–'));
+                $('pluginPanel').classList.contains('collapsed') ? '+' : '–'), close());
             return;
         }
         const rec = active[currentPlugin];
         head.append(
             h('button', { class: 'icon-btn', title: '플러그인 목록', onclick: () => showPlugin(null) }, '‹'),
             h('div', { class: 'panel-title' }, rec ? rec.def.name : currentPlugin),
-            h('button', { class: 'btn text', title: '끄면 이 플러그인의 그림과 화면이 사라집니다 (저장된 값은 남음)', onclick: () => deactivatePlugin(currentPlugin) }, '끄기')
+            h('button', { class: 'btn text', title: '끄면 이 플러그인의 그림과 화면이 사라집니다 (저장된 값은 남음)', onclick: () => deactivatePlugin(currentPlugin) }, '끄기'),
+            close()
         );
+    }
+    // 모바일 시트 — 'data' | 'plugin' | '' (닫힘)
+    function setSheet(name) {
+        document.body.dataset.sheet = name;
+        document.querySelectorAll('#dock [data-sheet]').forEach(b => b.classList.toggle('on', b.getAttribute('data-sheet') === name));
     }
     function showPlugin(id) {
         if (id && !active[id]) id = null;
@@ -928,15 +935,15 @@
         $('fileInput').onchange = e => { if (e.target.files[0]) importProject(e.target.files[0]); e.target.value = ''; };
         $('btnNew').onclick = () => { if (confirm('현재 프로젝트를 지우고 새로 시작할까요? (먼저 저장하세요)')) Store.reset(); };
         document.querySelectorAll('[data-viewer]').forEach(b => { b.onclick = () => useViewer(b.getAttribute('data-viewer')); });
-        // 모바일 독 — 데이터/플러그인 시트 중 하나만 열고, 열린 것을 다시 누르면 닫아서 지도를 크게
-        const setSheet = name => {
-            document.body.dataset.sheet = name;
-            document.querySelectorAll('#dock [data-sheet]').forEach(b => b.classList.toggle('on', b.getAttribute('data-sheet') === name));
-        };
+        // 모바일 독 — 데이터/플러그인 시트 중 하나만 열고, 열린 것을 다시 누르거나 × 로 닫아서 지도를 크게
         document.querySelectorAll('#dock [data-sheet]').forEach(b => {
             b.onclick = () => setSheet(document.body.dataset.sheet === b.getAttribute('data-sheet') ? '' : b.getAttribute('data-sheet'));
         });
-        setSheet('data');
+        document.addEventListener('click', e => { if (e.target.closest('[data-close-sheet]')) setSheet(''); });
+        setSheet(window.matchMedia('(max-width: 700px)').matches ? '' : 'data');   // 휴대폰은 지도부터
+        // 지도만 보기 — 메뉴(도구막대·패널·독)를 모두 숨기고, 오른쪽 아래 '메뉴' 로 되돌림
+        $('btnHideUI').onclick = () => { document.body.dataset.ui = 'hidden'; };
+        $('showUI').onclick = () => { document.body.dataset.ui = ''; };
 
         Store.on(onProjectChange);
         syncForm(); renderMetrics(); showPlugin(null); renderViewButtons();

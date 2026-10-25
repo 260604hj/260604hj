@@ -239,6 +239,16 @@
 
     /* 모바일 아래 독 (데이터 / 플러그인 전환) — 넓은 화면에서는 숨김 */
     #dock{ display:none; }
+    .sheet-close{ display:none; }   /* 시트 닫기 × — 모바일에서만 */
+
+    /* 지도만 보기 — 도구막대·패널·독을 모두 숨기고 오른쪽 아래 '메뉴' 버튼만 */
+    #showUI{
+        display:none; position:fixed; z-index:20; right:12px; bottom:calc(12px + env(safe-area-inset-bottom));
+        border:0; cursor:pointer; padding:8px 14px; font-size:13px; color:var(--foreground);
+        border-radius:var(--radius-pill);
+    }
+    body[data-ui="hidden"] #toolbar, body[data-ui="hidden"] .panel, body[data-ui="hidden"] #dock{ display:none !important; }
+    body[data-ui="hidden"] #showUI{ display:block; }
 
     /* 중간 폭(가로 태블릿 등): 떠 있는 두 패널을 좁게 */
     @media (max-width: 1100px){
@@ -248,29 +258,45 @@
 
     /* 세로 화면 · 휴대폰: 패널은 아래에서 올라오는 시트, 한 번에 하나만 (독으로 전환) */
     @media (max-width: 700px), (orientation: portrait) and (max-width: 1000px){
+        /* 도구막대: 한 줄, 높이 40px */
         #toolbar{
-            top:calc(8px + env(safe-area-inset-top)); left:8px; right:8px; height:auto;
-            flex-wrap:wrap; gap:6px 8px; padding:6px 8px 6px 14px; border-radius:var(--radius-card);
+            top:calc(6px + env(safe-area-inset-top)); left:6px; right:6px; height:40px;
+            gap:4px; padding:0 4px 0 10px;
         }
-        #projectName{ display:none; }
-        .brand{ font-size:15px; }
-        #toolbar .seg button{ padding:5px 10px; font-size:12px; }
-        #toolbar .btn.text{ padding:4px 6px; }
+        #projectName, .brand, #toolbar .spacer{ display:none; }
+        #toolbar .seg{ margin-right:auto; }
+        #toolbar .seg button{ padding:4px 9px; font-size:12px; }
+        #toolbar .btn.text{ padding:4px 5px; font-size:13px; }
+        #toolbar .btn.small{ height:28px; padding:0 10px; font-size:13px; }
+        /* 시트: 화면 높이의 40% 까지, 여백 작게 */
         .panel{
-            width:auto !important; left:8px !important; right:8px !important;
-            top:auto; bottom:calc(64px + env(safe-area-inset-bottom)); max-height:min(56vh, calc(100vh - 150px));
+            width:auto !important; left:6px !important; right:6px !important;
+            top:auto; bottom:calc(52px + env(safe-area-inset-bottom)); max-height:min(40vh, calc(100vh - 120px));
+            border-radius:14px;
         }
         body:not([data-sheet="data"]) #dataPanel{ display:none; }
         body:not([data-sheet="plugin"]) #pluginPanel{ display:none; }
-        #dataTabs button{ padding:6px 4px; font-size:12px; }
-        #dataCollapse, #pluginHead .icon-btn[title="접기"]{ display:none; }   /* 시트는 독으로 닫음 */
+        .panel-head{ padding:6px 6px 4px; gap:4px; }
+        .panel-title{ font-size:15px; }
+        #dataTabs button{ padding:5px 2px; font-size:11.5px; }
+        .icon-btn{ width:26px; height:26px; line-height:26px; font-size:13px; }
+        .sec{ padding:6px 12px 8px; }
+        .sec h3{ margin-bottom:5px; }
+        .field{ margin-bottom:4px; }
+        input[type=text], input[type=number], input[type=date], select{ height:28px; font-size:13px; }
+        .stat{ padding:7px 10px; }
+        .stat .v{ font-size:17px; line-height:20px; }
+        #dataCollapse, #pluginHead .icon-btn[title="접기"]{ display:none; }   /* 시트는 × 또는 독으로 닫음 */
+        .sheet-close{ display:block; }
         #dock{
             display:flex; position:fixed; z-index:12; left:50%; transform:translateX(-50%);
-            bottom:calc(12px + env(safe-area-inset-bottom)); padding:4px; border-radius:var(--radius-pill);
+            bottom:calc(8px + env(safe-area-inset-bottom)); padding:3px; border-radius:var(--radius-pill);
         }
-        #dock .seg button{ padding:8px 18px; font-size:14px; }
-        .apps{ grid-template-columns:repeat(auto-fill, minmax(68px, 1fr)); gap:14px 6px; }
-        .toast{ bottom:calc(72px + env(safe-area-inset-bottom)); }
+        #dock .seg button{ padding:6px 14px; font-size:13px; }
+        .apps{ grid-template-columns:repeat(auto-fill, minmax(62px, 1fr)); gap:10px 4px; padding:4px 8px 10px; }
+        .app .tile{ width:50px; height:50px; border-radius:12px; }
+        .app .tile svg{ width:24px; height:24px; }
+        .toast{ bottom:calc(58px + env(safe-area-inset-bottom)); }
     }
 </style>
 </head>
@@ -292,6 +318,7 @@
     <button class="btn text" id="btnNew">새로</button>
     <button class="btn text" id="btnImport">열기</button>
     <button class="btn small" id="btnExport">저장</button>
+    <button class="icon-btn" id="btnHideUI" title="지도만 보기 (메뉴 숨기기)">⤢</button>
     <input type="file" id="fileInput" accept=".json,application/json" hidden>
 </header>
 
@@ -305,6 +332,7 @@
             <button data-tab="visibility">가시성</button>
         </div>
         <button class="icon-btn" id="dataCollapse" title="접기">–</button>
+        <button class="icon-btn sheet-close" data-close-sheet title="닫기">×</button>
     </div>
     <div class="panel-body" id="mainPanel"></div>
 </section>
@@ -323,6 +351,8 @@
         <button data-sheet="plugin">플러그인</button>
     </div>
 </nav>
+
+<button id="showUI" class="float" title="메뉴 다시 보기">메뉴</button>
 
 <div class="toast" id="toast"></div>
 
