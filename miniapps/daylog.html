@@ -157,11 +157,11 @@
     .rank .t em{ font-style:normal; color:var(--muted); font-weight:500; font-size:12px; }
     .rank .track{ height:6px; background:rgba(26,23,20,.06); border-radius:3px; margin-top:5px; overflow:hidden; }
     .rank .track i{ display:block; height:100%; border-radius:3px; }
-    .tiles{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
-    .tile{ background:var(--card); border-radius:18px; padding:12px 10px; }
-    .tile .e{ font-size:22px; }
-    .tile .v{ font-size:17px; font-weight:800; letter-spacing:-.02em; margin-top:6px; }
-    .tile .k{ font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.35; }
+    .stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+    .stat{ background:var(--card); border-radius:18px; padding:12px 10px; }
+    .stat .e{ font-size:22px; }
+    .stat .v{ font-size:17px; font-weight:800; letter-spacing:-.02em; margin-top:6px; }
+    .stat .k{ font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.35; }
     .bar{ display:flex; height:6px; border-radius:3px; overflow:hidden; margin-top:14px; background:rgba(245,238,223,.15); }
     .bar i{ display:block; height:100%; }
     .legend{ display:flex; gap:12px; margin-top:8px; font-size:11px; opacity:.8; flex-wrap:wrap; }
@@ -199,7 +199,8 @@
     .logo.small{ width:36px; height:36px; border-radius:10px; font-size:20px; }
     .logo.mono{ color:#fff; font-weight:800; font-size:12px; letter-spacing:-.04em; line-height:1.05; text-align:center; }
     .logo.small.mono{ font-size:10.5px; }
-    .logo.tile{ background:var(--fill); box-shadow:none; }
+    /* 이모지 하나짜리 칸: 줄 높이를 1로 해야 아이폰에서 아래·오른쪽으로 치우치지 않음 */
+    .logo.tile{ background:var(--fill); box-shadow:none; line-height:1; text-align:center; }
 
     /* 메뉴 아이콘: 재료 이모지 2×2 */
     .micon{
@@ -211,6 +212,11 @@
     .micon.big span{ font-size:22px; }
     .micon.small{ width:36px; height:36px; border-radius:10px; padding:3px; }
     .micon.small span{ font-size:12px; }
+    /* 이모지가 1개뿐이면 2×2 대신 가운데 크게 (커피 메뉴 등) */
+    .micon.one{ grid-template-columns:1fr; grid-template-rows:1fr; padding:0; }
+    .micon.one span{ font-size:24px; }
+    .micon.one.big span{ font-size:34px; }
+    .micon.one.small span{ font-size:20px; }
     .row .s{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .row .x{ margin-right:-6px; }
     /* 내역 아이콘 2칸: 모든 줄의 글자 시작 위치가 같도록 폭 고정 */
@@ -434,16 +440,23 @@ const MENU_BASE = [
     [/김밥/,           ['🍙','🥕','🥒','🥚']],
     [/막회|물회|회$/,   ['🐟','🥬','🌶️','🍚']],
 ];
-function menuIcons(m){
-    if(m.icons?.length) return m.icons;
+// 커피 메뉴는 이모지 1개: 이름 속 단어로 고름
+const COFFEE_ICONS = [
+    [/라떼|우유|밀크/, '🥛'], [/콜드브루|아이스|ice/i, '🧊'], [/에이드|레몬|자몽/, '🍋'], [/티|차|tea/i, '🍵'],
+    [/초코|모카/, '🍫'], [/스무디|프라페|쉐이크|버블/, '🥤'], [/케이크|빵|쿠키|베이글|샌드/, '🍰'],
+];
+function iconLimit(cat){ return cat === 'coffee' ? 1 : 4; }
+function menuIcons(m, cat){
+    if(m.icons?.length) return m.icons.slice(0, iconLimit(cat));
     const name = m.name || '';
+    if(cat === 'coffee') return [(COFFEE_ICONS.find(([re]) => re.test(name)) || [, '☕️'])[1]];
     const found = INGREDIENTS.filter(([re]) => re.test(name)).map(([,e]) => e).slice(0,3);
     const base = (MENU_BASE.find(([re]) => re.test(name)) || [, ['🍽️','🥬','🍅','🍚']])[1];
     return [...new Set([...found, ...base])].slice(0,4);
 }
-function splitEmoji(s){
+function splitEmoji(s, max = 4){
     const seg = window.Intl?.Segmenter ? [...new Intl.Segmenter().segment(s)].map(x => x.segment) : [...s];
-    return seg.filter(x => x.trim()).slice(0,4);
+    return seg.filter(x => x.trim()).slice(0, max);
 }
 function M(list){ return list.map(([name, price]) => ({ id:'m-'+Math.random().toString(36).slice(2,9), name, price })); }
 
@@ -466,10 +479,10 @@ const DEFAULT_FAVS = [
     { id:'kkaennip', cat:'meal', name:'깻잎막회',  logo:'kkaennip', menus: M([ ['막회', 20000] ]) },
 
     // 커피: 아메리카노만. 누르면 바로 기록
-    { id:'starbucks', cat:'coffee', name:'스타벅스',       item:'아메리카노', price:4700, logo:'starbucks', mono:['STAR<br>BUCKS','#00704A'] },
-    { id:'mega',      cat:'coffee', name:'메가커피',       item:'아메리카노', price:1700, logo:'mega',      mono:['MEGA','#FFD400'] },
-    { id:'paik',      cat:'coffee', name:'빽다방',         item:'아메리카노', price:1700, logo:'paik',      mono:['빽다방','#FFD400'] },
-    { id:'swallow',   cat:'coffee', name:'스왈로우 라운지', item:'아메리카노', price:3500, logo:'swallow' },
+    { id:'starbucks', cat:'coffee', name:'스타벅스',        logo:'starbucks', menus: M([ ['아메리카노', 4700] ]) },
+    { id:'mega',      cat:'coffee', name:'메가커피',        logo:'mega',      menus: M([ ['아메리카노', 1700] ]) },
+    { id:'paik',      cat:'coffee', name:'빽다방',          logo:'paik',      menus: M([ ['아메리카노', 1700] ]) },
+    { id:'swallow',   cat:'coffee', name:'스왈로우 라운지', logo:'swallow',   menus: M([ ['아메리카노', 3500] ]) },
 
     { id:'gum',       cat:'snack',   name:'껌',         price:600,  emoji:'🫧' },
     { id:'nuts',       cat:'snack',   name:'견과류',     price:1200, emoji:'🥜' },
@@ -699,6 +712,12 @@ function favs(){
         rest.splice(at, 0, ...DEFAULT_FAVS.filter(d => d.cat === 'coffee').map(d => structuredClone(d)));
         store.favs = rest;
     }
+    // 커피도 '브랜드 + 메뉴' 형식으로: 예전 아메리카노 하나짜리는 그 가격 그대로 메뉴 하나로 옮김
+    store.favs.forEach(f => {
+        if(f.cat !== 'coffee' || f.menus) return;
+        f.menus = M([[f.item || '아메리카노', f.price || 0]]);
+        delete f.item; delete f.price; delete f.mono;
+    });
     // 예전 형식(식사 = 메뉴 하나짜리 즐겨찾기)이면 '식당 + 메뉴' 형식으로 바꿈. 직접 추가했던 식당은 메뉴 하나로 옮김
     if(store.favs.some(f => f.cat === 'meal' && !f.menus)){
         const oldIds = ['protiner','sinsun-sw','sinsun-sd','subway','tlj','paris','baetsal'];
@@ -870,7 +889,7 @@ function renderMoney(){
     const list = favs().filter(f => f.cat === moneyCat);
 
     // 식사는 식당만 보이고, 누르면 메뉴 팝업. 간식·식료품은 누르면 바로 기록
-    const isMeal = moneyCat === 'meal';
+    const shopWord = moneyCat === 'meal' ? '식당' : moneyCat === 'coffee' ? '브랜드' : null;   // 메뉴 팝업을 쓰는 분류
     const favHTML = list.map(f => `
         <div class="fav" data-fav="${f.id}" role="button">
             ${editFavs ? `<button class="del" data-delfav="${f.id}">×</button>` : ''}
@@ -878,7 +897,7 @@ function renderMoney(){
             <div class="nm">${esc(f.name)}${f.item ? `<small>${esc(f.item)}</small>` : ''}</div>
             <div class="pr">${f.menus ? `메뉴 ${f.menus.length}개` : `${won(f.price)}원`}</div>
         </div>`).join('') +
-        `<button class="fav add" id="addFav">＋<br>${isMeal ? '식당 추가' : '즐겨찾기 추가'}</button>`;
+        `<button class="fav add" id="addFav">＋<br>${shopWord ? shopWord + ' 추가' : '즐겨찾기 추가'}</button>`;
 
     const rows = spend.length ? spend.map(e => {
         const f = favs().find(x => x.id === e.favId) || { name:e.name, cat:e.cat };
@@ -890,7 +909,7 @@ function renderMoney(){
         // 아이콘 2칸: [브랜드 로고 | 메뉴·항목 아이콘]. 로고가 없으면 왼쪽 칸은 비워서 글자 시작 위치를 맞춤
         const mi = e.menu ? (f.menus?.find(m => m.id === e.menuId) || { name:e.menu }) : null;
         const left = e.favId && hasLogo(f) ? logoHTML(f, true) : '<div class="logo small blank"></div>';
-        const right = mi ? menuIconHTML(mi, false, true) : `<div class="logo tile small">${(e.favId && f.emoji) || c.emoji}</div>`;
+        const right = mi ? menuIconHTML(mi, false, true, e.cat) : `<div class="logo tile small">${(e.favId && f.emoji) || c.emoji}</div>`;
         return `<div class="row">
             <div class="ico2">${left}${right}</div>
             <div class="body"><div class="t">${esc(title)}</div><div class="s" style="color:${c.color}">${sub}</div></div>
@@ -991,14 +1010,15 @@ function deleteFav(id){
 let pendingLogo; // undefined=변경없음, null=지우기, string=새 이미지
 function openFavSheet(f){
     const isNew = !f;
-    f = f || (moneyCat === 'meal'
-        ? { id:'fav-'+uid(), cat:'meal', name:'', menus:[] }
+    f = f || (['meal','coffee'].includes(moneyCat)
+        ? { id:'fav-'+uid(), cat:moneyCat, name:'', menus:[] }
         : { id:'fav-'+uid(), cat:moneyCat, name:'', item:'', price:0 });
-    const isShop = !!f.menus;   // 식당: 이름·로고만 (메뉴와 가격은 메뉴 팝업에서)
+    const isShop = !!f.menus;   // 식당·커피 브랜드: 이름·로고만 (메뉴와 가격은 메뉴 팝업에서)
+    const shopName = f.cat === 'coffee' ? '브랜드' : '식당';
     pendingLogo = undefined;
     const sheet = $('sheet');
     sheet.innerHTML = `<div class="grab"></div>
-        <h3>${isShop ? (isNew ? '식당 추가' : '식당 수정') : (isNew ? '즐겨찾기 추가' : '즐겨찾기 수정')}</h3>
+        <h3>${isShop ? (isNew ? shopName + ' 추가' : shopName + ' 수정') : (isNew ? '즐겨찾기 추가' : '즐겨찾기 수정')}</h3>
         <div class="field">
             <div class="logo-pick">
                 <div id="logoPreview">${logoHTML(f)}</div>
@@ -1012,7 +1032,7 @@ function openFavSheet(f){
             </div>
         </div>
         <div class="field" style="margin-top:12px">
-            <label><span>이름</span><input id="fName" value="${esc(f.name)}" placeholder="${isShop ? '예: 샐러디' : '예: 스타벅스'}"></label>
+            <label><span>이름</span><input id="fName" value="${esc(f.name)}" placeholder="${f.cat === 'coffee' ? '예: 투썸플레이스' : isShop ? '예: 샐러디' : '예: 꿀떡'}"></label>
             <div ${isShop ? 'hidden' : ''}>
             <label><span>메뉴</span><input id="fItem" value="${esc(f.item||'')}" placeholder="선택 · 예: 샌드위치"></label>
             <label><span>이모지</span><input id="fEmoji" value="${esc(f.emoji||'')}" placeholder="선택 · 예: 🍙" maxlength="4"></label>
@@ -1062,11 +1082,13 @@ function openFavSheet(f){
 }
 
 /* 메뉴 팝업: 식당을 누르면 열림. 메뉴를 누르면 기록, 편집에서 가격 ±100 · 삭제 · 메뉴 추가 */
-function menuIconHTML(m, big, small){
-    return `<div class="micon${big?' big':''}${small?' small':''}">${menuIcons(m).map(e => `<span>${e}</span>`).join('')}</div>`;
+function menuIconHTML(m, big, small, cat){
+    const icons = menuIcons(m, cat);
+    return `<div class="micon${big?' big':''}${small?' small':''}${icons.length === 1 ? ' one' : ''}">${icons.map(e => `<span>${e}</span>`).join('')}</div>`;
 }
 function openMenuSheet(shop, editing){
     let editId = null;   // 고치는 중인 메뉴 (없으면 새 메뉴 추가)
+    const lim = iconLimit(shop.cat);   // 메뉴 아이콘 이모지 수: 커피 1개, 식사 4개
     const draw = () => {
         const em = shop.menus.find(m => m.id === editId);
         $('sheet').innerHTML = `<div class="grab"></div>
@@ -1078,7 +1100,7 @@ function openMenuSheet(shop, editing){
             <div class="list">${shop.menus.length ? shop.menus.map(m => `
                 <div class="row menu-row ${m.id===editId?'editing':''}" data-menu="${m.id}" role="button">
                     ${editing ? `<span class="handle" aria-label="순서 바꾸기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span>` : ''}
-                    ${menuIconHTML(m)}
+                    ${menuIconHTML(m, false, false, shop.cat)}
                     <div class="body"><div class="t">${esc(m.name)}</div><div class="s">${won(m.price)}원</div></div>
                     ${editing
                         ? `<div class="stepper"><button data-mstep="${m.id}" data-d="-100">−</button><i></i><button data-mstep="${m.id}" data-d="100">+</button></div>
@@ -1089,12 +1111,12 @@ function openMenuSheet(shop, editing){
             <div class="section-label">${em ? '메뉴 수정' : '메뉴 추가'}</div>
             <div class="field">
                 <div class="menu-new">
-                    <div id="mnPreview">${menuIconHTML(em || { name:'' }, true)}</div>
+                    <div id="mnPreview">${menuIconHTML(em || { name:'' }, true, false, shop.cat)}</div>
                     <div class="body">
                         <input id="mnName" placeholder="메뉴 이름 · 예: 연어 샐러드" value="${esc(em?.name || '')}">
                         <div class="two">
                             <input id="mnPrice" inputmode="numeric" placeholder="가격" value="${em ? won(em.price) : ''}">
-                            <input id="mnIcons" placeholder="이모지 (비우면 자동)" value="${em ? menuIcons(em).join('') : ''}">
+                            <input id="mnIcons" placeholder="${lim === 1 ? '이모지 1개' : '이모지'} (비우면 자동)" value="${em ? menuIcons(em, shop.cat).join('') : ''}">
                         </div>
                     </div>
                 </div>
@@ -1106,8 +1128,8 @@ function openMenuSheet(shop, editing){
 
         const nameIn = $('mnName'), priceIn = $('mnPrice'), iconIn = $('mnIcons');
         const preview = () => {
-            const icons = splitEmoji(iconIn.value);
-            $('mnPreview').innerHTML = menuIconHTML({ name:nameIn.value, icons: icons.length ? icons : null }, true);
+            const icons = splitEmoji(iconIn.value, lim);
+            $('mnPreview').innerHTML = menuIconHTML({ name:nameIn.value, icons: icons.length ? icons : null }, true, false, shop.cat);
         };
         nameIn.oninput = preview; iconIn.oninput = preview;
         priceIn.oninput = () => { const n = priceIn.value.replace(/\D/g,''); priceIn.value = n ? won(+n) : ''; };
@@ -1117,11 +1139,11 @@ function openMenuSheet(shop, editing){
         $('mnSave').onclick = () => {
             const name = nameIn.value.trim(); if(!name) return nameIn.focus();
             const price = +priceIn.value.replace(/\D/g,''); if(!price) return priceIn.focus();
-            const icons = splitEmoji(iconIn.value);
+            const icons = splitEmoji(iconIn.value, lim);
             const m = em || { id:'m-'+uid() };
             Object.assign(m, { name, price });
             // 자동으로 만든 것과 같으면 저장하지 않음 → 이름을 바꾸면 아이콘도 따라 바뀜
-            const auto = menuIcons({ name });
+            const auto = menuIcons({ name }, shop.cat);
             if(icons.length && icons.join('') !== auto.join('')) m.icons = icons; else delete m.icons;
             if(!em) shop.menus.push(m);
             editId = null;
@@ -1301,7 +1323,7 @@ function renderDash(){
             <div class="rank">${rankHTML(items)}</div>
         </div>
 
-        <div class="tiles">${tilesHTML(items, byCat)}</div>
+        <div class="stats">${tilesHTML(items, byCat)}</div>
         ` : `<div class="dcard"><div class="empty">이 기간엔 지출 기록이 없어요</div></div>`}
     </div>`;
 
@@ -1416,9 +1438,9 @@ function tilesHTML(items, byCat){
     const coffee = byCat.find(c => c.id === 'coffee'), meal = byCat.find(c => c.id === 'meal');
     const biggest = items.reduce((a, b) => b.price > a.price ? b : a, items[0]);
     return `
-        <div class="tile"><div class="e">☕️</div><div class="v">${coffee.n}잔</div><div class="k">커피 ${won(coffee.sum)}원</div></div>
-        <div class="tile"><div class="e">🍽️</div><div class="v">${meal.n ? won(Math.round(meal.sum / meal.n)) : 0}원</div><div class="k">한 끼 평균 (${meal.n}끼)</div></div>
-        <div class="tile"><div class="e">💸</div><div class="v">${won(biggest.price)}원</div><div class="k">가장 비싼 한 건<br>${esc(biggest.name)}</div></div>`;
+        <div class="stat"><div class="e">☕️</div><div class="v">${coffee.n}잔</div><div class="k">커피 ${won(coffee.sum)}원</div></div>
+        <div class="stat"><div class="e">🍽️</div><div class="v">${meal.n ? won(Math.round(meal.sum / meal.n)) : 0}원</div><div class="k">한 끼 평균 (${meal.n}끼)</div></div>
+        <div class="stat"><div class="e">💸</div><div class="v">${won(biggest.price)}원</div><div class="k">가장 비싼 한 건<br>${esc(biggest.name)}</div></div>`;
 }
 
 /* ════════════════════════════════════════════
