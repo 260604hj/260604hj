@@ -76,6 +76,7 @@
 │  ├─ place.html          ← A Place for Today (Visitor, 로그인 없이 누구나)
 │  ├─ blind-date.html     ← Blind Date: 가짜 소개팅 썰 + 상대 4방향 몽타주 (Visitor, 로그인 없이 누구나)
 │  ├─ memo.html           ← 댓글 (Visitor, 누구나 쓰기)
+│  ├─ archhub/            ← Arch Hub: 건축설계 조립형 앱 (Admin). 허브 + 플러그인, 작성법은 archhub/PLUGIN_GUIDE.md
 │  └─ old/                ← 예전 앱 보관
 ├─ supabase/
 │  ├─ migrations/         ← 데이터베이스 구조 기록 (.sql)

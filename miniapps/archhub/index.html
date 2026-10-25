@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arch Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- VWORLD WebGL 3.0 (Cesium 기반). 등록 도메인이 아니거나 오프라인이면 간이 3D 로 자동 전환 -->
+<script src="https://map.vworld.kr/js/webglMapInit.js.do?version=3.0&apiKey=B5CEDD7D-84D6-314E-875C-9B5BF7E1233A"></script>
+<style>
+    /* 디자인 토큰 — Apple Inspiration 디자인 시스템 (tokens.json) */
+    :root{
+        --canvas:#f5f5f7;
+        --surface:#ffffff;
+        --canvas-dark:#000000;
+        --foreground:#1d1d1f;
+        --secondary:#515154;
+        --muted:#6e6e73;
+        --primary:#0071e3;
+        --primary-hover:#0076df;
+        --primary-pressed:#006edb;
+        --on-primary:#ffffff;
+        --link:#0066cc;
+        --hairline:rgba(0,0,0,.08);
+        --ok:#1e7d3a;
+        --ng:#c9341f;
+
+        --font-display:"SF Pro Display", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Helvetica Neue", Helvetica, Arial, "Noto Sans KR", sans-serif;
+        --font-text:"SF Pro Text", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Helvetica Neue", Helvetica, Arial, "Noto Sans KR", sans-serif;
+
+        --space-compact:8px;
+        --space-pill-block:11px;
+        --space-control-inline:15px;
+        --space-content:20px;
+        --space-pill-inline:21px;
+
+        --radius-control:8px;
+        --radius-card:18px;
+        --radius-pill:980px;
+
+        --apple-shadow:0 1px 5px rgba(0,0,0,.2);
+        --float-bg:rgba(255,255,255,.94);
+    }
+    *, *::before, *::after{ box-sizing:border-box; margin:0; padding:0; }
+    [hidden]{ display:none !important; }
+    html, body{ height:100%; }
+    body{
+        font-family:var(--font-text);
+        font-size:14px; line-height:18px; letter-spacing:-0.224px;   /* body-small */
+        color:var(--foreground); background:var(--canvas);
+        -webkit-font-smoothing:antialiased;
+        overflow:hidden;
+    }
+    button, input, select{ font:inherit; color:inherit; letter-spacing:inherit; }
+    :focus-visible{ outline:2px solid var(--primary); outline-offset:2px; }
+
+    /* 3D 뷰 — 화면 전체 */
+    #viewport{ position:fixed; inset:0; background:var(--canvas); }
+    #viewport > .view{ position:absolute; inset:0; }
+
+    /* 떠 있는 판 공통 */
+    .float{
+        position:fixed; z-index:10;
+        background:var(--float-bg);
+        -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+        border-radius:var(--radius-card);
+        box-shadow:var(--apple-shadow);
+    }
+
+    /* 상단 도구막대 */
+    #toolbar{
+        top:16px; left:16px; right:16px; height:52px;
+        display:flex; align-items:center; gap:12px; padding:0 8px 0 16px;
+        border-radius:var(--radius-pill);
+    }
+    #toolbar a.back{ color:var(--muted); text-decoration:none; font-size:17px; line-height:1; }
+    #toolbar a.back:hover{ color:var(--foreground); }
+    .brand{ font-family:var(--font-display); font-weight:600; font-size:17px; letter-spacing:-0.374px; }
+    #projectName{
+        border:0; background:transparent; padding:6px 10px; border-radius:var(--radius-control);
+        font-size:14px; width:220px; outline:none; color:var(--secondary);
+    }
+    #projectName:hover{ background:rgba(0,0,0,.04); }
+    #projectName:focus{ background:var(--surface); color:var(--foreground); box-shadow:0 0 0 2px var(--primary); }
+    #toolbar .spacer{ flex:1; }
+
+    /* 세그먼트 컨트롤 */
+    .seg{ display:flex; background:rgba(118,118,128,.12); border-radius:var(--radius-pill); padding:2px; }
+    .seg button{
+        border:0; background:none; cursor:pointer; color:var(--secondary);
+        padding:6px 14px; border-radius:var(--radius-pill); font-size:13px; white-space:nowrap;
+    }
+    .seg button.on{ background:var(--surface); color:var(--foreground); box-shadow:0 1px 3px rgba(0,0,0,.12); font-weight:500; }
+
+    /* 버튼 — 큰 알약 44px / 작은 알약 36px / 텍스트 */
+    .btn{
+        display:inline-flex; align-items:center; justify-content:center; gap:4px;
+        height:36px; padding:var(--space-compact) var(--space-control-inline);
+        border-radius:var(--radius-pill); border:1px solid transparent;
+        background:var(--primary); color:var(--on-primary); cursor:pointer; white-space:nowrap;
+        font-size:14px; text-decoration:none;
+    }
+    .btn:hover{ background:var(--primary-hover); }
+    .btn:active{ background:var(--primary-pressed); }
+    .btn.ghost{ background:transparent; color:var(--link); border-color:var(--link); }
+    .btn.ghost:hover{ background:rgba(0,102,204,.06); }
+    .btn.small{ height:30px; padding:4px 12px; font-size:13px; }
+    .btn.text{ background:transparent; border:0; color:var(--link); padding:4px 8px; height:auto; }
+    .btn.text:hover{ text-decoration:underline; background:transparent; }
+    .btn:disabled{ opacity:.35; cursor:default; }
+
+    /* 떠 있는 패널 (메인 데이터 · 플러그인) */
+    .panel{ top:84px; width:340px; max-height:calc(100vh - 100px); display:flex; flex-direction:column; overflow:hidden; }
+    #dataPanel{ left:16px; }
+    #pluginPanel{ right:16px; width:360px; }
+    .panel-head{ padding:10px 10px 6px; display:flex; align-items:center; gap:8px; }
+    .panel-head .seg{ flex:1; }
+    .panel-head .seg button{ flex:1; }
+    .panel-title{ font-family:var(--font-display); font-weight:600; font-size:17px; letter-spacing:-0.374px; flex:1; padding-left:6px; }
+    .icon-btn{
+        width:30px; height:30px; border-radius:50%; border:0; cursor:pointer; flex:0 0 auto;
+        background:rgba(118,118,128,.12); color:var(--secondary); font-size:15px; line-height:30px;
+    }
+    .icon-btn:hover{ background:rgba(118,118,128,.2); color:var(--foreground); }
+    .panel-body{ overflow-y:auto; min-height:0; padding:0 4px 8px; }
+    .panel.collapsed .panel-body{ display:none; }
+
+    /* 섹션 · 입력 — 플러그인도 이 클래스를 그대로 씀 */
+    .sec{ padding:9px 14px 10px; }
+    .sec + .sec{ border-top:1px solid var(--hairline); }
+    .sec h3{ font-size:12px; line-height:16px; font-weight:600; color:var(--muted); letter-spacing:-0.12px; margin-bottom:7px; }
+    .field{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+    .field .k{ flex:0 0 74px; color:var(--secondary); font-size:13px; }
+    .field .u{ color:var(--muted); font-size:12px; flex:0 0 auto; }
+    .field input, .field select{ flex:1; min-width:0; width:100%; }
+    /* 숫자 칸: 화살표(스피너)를 없애고 최소 폭을 둬서 좁은 칸에서도 숫자가 보이게 */
+    input[type=number]{ -moz-appearance:textfield; appearance:textfield; }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+    .field input[type=number]{ min-width:56px; }
+    .field input[type=checkbox]{ flex:0 0 auto; width:auto; accent-color:var(--primary); }
+    input[type=text], input[type=number], input[type=date], select{
+        height:30px; border:0; padding:0 10px; background:rgba(118,118,128,.12); border-radius:var(--radius-control);
+        outline:none; font-size:14px;
+    }
+    input:focus, select:focus{ background:var(--surface); box-shadow:0 0 0 2px var(--primary); }
+    input[type=range]{ accent-color:var(--primary); }
+    .grid2{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:10px; }
+    .grid2 .field .k{ flex-basis:auto; min-width:40px; }
+    .grid3{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); column-gap:8px; }
+    .grid3 .field{ flex-wrap:wrap; gap:4px 6px; }
+    .grid3 .field .k{ flex:1 0 100%; font-size:12px; color:var(--muted); }
+    .grid3 .field input{ padding:0 8px; }
+    .row{ display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; }
+    .search{ display:flex; gap:8px; margin-bottom:6px; }
+    .search input{ flex:1; min-width:0; }
+    .info{ line-height:18px; margin-bottom:6px; }
+    .hint{ color:var(--muted); font-size:12px; line-height:16px; letter-spacing:-0.12px; }
+    .muted{ color:var(--muted); }
+
+    /* 개요 숫자 카드 */
+    .stats{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .stat{ background:var(--surface); border-radius:12px; padding:9px 12px; }
+    .stat .k{ font-size:12px; line-height:16px; color:var(--muted); }
+    .stat .v{ font-family:var(--font-display); font-size:20px; line-height:24px; font-weight:600; letter-spacing:-0.3px; margin-top:1px; font-variant-numeric:tabular-nums; }
+    .stat .sub{
+        display:grid; grid-template-columns:auto 1fr; gap:2px 8px; margin-top:8px; padding-top:8px;
+        border-top:1px solid var(--hairline); font-size:12px; line-height:16px; color:var(--muted); font-variant-numeric:tabular-nums;
+    }
+    .stat .sub span:nth-child(even){ text-align:right; color:var(--secondary); }
+    .stat .v small{ font-family:var(--font-text); font-size:13px; font-weight:400; color:var(--muted); margin-left:2px; }
+
+    /* 코어 */
+    .core-card{ background:var(--surface); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+    .core-card .top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .core-card .tag{ font-weight:600; }
+    .core-card .grid4{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px; }
+    .core-card label{ display:flex; flex-direction:column; gap:3px; font-size:11px; color:var(--muted); }
+    .core-card input{ width:100%; padding:0 6px; }
+
+    /* 플러그인 홈 — 아이폰 홈 화면처럼 정방형 아이콘 */
+    .apps{ display:grid; grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); gap:18px 8px; padding:8px 12px 16px; }
+    .app{ display:flex; flex-direction:column; align-items:center; gap:6px; border:0; background:none; cursor:pointer; padding:0; }
+    .app .tile{
+        width:60px; height:60px; border-radius:14px; display:grid; place-items:center;
+        background:linear-gradient(180deg, #3a3a3c 0%, #1d1d1f 100%); color:#fff;
+        box-shadow:0 1px 3px rgba(0,0,0,.18); transition:transform .15s ease;
+        font-family:var(--font-display); font-size:22px; font-weight:600;
+    }
+    .app .tile svg{ width:30px; height:30px; }
+    .app:hover .tile{ transform:scale(1.05); }
+    .app:active .tile{ transform:scale(.96); }
+    .app .name{ font-size:11px; line-height:14px; color:var(--foreground); text-align:center; max-width:76px; letter-spacing:-0.1px; }
+    .app .dot{ width:4px; height:4px; border-radius:50%; background:transparent; margin-top:-2px; }
+    .app.on .dot{ background:var(--primary); }
+    .app.add .tile{ background:rgba(118,118,128,.16); color:var(--secondary); box-shadow:none; font-weight:400; font-size:28px; }
+    .app.busy .tile{ opacity:.5; }
+    .dev{ padding:4px 14px 14px; }
+
+    /* 플러그인 화면 */
+    .plugin-panel{ padding-bottom:12px; }
+    .plugin-panel .bar{ height:6px; background:rgba(118,118,128,.16); border-radius:3px; margin:4px 0 12px; position:relative; overflow:hidden; }
+    .plugin-panel .bar > i{ position:absolute; left:0; top:0; bottom:0; background:var(--ok); border-radius:3px; }
+    .plugin-panel .bar.over > i{ background:var(--ng); }
+    .plugin-panel table{ width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+    .plugin-panel td{ padding:6px 0; border-bottom:1px solid var(--hairline); }
+    .plugin-panel td:last-child{ text-align:right; }
+    .plugin-panel input[type=range]{ width:100%; }
+    .ok{ color:var(--ok); font-weight:600; }
+    .ng{ color:var(--ng); font-weight:600; }
+
+    /* 필지 표 · 높이 카드 옆 층수 · 배치 슬라이더 */
+    .kv{ width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+    .kv td{ padding:5px 0; border-bottom:1px solid var(--hairline); }
+    .kv tr:last-child td{ border-bottom:0; }
+    .kv td:first-child{ color:var(--secondary); white-space:nowrap; padding-right:12px; }
+    .kv td:last-child{ text-align:right; word-break:break-all; }
+    .floors{ display:flex; flex-direction:column; justify-content:center; gap:6px; }
+    .floors .field{ margin:0; }
+    .floors .field .k{ flex:0 0 28px; }
+    .field.slider .k{ flex:0 0 28px; }
+    .field.slider input[type=range]{ flex:1; min-width:60px; }
+    .field.slider input[type=number]{ flex:0 0 64px; width:64px; }
+
+    .toast{
+        position:fixed; left:50%; bottom:68px; transform:translate(-50%, 16px); opacity:0; pointer-events:none;
+        background:rgba(29,29,31,.92); color:#fff; padding:10px 18px; border-radius:var(--radius-pill);
+        font-size:13px; transition:all .25s ease; z-index:99; max-width:80vw;
+    }
+    .toast.show{ opacity:1; transform:translate(-50%, 0); }
+    .toast.error{ background:var(--ng); }
+
+    @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+
+    @media (max-width: 900px){
+        #toolbar{ top:10px; left:10px; right:10px; flex-wrap:wrap; height:auto; padding:8px 12px; border-radius:var(--radius-card); row-gap:8px; }
+        #projectName{ flex:1; width:auto; min-width:100px; }
+        #toolbar .spacer{ display:none; }
+        .panel{ width:auto !important; left:10px !important; right:10px !important; }
+        #dataPanel{ top:auto; bottom:calc(45vh + 18px); max-height:34vh; }
+        #pluginPanel{ top:auto; bottom:10px; max-height:45vh; }
+    }
+</style>
+</head>
+<body>
+<div id="viewport">
+    <div class="view" id="view-vworld" style="display:none"></div>
+    <div class="view" id="view-three" style="display:none"></div>
+</div>
+
+<header id="toolbar" class="float">
+    <a class="back" href="../../admin.html" title="Admin">‹</a>
+    <div class="brand">Arch Hub</div>
+    <input id="projectName" type="text" title="프로젝트 이름">
+    <div class="spacer"></div>
+    <div class="seg" title="3D 뷰">
+        <button data-viewer="vworld">VWORLD 3D</button>
+        <button data-viewer="three">간이 3D</button>
+    </div>
+    <button class="btn text" id="btnNew">새로</button>
+    <button class="btn text" id="btnImport">열기</button>
+    <button class="btn small" id="btnExport">저장</button>
+    <input type="file" id="fileInput" accept=".json,application/json" hidden>
+</header>
+
+<section id="dataPanel" class="float panel" aria-label="건물 메인 데이터">
+    <div class="panel-head">
+        <div class="seg" id="dataTabs">
+            <button data-tab="overview" class="on">개요</button>
+            <button data-tab="parcel">필지</button>
+            <button data-tab="shape">형태</button>
+            <button data-tab="core">코어</button>
+        </div>
+        <button class="icon-btn" id="dataCollapse" title="접기">–</button>
+    </div>
+    <div class="panel-body" id="mainPanel"></div>
+</section>
+
+<section id="pluginPanel" class="float panel" aria-label="플러그인">
+    <div class="panel-head" id="pluginHead"></div>
+    <div class="panel-body">
+        <div id="library"></div>
+        <div id="pluginPanels"></div>
+    </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script src="core/geom.js"></script>
+<script src="core/project.js"></script>
+<script src="core/vworld.js"></script>
+<script src="core/scene.js"></script>
+<script src="core/viewer-vworld.js"></script>
+<script src="core/viewer-three.js"></script>
+<script src="core/hub.js"></script>
+<script src="plugins/registry.js"></script>
+<script>ArchHub.start();</script>
+</body>
+</html>

@@ -108,12 +108,13 @@
     const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
     const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
 
-    // 여기서 한 번 로그인하면 브라우저에 세션이 저장돼서, 아래 네 곳에서 다시 로그인하지 않음
+    // 여기서 한 번 로그인하면 브라우저에 세션이 저장돼서, 아래 앱들에서 다시 로그인하지 않음
     const sections = [
         { name: "Text", href: "miniapps/admin-memo.html" },
         { name: "Drawing", href: "miniapps/drawing-memo.html" },
         { name: "Cartoon", href: "miniapps/ascii-comic.html" },
         { name: "Webtoon", href: "miniapps/stick-toon.html" },
+        { name: "Arch Hub", href: "miniapps/archhub/index.html" },
     ];
 
     const $ = id => document.getElementById(id);
