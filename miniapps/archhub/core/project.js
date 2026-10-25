@@ -43,7 +43,8 @@
                 footprint: [],         // shape 로부터 자동 생성 (type 'custom' 이면 그대로 유지)
                 cores: [{ id: 'C1', x: 0, y: 0, w: 8, d: 10 }],
                 coreRatio: 20,         // 코어비 % (코어 면적 합 ÷ 바닥면적)
-                coreAuto: true         // true 면 코어 크기를 코어비에 맞춤 (각 코어의 중심·가로세로 비율은 유지)
+                coreAuto: true,        // true 면 코어 크기를 코어비에 맞춤 (각 코어의 중심·가로세로 비율은 유지)
+                coreColor: '#e0663a'   // 3D 에서 코어 색
             },
             // 가시성 — 지도 레이어 표시 여부
             view: { zoning: false, stations: false, texture: true, autoDemolish: true },   // autoDemolish: 대지를 불러오면 기존 건물 자동 철거

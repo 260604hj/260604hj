@@ -10,7 +10,7 @@ ArchHub.registerPlugin({
     activate(ctx) {
         const { h, fmt } = ctx.ui;
         const G = ctx.geo;
-        const DEF = { maxSpanX: 8.4, maxSpanY: 8.4, size: 0.8, avoidCores: true, showGrid: true };
+        const DEF = { maxSpanX: 8.4, maxSpanY: 8.4, size: 0.8, avoidCores: true, showGrid: true, color: '#3b5bdb' };
         const settings = () => Object.assign({}, DEF, ctx.data.get());
 
         const num = (key, label, unit, step) => h('label', { class: 'field' }, h('span', { class: 'k' }, label),
@@ -24,6 +24,8 @@ ArchHub.registerPlugin({
         ctx.panel.append(
             h('section', { class: 'sec' }, h('h3', null, '그리드 설정'),
                 num('maxSpanX', '최대 X 스팬', 'm'), num('maxSpanY', '최대 Y 스팬', 'm'), num('size', '기둥 크기', 'm', 0.05),
+                h('label', { class: 'field' }, h('span', { class: 'k' }, '기둥 색'),
+                    h('input', { type: 'color', value: settings().color, oninput: e => save({ color: e.target.value }) })),
                 check('avoidCores', ' 코어 안 기둥 제외'), check('showGrid', ' 그리드선·번호 표시'),
                 h('p', { class: 'hint' }, '건물 좌표(건물 회전 기준) X·Y 방향으로 분할합니다.')),
             h('section', { class: 'sec' }, h('h3', null, '결과'), result)
@@ -69,16 +71,16 @@ ArchHub.registerPlugin({
             const bottom = levels.length ? levels[0].z : 0;
             const top = ctx.project.metrics().height;
             r.columns.forEach(c => colLayer.extrude(G.rectAt(c.x, c.y, r.st.size, r.st.size),
-                { base: bottom, height: top - bottom, color: '#3b5bdb', opacity: 1, outlineColor: '#1d2f80' }));
+                { base: bottom, height: top - bottom, color: r.st.color, opacity: 1, outlineColor: '#1d1d1f' }));
             if (r.st.showGrid) {
                 const ext = 3;
                 r.xs.forEach((x, i) => {
-                    gridLayer.line([{ x, y: r.bb.minY - ext }, { x, y: r.bb.maxY + ext }], { z: 0.4, color: '#3b5bdb', width: 1 });
-                    gridLayer.label({ x, y: r.bb.minY - ext - 1.5, z: 0.5 }, 'X' + (i + 1), { color: '#3b5bdb', size: 11 });
+                    gridLayer.line([{ x, y: r.bb.minY - ext }, { x, y: r.bb.maxY + ext }], { z: 0.4, color: r.st.color, width: 1 });
+                    gridLayer.label({ x, y: r.bb.minY - ext - 1.5, z: 0.5 }, 'X' + (i + 1), { color: r.st.color, size: 11 });
                 });
                 r.ys.forEach((y, j) => {
-                    gridLayer.line([{ x: r.bb.minX - ext, y }, { x: r.bb.maxX + ext, y }], { z: 0.4, color: '#3b5bdb', width: 1 });
-                    gridLayer.label({ x: r.bb.minX - ext - 1.5, y, z: 0.5 }, 'Y' + String.fromCharCode(65 + j), { color: '#3b5bdb', size: 11 });
+                    gridLayer.line([{ x: r.bb.minX - ext, y }, { x: r.bb.maxX + ext, y }], { z: 0.4, color: r.st.color, width: 1 });
+                    gridLayer.label({ x: r.bb.minX - ext - 1.5, y, z: 0.5 }, 'Y' + String.fromCharCode(65 + j), { color: r.st.color, size: 11 });
                 });
             }
             result.append(h('table', null,

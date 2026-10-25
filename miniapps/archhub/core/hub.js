@@ -48,6 +48,13 @@
     }
     const num = (path, o) => bind(h('input', { type: 'number', step: (o && o.step) || 'any', min: o && o.min }), path,
         s => { const v = parseFloat(s); return isFinite(v) ? ((o && o.int) ? Math.round(v) : v) : undefined; });
+    // 색 고르기 — 고르는 동안 바로 반영
+    const colorInput = path => {
+        const el = h('input', { type: 'color', class: 'color' });
+        bindings.push({ el, path });
+        el.addEventListener('input', () => Store.set(path, el.value, 'form'));
+        return el;
+    };
     const check = path => {
         const el = h('input', { type: 'checkbox' });
         bindings.push({ el, path });
@@ -231,6 +238,7 @@
                     h('div', { class: 'grid2' },
                         field('코어비', num('building.coreRatio', { min: 0, step: 1 }), '%'),
                         h('label', { class: 'field' }, check('building.coreAuto'), ' 크기 자동')),
+                    field('코어 색', colorInput('building.coreColor')),
                     h('p', { class: 'hint', id: 'coreInfo' })
                 ),
                 section('코어', h('div', { id: 'cores' }), h('p', { class: 'hint' }, '건물 좌표 기준 (건물 중심 = 0,0) · 크기 자동이면 가로·세로는 비율만 반영'))
@@ -625,7 +633,7 @@
         if (levels.length) {
             const bottom = levels[0].z, top = levels[levels.length - 1].z + levels[levels.length - 1].height;
             s.building.cores.forEach(c => {
-                bl.extrude(G.rectAt(c.x, c.y, c.w, c.d), { base: bottom, height: top - bottom + s.building.floorHeight, color: '#e0663a', opacity: 0.9, outlineColor: '#8a3a1f' });
+                bl.extrude(G.rectAt(c.x, c.y, c.w, c.d), { base: bottom, height: top - bottom + s.building.floorHeight, color: s.building.coreColor || '#e0663a', opacity: 0.9, outlineColor: '#6b6f76' });
             });
         }
     }

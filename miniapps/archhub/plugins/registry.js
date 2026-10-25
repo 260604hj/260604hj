@@ -24,6 +24,12 @@ ArchHub.setRegistry([
         src: 'plugins/sun-study/plugin.js',
         glyph: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
         description: '고른 인접 건물이 내 건물 입면에 드리우는 그림자 — 층별 일조시간 분석'
+    },
+    {
+        id: 'facade-paneling', name: '입면 패널링',
+        src: 'plugins/facade-paneling/plugin.js',
+        glyph: '<rect x="4" y="3.5" width="16" height="17" rx="1"/><path d="M9.3 3.5v17M14.7 3.5v17M4 9.2h16M4 14.8h16"/>',
+        description: '모듈 폭으로 입면을 나눠 층별 패널(프레임·유리)과 수평·수직 루버를 만듦'
     }
 ]);
 // 새 플러그인은 plugins/_template 를 복사해서 시작 (목록에는 넣지 않음, PLUGIN_GUIDE.md 참고)
