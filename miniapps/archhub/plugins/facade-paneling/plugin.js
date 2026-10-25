@@ -37,6 +37,16 @@ ArchHub.registerPlugin({
             box.onchange = () => set(box.value);
             return h('label', { class: 'field fp-row' }, h('span', { class: 'k' }, label), range, box, h('span', { class: 'u' }, unit));
         };
+        // 루버 분할: 1/10 ~ 1/2 = N 모듈(층)마다 1개, 1 ~ 12 = 한 모듈(층)을 몇 칸으로
+        const divRow = (label, key, unitWord) => {
+            const opts = [];
+            for (let N = 10; N >= 2; N--) opts.push([String(1 / N), `1/${N} — ${N}${unitWord}마다 1개`]);
+            for (let k = 1; k <= 12; k++) opts.push([String(k), k === 1 ? `1 — ${unitWord} 경계마다` : `${k} — ${unitWord}을 ${k}칸으로`]);
+            const sel = h('select', { onchange: e => save({ [key]: +e.target.value }) }, ...opts.map(([v, t]) => h('option', { value: v }, t)));
+            sel.value = String(s0[key]);
+            if (sel.selectedIndex < 0) sel.value = '1';
+            return h('label', { class: 'field' }, h('span', { class: 'k' }, label), sel);
+        };
         const colorRow = (label, key) => h('label', { class: 'field' }, h('span', { class: 'k' }, label),
             h('input', { type: 'color', value: s0[key], oninput: e => save({ [key]: e.target.value }) }));
         const check = (label, key) => h('label', { class: 'field' },
@@ -63,11 +73,11 @@ ArchHub.registerPlugin({
                 h('p', { class: 'hint' }, '깊이 = 입면에서 바깥쪽으로 나온 정도, 두께 = 입면 안에서 테두리 폭')),
             h('section', { class: 'sec' }, h('h3', null, 'Outer skin — 루버'),
                 check('수직 루버', 'vLouver'),
-                numRow('깊이', 'vDepth', 'mm', 0, 1500, 10), numRow('두께', 'vThick', 'mm', 10, 300, 5), numRow('모듈 분할', 'vCount', '칸', 1, 12, 1),
+                numRow('깊이', 'vDepth', 'mm', 0, 1500, 10), numRow('두께', 'vThick', 'mm', 10, 300, 5), divRow('분할', 'vCount', '모듈'),
                 check('수평 루버', 'hLouver'),
-                numRow('깊이', 'hDepth', 'mm', 0, 1500, 10), numRow('두께', 'hThick', 'mm', 10, 300, 5), numRow('층 분할', 'hCount', '칸', 1, 12, 1),
+                numRow('깊이', 'hDepth', 'mm', 0, 1500, 10), numRow('두께', 'hThick', 'mm', 10, 300, 5), divRow('분할', 'hCount', '층'),
                 colorRow('루버 색', 'louverColor'),
-                h('p', { class: 'hint' }, '루버는 프레임 바깥면(유리면 + 프레임 깊이)에서 시작해 바깥으로 나갑니다. 모듈 경계(수직은 좌우, 수평은 층 상하)에 기본으로 놓이고, 분할 수만큼 그 사이를 나눕니다. 1칸 = 경계에만.')),
+                h('p', { class: 'hint' }, '루버는 프레임 바깥면(유리면 + 프레임 깊이)에서 시작해 바깥으로 나갑니다. 모듈 경계(수직은 좌우, 수평은 층 상하)에 기본으로 놓이고, 분할 수만큼 그 사이를 나눕니다. 1 = 경계마다, 1/N = N 모듈(층)마다 하나 (면 양 끝·맨 아래·맨 위는 항상 포함).')),
             h('section', { class: 'sec' }, h('h3', null, '집계'), summary)
         );
 
@@ -82,6 +92,9 @@ ArchHub.registerPlugin({
             const P = (u, o) => ({ x: f.a.x + f.t.x * u + f.n.x * o, y: f.a.y + f.t.y * u + f.n.y * o });
             layer.extrude([P(u0, o0), P(u1, o0), P(u1, o1), P(u0, o1)], Object.assign({ base: z0, height: z1 - z0, outline: false }, style));
         }
+
+        // 분할 값 → { k: 한 모듈(층)을 몇 칸, every: 몇 모듈(층)마다 하나 }. 1 미만(1/N)이면 every = N
+        const division = v => (v > 0 && v < 1) ? { k: 1, every: Math.round(1 / v) } : { k: Math.max(1, Math.round(v || 1)), every: 1 };
 
         let timer = null;
         function redraw() { clearTimeout(timer); timer = setTimeout(build, 120); }
@@ -134,20 +147,25 @@ ArchHub.registerPlugin({
 
                 // 수직 루버: 모듈 경계(좌우)를 포함해 모듈 폭을 vCount 칸으로 나눈 선마다 — 이웃 모듈과 겹치는 경계는 한 번만.
                 //           1개 = 모듈 경계마다, 2개 = 경계 + 모듈 가운데 … 건물 전체 높이로 한 덩어리
+                //           1/N = N 모듈마다 경계에 하나 (면 양 끝은 항상)
                 if (s.vLouver && s.vDepth > 0) {
-                    const d = mm(s.vDepth), th = mm(s.vThick), k = Math.max(1, s.vCount);
-                    for (let i = 0; i <= n * k; i++) {
-                        const u = i * w / k;
+                    const d = mm(s.vDepth), th = mm(s.vThick), { k, every } = division(s.vCount);
+                    const us = [];
+                    if (every > 1) { for (let m = 0; m <= n; m += every) us.push(m * w); if (us[us.length - 1] < L - 1e-6) us.push(L); }
+                    else for (let i = 0; i <= n * k; i++) us.push(i * w / k);
+                    us.forEach(u => {
                         box(louverL, f, Math.max(0, u - th / 2), Math.min(L, u + th / 2), lStart, lStart + d, levels[0].z, zTop, louverStyle);
                         vCount++;
-                    }
+                    });
                 }
                 // 수평 루버: 층 경계(상하)를 포함해 층 높이를 hCount 칸으로 나눈 선마다 — 위아래 층이 겹치는 경계는 한 번만.
                 //           면 전체 길이로 한 덩어리
                 if (s.hLouver && s.hDepth > 0) {
-                    const d = mm(s.hDepth), th = mm(s.hThick), k = Math.max(1, s.hCount);
+                    // 1/N = N 개 층마다 층 경계에 하나 (맨 아래·맨 위는 항상)
+                    const d = mm(s.hDepth), th = mm(s.hThick), { k, every } = division(s.hCount);
                     const zs = [];
-                    levels.forEach(l => { for (let j = 0; j < k; j++) zs.push(l.z + j * l.height / k); });
+                    if (every > 1) levels.forEach((l, i) => { if (i % every === 0) zs.push(l.z); });
+                    else levels.forEach(l => { for (let j = 0; j < k; j++) zs.push(l.z + j * l.height / k); });
                     zs.push(zTop);
                     zs.forEach(z => {
                         box(louverL, f, 0, L, lStart, lStart + d, Math.max(levels[0].z, z - th / 2), Math.min(zTop, z + th / 2), louverStyle);
