@@ -117,6 +117,14 @@
             : row('대지', '개요 탭에서 주소를 검색하세요');
         $('neighborInfo').textContent = s.neighbors.length ? `주변 필지 ${s.neighbors.length}개 · 맞닿은 필지 ${s.neighbors.filter(n => n.touching).length}개 (도로 제외, 30m 이내)` : (s.origin ? '인접 필지를 아직 불러오지 않았습니다' : '');
         $('demoInfo').textContent = s.demolished.length ? `철거한 기존 건물 ${s.demolished.length}동` : '철거한 건물 없음';
+        // 기준축 설명
+        const bld = Store.get('building');
+        const rot = fmt(bld.placement.rotation, 1) + '°';
+        $('axisInfo').textContent = {
+            site: s.boundary.length >= 3 ? `대지 장변 방향(${rot})에 코어·기둥 그리드를 맞춥니다.` : '대지를 불러오면 대지 장변 방향에 맞춥니다.',
+            mass: bld.shape.type === 'site' ? `매스 주축(최소 외접 직사각형, ${rot})에 맞춥니다.` : `매스 회전(${rot})을 따릅니다. 회전값을 직접 바꿀 수 있습니다.`,
+            manual: `직접 정한 각도(${rot})를 씁니다. 마우스 휠로 1°씩 돌릴 수 있습니다.`
+        }[bld.axisMode] + (bld.shape.type === 'site' ? ' 건물 원점은 매스 중심입니다.' : '');
         // 코어비 실제값
         const m = Store.metrics();
         $('coreInfo').textContent = m.buildingArea
@@ -194,17 +202,19 @@
                     field('기준층', num('building.floorHeight', { min: 2, step: 0.1 }), 'm'),
                     field('지하층', num('building.basementHeight', { min: 2, step: 0.1 }), 'm')
                 ),
-                section('배치',
+                section('기준축 · 배치',
+                    field('기준축', bind(h('select', null,
+                        h('option', { value: 'site' }, '대지 장변'),
+                        h('option', { value: 'mass' }, '매스 기준'),
+                        h('option', { value: 'manual' }, '직접 회전')
+                    ), 'building.axisMode')),
+                    field('회전', rotationInput(), '°'),
+                    h('p', { class: 'hint', id: 'axisInfo', style: { marginBottom: '6px' } }),
                     h('div', { 'data-shape': 'rect L U custom' },
                         slider('X', 'building.placement.x', 'm', 0.5),
                         slider('Y', 'building.placement.y', 'm', 0.5),
-                        field('회전', num('building.placement.rotation', { step: 1 }), '°'),
-                        h('div', { class: 'row' },
-                            h('button', { class: 'btn ghost small', onclick: centerOnSite }, '대지 중앙에'),
-                            h('button', { class: 'btn ghost small', onclick: alignToSite }, '대지 긴 변에 맞춤')
-                        )
-                    ),
-                    h('p', { class: 'hint', 'data-shape': 'site' }, '대지경계 후퇴 형태는 대지에 맞춰 놓이므로 배치가 고정됩니다. 직사각형·ㄱ자·ㄷ자로 바꾸면 X·Y를 움직일 수 있습니다.')
+                        h('div', { class: 'row' }, h('button', { class: 'btn ghost small', onclick: centerOnSite }, '대지 중앙에'))
+                    )
                 )
             ),
             pane('core',
@@ -358,13 +368,20 @@
         const c = G.centroid(b), pl = Store.get('building.placement');
         Store.set('building.placement', { x: G.round(c.x, 2), y: G.round(c.y, 2), rotation: pl.rotation }, 'form');
     }
-    function alignToSite() {
-        const b = Store.get('site.boundary');
-        if (b.length < 3) return toast('먼저 대지를 불러오세요.');
-        let best = 0, ang = 0;
-        b.forEach((p, i) => { const q = b[(i + 1) % b.length], d = G.dist(p, q); if (d > best) { best = d; ang = G.angleOf(p, q); } });
-        ang = ((ang % 180) + 180) % 180; if (ang > 90) ang -= 180; // -90~90 로
-        Store.set('building.placement.rotation', G.round(ang, 1), 'form');
+    // 회전 입력 — 자동 기준축(대지 장변 / 대지경계 후퇴의 매스 기준)일 때 직접 고치면 '직접 회전'으로 바뀜
+    function setRotation(v) {
+        const b = Store.get('building');
+        const auto = b.axisMode === 'site' || (b.axisMode === 'mass' && b.shape.type === 'site');
+        const changes = { 'building.placement.rotation': G.round(v, 2) };
+        if (auto) changes['building.axisMode'] = 'manual';
+        Store.patch(changes, 'form');
+    }
+    function rotationInput() {
+        const el = h('input', { type: 'number', step: 1 });
+        bindings.push({ el, path: 'building.placement.rotation' });
+        el.addEventListener('change', () => { const v = parseFloat(el.value); if (isFinite(v)) setRotation(v); else syncForm(); });
+        el.addEventListener('wheel', e => { e.preventDefault(); setRotation((Store.get('building.placement.rotation') || 0) + (e.deltaY < 0 ? 1 : -1)); }, { passive: false });
+        return el;
     }
 
     // ---------- 허브가 그리는 기본 장면 (대지 + 매스 + 코어) ----------

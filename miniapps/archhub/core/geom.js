@@ -157,6 +157,27 @@
 
     // 두 점 a→b 방향 각도(도, 동쪽 기준 반시계)
     G.angleOf = (a, b) => Math.atan2(b.y - a.y, b.x - a.x) / RAD;
+    // 축 각도를 -90° 초과 ~ 90° 이하로 (선의 방향만 의미 있음)
+    G.normAxis = a => { a = ((a % 180) + 180) % 180; return a > 90 ? a - 180 : a; };
+
+    // 가장 긴 변의 방향 (대지 장변)
+    G.longestEdgeAngle = function (poly) {
+        let best = -1, ang = 0;
+        poly.forEach((p, i) => { const q = poly[(i + 1) % poly.length], d = G.dist(p, q); if (d > best) { best = d; ang = G.angleOf(p, q); } });
+        return G.normAxis(ang);
+    };
+    // 최소 면적 외접 직사각형의 긴 변 방향 (매스 주축) — 볼록껍질 각 변 방향만 시험하면 충분
+    G.mainAxisAngle = function (poly) {
+        const hull = G.convexHull(poly);
+        let bestA = Infinity, ang = 0;
+        hull.forEach((p, i) => {
+            const t = G.angleOf(p, hull[(i + 1) % hull.length]);
+            const bb = G.bbox(hull.map(q => G.rotate(q, -t)));
+            const area = bb.w * bb.h;
+            if (area < bestA - 1e-6) { bestA = area; ang = bb.w >= bb.h ? t : t + 90; }
+        });
+        return G.normAxis(ang);
+    };
 
     // ---------- 기본 형태 (중심이 원점) ----------
     G.rectAt = (cx, cy, w, d) => [

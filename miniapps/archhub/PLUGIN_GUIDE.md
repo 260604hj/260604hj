@@ -42,7 +42,8 @@ miniapps/archhub/
 | `building.coreRatio`, `building.coreAuto` | 코어비 %(기본 20), 자동이면 코어 크기를 코어비에 맞춤 | |
 | `building.floorsAbove`, `floorsBelow` | 지상·지하 층수 | |
 | `building.groundFloorHeight`, `floorHeight`, `basementHeight` | 1층·기준층·지하 층고 m | |
-| `building.placement` | `{x, y, rotation}` 건물 원점의 대지 위 위치, 회전(°, 반시계) | 대지 |
+| `building.placement` | `{x, y, rotation}` 건물 원점의 대지 위 위치, 회전(°, 반시계) = 건물 좌표의 기준축 | 대지 |
+| `building.axisMode` | 기준축: `site` 대지 장변(기본) · `mass` 매스 주축 · `manual` 직접 회전. 대지경계 후퇴 형태는 원점이 매스 중심 | |
 | `building.shape` | `{type, w, d, cutW, cutD, setback}` 형태 입력값 (`rect` `L` `U` `site` `custom`) | |
 | `building.footprint` | 평면 외곽 `[{x,y}]` — **형태의 최종 결과, 플러그인은 이걸 쓰세요** | 건물 |
 | `building.cores` | `[{id, x, y, w, d}]` 코어 (중심점·크기) | 건물 |

@@ -34,6 +34,11 @@
                 floorHeight: 3.6,
                 basementHeight: 4.0,
                 placement: { x: 0, y: 0, rotation: 0 },
+                // 건물 좌표(코어·기둥 그리드 등)의 기준축
+                //  'site'   = 대지 장변에 맞춤 (회전 자동)
+                //  'mass'   = 매스 주축에 맞춤 (대지경계 후퇴 형태는 최소 외접 직사각형 방향, 그 외 형태는 매스 회전 그대로)
+                //  'manual' = placement.rotation 을 직접 입력
+                axisMode: 'site',
                 shape: { type: 'site', w: 30, d: 20, cutW: 10, cutD: 8, setback: 1.5 },
                 footprint: [],         // shape 로부터 자동 생성 (type 'custom' 이면 그대로 유지)
                 cores: [{ id: 'C1', x: 0, y: 0, w: 8, d: 10 }],
@@ -72,13 +77,20 @@
     // shape → footprint 등 파생값 갱신
     function derive(s) {
         const b = s.building, sh = b.shape;
+        const hasSite = s.site.boundary && s.site.boundary.length >= 3;
+        // 기준축 — 대지 장변 맞춤은 모든 형태에 적용
+        if (b.axisMode === 'site' && hasSite) b.placement.rotation = G.round(G.longestEdgeAngle(s.site.boundary), 2);
         if (G.shapes[sh.type]) {
             b.footprint = G.shapes[sh.type](sh);
         } else if (sh.type === 'site') {
-            // 대지경계를 setback 만큼 후퇴한 형태 (건물 좌표로 변환해 저장)
-            b.footprint = (s.site.boundary && s.site.boundary.length >= 3)
-                ? G.inset(s.site.boundary, sh.setback || 0).map(p => G.toBuilding(p, b.placement))
-                : G.shapes.rect(sh);
+            // 대지경계를 setback 만큼 후퇴한 형태. 건물 원점 = 매스 중심, 축 = 기준축 → 코어·그리드가 이 축을 따름
+            const inner = hasSite ? G.inset(s.site.boundary, sh.setback || 0) : [];
+            if (inner.length >= 3) {
+                const c = G.centroid(inner);
+                b.placement.x = G.round(c.x, 3); b.placement.y = G.round(c.y, 3);
+                if (b.axisMode === 'mass') b.placement.rotation = G.round(G.mainAxisAngle(inner), 2);
+                b.footprint = inner.map(p => G.toBuilding(p, b.placement));
+            } else b.footprint = G.shapes.rect(sh);
         }
         b.footprint = G.ccw(b.footprint).map(p => ({ x: G.round(p.x, 3), y: G.round(p.y, 3) }));
         b.floorsAbove = Math.max(0, Math.round(b.floorsAbove));
