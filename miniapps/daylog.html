@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="하루">
+<meta name="theme-color" content="#F5EEDF">
+<title>하루 기록</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+    /* 팔레트 — 직물 견본 이미지에서 추출 */
+    :root{
+        --cream:#F5EEDF;      /* 바탕 */
+        --card:#FFFDF8;
+        --ink:#1A1714;        /* Meteorite */
+        --muted:#8C8478;
+        --line:rgba(26,23,20,.09);
+        --fill:rgba(26,23,20,.05);
+
+        --mulled:#3D8F3A;     /* 가계부 */
+        --trip:#4B0E20;
+        --pistachio:#A8A35E;
+        --crepe:#7E2B46;      /* 생각 */
+        --alderley:#D4AE88;
+        --saffron:#A98E1A;    /* 배운 것 */
+        --olive:#34361F;
+        --sherbet:#E2A096;
+        --postbox:#C21D1D;    /* 목표 · 오늘 */
+        --cherry:#74131D;
+        --sky:#5BA3C4;        /* 일정 */
+
+        --radius:18px;
+        --tabbar-h:64px;
+    }
+    *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+    html,body{ background:var(--cream); }
+    body{
+        font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'SF Pro Text','Apple SD Gothic Neo',sans-serif;
+        color:var(--ink);
+        -webkit-font-smoothing:antialiased;
+        letter-spacing:-.01em;
+        overscroll-behavior-y:none;
+    }
+    button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+    input,textarea{ font:inherit; color:inherit; }
+
+    .app{
+        max-width:480px; margin:0 auto; min-height:100vh;
+        padding:calc(env(safe-area-inset-top) + 12px) 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 28px);
+    }
+
+    /* ── 헤더 ───────────────────────────── */
+    .top{ display:flex; align-items:flex-end; justify-content:space-between; margin:6px 2px 14px; }
+    .top .eyebrow{ font-size:13px; font-weight:600; color:var(--postbox); letter-spacing:.02em; }
+    .top h1{ font-size:32px; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
+    .top .nav{ display:flex; gap:6px; align-items:center; }
+    .icon-btn{
+        width:36px; height:36px; border-radius:50%; display:grid; place-items:center;
+        background:var(--fill); transition:transform .15s, background .15s;
+    }
+    .icon-btn:active{ transform:scale(.92); background:rgba(26,23,20,.1); }
+    .icon-btn svg{ width:18px; height:18px; }
+    /* 동기화 상태: 점 색으로 표시 */
+    .icon-btn.sync{ position:relative; color:var(--muted); }
+    .icon-btn.sync::after{ content:''; position:absolute; right:5px; bottom:6px; width:8px; height:8px; border-radius:50%; border:2px solid var(--cream); background:var(--muted); }
+    .icon-btn.sync[data-s=ok]{ color:var(--ink); }
+    .icon-btn.sync[data-s=ok]::after{ background:var(--mulled); }
+    .icon-btn.sync[data-s=syncing]::after{ background:var(--saffron); animation:blink 1s infinite; }
+    .icon-btn.sync[data-s=error]::after{ background:var(--postbox); }
+    @keyframes blink{ 50%{ opacity:.3; } }
+    .pill-btn{
+        height:36px; padding:0 14px; border-radius:18px; background:var(--fill);
+        font-size:14px; font-weight:600;
+    }
+
+    /* ── 캘린더 ───────────────────────────── */
+    .cal{ background:var(--card); border-radius:22px; padding:14px 10px 10px; box-shadow:0 1px 0 var(--line), 0 8px 24px rgba(75,14,32,.05); }
+    .cal-week, .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); }
+    .cal-week div{ text-align:center; font-size:11px; font-weight:600; color:var(--muted); padding-bottom:8px; }
+    .cal-week div:first-child{ color:var(--postbox); }
+    .cal-week div:last-child{ color:var(--sky); }
+    .day{
+        position:relative; height:52px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+        padding-top:4px; border-radius:12px;
+    }
+    .day .num{
+        width:30px; height:30px; border-radius:50%; display:grid; place-items:center;
+        font-size:16px; font-weight:500; transition:background .15s,color .15s;
+    }
+    .day.out .num{ color:rgba(26,23,20,.22); }
+    .day.sun .num{ color:var(--postbox); }
+    .day.today .num{ color:var(--postbox); font-weight:800; }
+    .day.sel .num{ background:var(--ink); color:var(--cream); font-weight:700; }
+    .day.sel.today .num{ background:var(--postbox); color:#fff; }
+    .day .meta{ font-size:9.5px; font-weight:600; line-height:1; margin-top:3px; height:12px; color:var(--mulled); white-space:nowrap; }
+    .day .meta.emoji{ font-size:12px; }
+    .day .dots{ display:flex; gap:2.5px; margin-top:4px; height:5px; }
+    .day .dots i{ width:5px; height:5px; border-radius:50%; display:block; }
+
+    /* ── 날짜 섹션 ───────────────────────────── */
+    .date-head{ display:flex; align-items:baseline; justify-content:space-between; margin:26px 4px 12px; }
+    .date-head h2{ font-size:22px; font-weight:800; letter-spacing:-.02em; }
+    .date-head .sub{ font-size:13px; color:var(--muted); font-weight:500; }
+
+    .card{ background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:0 1px 0 var(--line); }
+    .card + .card{ margin-top:12px; }
+    .section-label{ font-size:13px; font-weight:600; color:var(--muted); margin:22px 6px 8px; display:flex; justify-content:space-between; align-items:center; }
+    .section-label button{ color:var(--accent,var(--ink)); font-weight:600; font-size:13px; }
+
+    /* 합계 카드 */
+    .total{ display:flex; justify-content:space-between; align-items:flex-end; color:var(--cream); background:var(--trip); }
+    .total .k{ font-size:13px; opacity:.7; font-weight:500; }
+    .total .v{ font-size:30px; font-weight:800; letter-spacing:-.03em; margin-top:2px; }
+    .total .v small{ font-size:17px; font-weight:600; margin-left:2px; }
+    .total .month{ text-align:right; font-size:12px; opacity:.75; line-height:1.5; }
+    .total .month b{ display:block; font-size:16px; opacity:1; color:var(--alderley); }
+    .bar{ display:flex; height:6px; border-radius:3px; overflow:hidden; margin-top:14px; background:rgba(245,238,223,.15); }
+    .bar i{ display:block; height:100%; }
+    .legend{ display:flex; gap:12px; margin-top:8px; font-size:11px; opacity:.8; flex-wrap:wrap; }
+    .legend span::before{ content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--c); margin-right:4px; vertical-align:1px; }
+
+    /* 세그먼트 컨트롤 (iOS) */
+    .seg{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; background:rgba(26,23,20,.07); border-radius:10px; padding:2px; margin-top:16px; position:relative; }
+    .seg button{ height:32px; border-radius:8px; font-size:13.5px; font-weight:500; position:relative; z-index:1; transition:color .2s; }
+    .seg button.on{ font-weight:700; }
+    .seg .thumb{ position:absolute; top:2px; bottom:2px; border-radius:8px; background:var(--card); box-shadow:0 2px 6px rgba(0,0,0,.08), 0 0 0 .5px rgba(0,0,0,.04); transition:left .28s cubic-bezier(.3,.7,.2,1), width .28s; }
+
+    /* 즐겨찾기 */
+    .favs{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+    .fav{
+        background:var(--card); border-radius:16px; padding:12px 6px 10px; text-align:center;
+        box-shadow:0 1px 0 var(--line); transition:transform .12s; position:relative;
+        display:flex; flex-direction:column; align-items:center; gap:6px;
+    }
+    .fav:active{ transform:scale(.95); }
+    .fav .nm{ font-size:12.5px; font-weight:600; line-height:1.25; word-break:keep-all; }
+    .fav .nm small{ display:block; font-weight:500; color:var(--muted); font-size:11px; }
+    .fav .pr{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .fav .stepper{ margin-top:2px; }
+    .fav.add{ justify-content:center; color:var(--muted); font-size:12.5px; font-weight:600; border:1.5px dashed rgba(26,23,20,.15); background:transparent; box-shadow:none; }
+    .fav .del{ position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; background:var(--muted); color:#fff; font-size:13px; line-height:22px; }
+    .flash{ animation:flash .5s; }
+    @keyframes flash{ 0%{ box-shadow:0 0 0 0 var(--mulled);} 100%{ box-shadow:0 0 0 10px transparent;} }
+
+    .logo{
+        width:44px; height:44px; border-radius:12px; overflow:hidden; flex:none;
+        display:grid; place-items:center; background:#fff; box-shadow:inset 0 0 0 .5px rgba(0,0,0,.08);
+        font-size:24px;
+    }
+    .logo img{ width:100%; height:100%; object-fit:contain; }
+    .logo.small{ width:36px; height:36px; border-radius:10px; font-size:20px; }
+    .logo.mono{ color:#fff; font-weight:800; font-size:12px; letter-spacing:-.04em; line-height:1.05; text-align:center; }
+    .logo.small.mono{ font-size:10.5px; }
+    .logo.tile{ background:var(--fill); box-shadow:none; }
+
+    /* 리스트 (iOS grouped) */
+    .list{ background:var(--card); border-radius:var(--radius); overflow:hidden; box-shadow:0 1px 0 var(--line); }
+    .row{ display:flex; align-items:center; gap:12px; padding:11px 14px; position:relative; min-height:56px; }
+    .row + .row::before{ content:''; position:absolute; top:0; right:0; left:62px; height:.5px; background:var(--line); }
+    .row.plain + .row.plain::before{ left:14px; }
+    .row .body{ flex:1; min-width:0; }
+    .row .t{ font-size:15.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .row .s{ font-size:12px; color:var(--muted); margin-top:1px; }
+    .row .amt{ font-size:15.5px; font-weight:700; font-variant-numeric:tabular-nums; min-width:62px; text-align:right; }
+    .row .x{ width:26px; height:26px; border-radius:50%; color:var(--muted); font-size:18px; display:grid; place-items:center; flex:none; }
+    .row .x:active{ background:var(--fill); }
+    .empty{ text-align:center; color:var(--muted); font-size:14px; padding:26px 12px; }
+
+    .stepper{ display:flex; align-items:center; background:var(--fill); border-radius:9px; height:28px; flex:none; }
+    .stepper button{ width:30px; height:28px; font-size:17px; font-weight:500; display:grid; place-items:center; }
+    .stepper button:active{ background:rgba(26,23,20,.08); border-radius:9px; }
+    .stepper i{ width:.5px; height:14px; background:rgba(26,23,20,.15); }
+
+    /* 입력 */
+    .composer{ display:flex; gap:8px; align-items:center; background:var(--card); border-radius:14px; padding:6px 6px 6px 14px; box-shadow:0 1px 0 var(--line); margin-top:12px; }
+    .composer input{ flex:1; border:0; outline:0; background:transparent; font-size:15.5px; height:38px; min-width:0; }
+    .composer input[type=time]{ flex:none; width:auto; font-weight:600; color:var(--accent); }
+    .composer input.num{ flex:none; width:90px; text-align:right; font-variant-numeric:tabular-nums; }
+    .composer .go{ height:36px; padding:0 14px; border-radius:11px; background:var(--accent,var(--ink)); color:#fff; font-weight:700; font-size:14px; flex:none; }
+    .composer .go:active{ opacity:.8; }
+
+    /* 목표 체크 */
+    .check{ width:24px; height:24px; border-radius:50%; border:2px solid rgba(26,23,20,.22); flex:none; display:grid; place-items:center; transition:all .2s; }
+    .check.on{ background:var(--postbox); border-color:var(--postbox); }
+    .check.on::after{ content:''; width:6px; height:11px; border:solid #fff; border-width:0 2.5px 2.5px 0; transform:rotate(45deg) translate(-1px,-1px); }
+    .row.done .t{ color:var(--muted); text-decoration:line-through; font-weight:500; }
+    .progress{ height:6px; border-radius:3px; background:var(--fill); overflow:hidden; margin-top:10px; }
+    .progress i{ display:block; height:100%; background:var(--postbox); border-radius:3px; transition:width .35s; }
+
+    /* 일정 */
+    .time{ font-size:14px; font-weight:700; color:var(--sky); font-variant-numeric:tabular-nums; width:48px; flex:none; }
+    .ev-bar{ width:4px; align-self:stretch; border-radius:2px; background:var(--sky); flex:none; }
+
+    /* 기분 */
+    .moods{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+    .mood{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 0 10px; border-radius:16px; transition:transform .15s, background .2s; }
+    .mood:active{ transform:scale(.92); }
+    .mood .face{ width:48px; height:48px; border-radius:50%; display:grid; place-items:center; font-size:26px; background:var(--fill); transition:all .2s; }
+    .mood span{ font-size:11.5px; font-weight:600; color:var(--muted); }
+    .mood.on .face{ background:var(--mc); transform:scale(1.08); box-shadow:0 6px 16px -4px var(--mc); }
+    .mood.on span{ color:var(--ink); }
+    .mood-strip{ display:flex; gap:3px; margin-top:14px; }
+    .mood-strip i{ flex:1; height:22px; border-radius:4px; background:var(--fill); }
+
+    textarea.note{
+        width:100%; border:0; outline:0; resize:none; background:transparent;
+        font-size:16px; line-height:1.65; min-height:120px;
+    }
+    .thought textarea.note{ min-height:260px; }
+    .saved{ font-size:12px; color:var(--muted); text-align:right; margin-top:6px; height:14px; }
+
+    /* ── 탭바 ───────────────────────────── */
+    .tabbar{
+        position:fixed; left:0; right:0; bottom:0; z-index:20;
+        padding-bottom:env(safe-area-inset-bottom);
+        background:rgba(245,238,223,.82);
+        -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+        border-top:.5px solid rgba(26,23,20,.14);
+    }
+    .tabbar .in{ max-width:480px; margin:0 auto; display:grid; grid-template-columns:repeat(6,1fr); height:var(--tabbar-h); }
+    .tab{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:rgba(26,23,20,.4); font-size:10.5px; font-weight:600; transition:color .2s; }
+    .tab svg{ width:25px; height:25px; transition:transform .2s; }
+    .tab.on{ color:var(--c); }
+    .tab:active svg{ transform:scale(.88); }
+
+    /* ── 시트 ───────────────────────────── */
+    .scrim{ position:fixed; inset:0; background:rgba(26,23,20,.35); z-index:30; opacity:0; pointer-events:none; transition:opacity .25s; }
+    .scrim.show{ opacity:1; pointer-events:auto; }
+    .sheet{
+        position:fixed; left:0; right:0; bottom:0; z-index:31; max-width:480px; margin:0 auto;
+        background:var(--cream); border-radius:22px 22px 0 0; padding:8px 16px calc(env(safe-area-inset-bottom) + 20px);
+        transform:translateY(105%); transition:transform .35s cubic-bezier(.3,.8,.2,1); max-height:88vh; overflow:auto;
+    }
+    .sheet.show{ transform:none; }
+    .sheet .grab{ width:36px; height:5px; border-radius:3px; background:rgba(26,23,20,.2); margin:0 auto 12px; }
+    .sheet h3{ font-size:20px; font-weight:800; text-align:center; margin-bottom:16px; }
+    .field{ background:var(--card); border-radius:14px; overflow:hidden; }
+    .field label{ display:flex; align-items:center; gap:12px; padding:0 14px; min-height:50px; font-size:15.5px; }
+    .field label + label{ border-top:.5px solid var(--line); }
+    .field label span{ width:64px; color:var(--muted); flex:none; }
+    .field input{ flex:1; border:0; outline:0; background:transparent; height:48px; font-size:15.5px; min-width:0; }
+    .sheet .actions{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+    .btn{ height:50px; border-radius:14px; font-weight:700; font-size:16px; background:var(--fill); }
+    .btn.primary{ background:var(--ink); color:var(--cream); }
+    .btn.danger{ color:var(--postbox); }
+    .logo-pick{ display:flex; align-items:center; gap:12px; padding:12px 14px; }
+    .logo-pick .logo{ width:52px; height:52px; }
+    .logo-pick .opts{ display:flex; gap:8px; flex-wrap:wrap; }
+    .logo-pick .opts button{ font-size:13px; font-weight:600; color:var(--sky); }
+
+    .toast{
+        position:fixed; left:50%; bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 14px); transform:translate(-50%,20px);
+        background:rgba(26,23,20,.88); color:var(--cream); padding:10px 16px; border-radius:20px; font-size:13.5px; font-weight:600;
+        opacity:0; transition:all .25s; z-index:40; pointer-events:none; white-space:nowrap;
+        -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    }
+    .toast.show{ opacity:1; transform:translate(-50%,0); }
+    .toast button{ color:var(--alderley); font-weight:700; margin-left:10px; pointer-events:auto; }
+
+    .pane{ animation:fade .3s; }
+    @keyframes fade{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
+
+    .settings-link{ display:block; text-align:center; font-size:12.5px; color:var(--muted); margin-top:28px; }
+</style>
+</head>
+<body>
+<div class="app">
+    <header class="top">
+        <div>
+            <div class="eyebrow" id="yearLabel">2026</div>
+            <h1 id="monthLabel">10월</h1>
+        </div>
+        <div class="nav">
+            <button class="icon-btn sync" id="syncBtn" data-s="off" aria-label="계정 · 동기화"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 9.5a4.5 4.5 0 0 0 0 9z"/></svg></button>
+            <button class="pill-btn" id="todayBtn">오늘</button>
+            <button class="icon-btn" id="prevBtn" aria-label="이전 달"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+            <button class="icon-btn" id="nextBtn" aria-label="다음 달"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+    </header>
+
+    <section class="cal">
+        <div class="cal-week"><div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div></div>
+        <div class="cal-grid" id="grid"></div>
+    </section>
+
+    <div class="date-head">
+        <h2 id="dateTitle"></h2>
+        <span class="sub" id="dateSub"></span>
+    </div>
+
+    <main id="pane"></main>
+
+    <a class="settings-link" href="#" id="backupLink">데이터 백업 · 복원</a>
+</div>
+
+<nav class="tabbar"><div class="in" id="tabs"></div></nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="filePick" accept="image/*" hidden>
+<input type="file" id="jsonPick" accept="application/json" hidden>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+<script>
+/* ════════════════════════════════════════════
+   기본 설정
+   ════════════════════════════════════════════ */
+const LOGO = {
+    subway:  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAQDAwQDAwQEAwQFBAQFBgoHBgYGBg0JCggKDw0QEA8NDw4RExgUERIXEg4PFRwVFxkZGxsbEBQdHx0aHxgaGxr/2wBDAQQFBQYFBgwHBwwaEQ8RGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhr/wAARCACgAKADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDzyaaQSv8AO3X1pnnyf32/Okm/1r/WmV8yfz8SefJ/fb86PPk/vt+dR0UCJPPk/vt+dHnyf32/Oo6KAJPPk/vt+dHnyf32/Oo6KAJPPk/vt+dHnyf32/Oo6KAJPPk/vt+dHnyf32/Oo6KAJPPk/vt+dHnyf32/Oo6KAJPPk/vt+dHnyf32/Oo6KAJPPk/vt+dHnyf32/Oo6KAJPPk/vt+dPhmkMqfO3X1qCnw/61PrQMJv9a/1plPm/wBa/wBaZQIKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAp8P+tT60ynw/61PrQATf61/rTKfN/rX+tMoAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAp8P+tT60ynw/wCtT60AE3+tf60ynzf61/rTKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKfD/rU+tMp8P+tT60AE3+tf60ynzf61/rTKAJ7OzuNQuorWyhee4lbakaDJY128Xwf8SSRhn+xRMR9xp+R+QIo+EFza2/iwrdMqyy2zx25b+/kHA9yAa9v1P+0Rb50Y2huB/BdBtre2VOR+tfHZvnGJweJVCkkla93/AFsfrPCnCmX5rl0sbinKTu1yxa0tb729/Q8CvvhrrWn32nWdwbTzr+Ro4dspIyoycnHHFR+IPh3rHhrTWv8AUWtTArqh8uUscnpxiu4bXdb1Dx54dsPEWmRadJbTyPGYySJAUIyDkgjjtW58Xf8AkS5v+vmL+ZqY5pjYYnD0anL79r213k1o0+xtPhnJ6uAx2KoKa9ldR5rppqEW7ppP4m/kecr8JfEDWguQ1l5Zi8z/AF5ztxn09Ki0v4Xa7q+nW1/aNZiC4QOm+Yg49xivdY/+QAn/AF4j/wBF1keD/NPgLTPsufP+wHysf3sHH64rzf7fxvspS0upJbdGn5+R7/8AqNk6xMKdp2cJSeut047aebPKJ/hD4lhiZ0S0nIGdkc/zH6ZAqr4M+FviXx7d6la+H7SI3Gm7RdJcTCIoWLADB/3TXq/gSPxYn23/AITJyyEL9nDlC2ec/d7dOtd78BLu3vfiH8QZLMfIsdnG5xjc6iQMfzH6V9Jk2Or4vHSwtZxkkr80dv6/yPncdwtlkaOGxFJVKftJOLhOylopO+2m3no1sfOFr8J/E9542u/B0FvbHXLWLzZYzcKEC7Vbh+h4daNY+E3ifQfFmleF9Rt7dNX1RVa1RbhWVgSwGW6DlTX0B4c/5O18R/8AXgf/AETDS/FP/k5X4df9cIv/AEbLX1rox5W/Ox8q8nw3sZT1uqnJv05rdtz588cfCjxP8PIrGXxNawRLfSNHAIJxKWYAEjA+orr9C/Zj8ea1ZR3U8NjpIkXcsV7OVkx7qqtt+h5r6M+KltFd/EH4Ux3KCSMatcPtYZG5Ydyn8CAfwrO/aF8YeM/ClloP/Cv1uPMuZZjdPBY/aSAgTaD8pABLH64rV0KcOaUr2R3TyPA4eVarU5nCFkkt9Uv8z5W8d/CfxT8OWhbxHYqLSZtkV3byeZCzf3c8FT7EDPar3ir4I+MPBmgS65r1raRadEUDPHdq7fOwVeB7kV9WfFZ31n4CandaxCoupNJguZUZNuyb5GPB5BDUfHjSr7XPg9f22jWk1/cEW0git0LsyrIhJAHJwBniiWGiua3a6/Eitw/hoKtKDbtBSivN82j012PkbwH8JfFHxHjuJ/DdpEbS3fZJc3Evlx78Z2g8knBHQcZGetehy/sreKofDF7eNLaya3by7orOGbclxDtGQGIGHznAPBHpXuX7N+jX2hfC61h1eym0+4ku55vLuIzG5UtwxB5GQO/avAb79prxlJoWpaYbiL+0Z7llj1COJUMEGMbUUD7xOfmPQdOeRHs6VOCc73Zh/Z+WYHCU6mL5uacW/np+Oun4ni1zbTWdxLb3cUlvcQuUlikUqyMDggg8gg02H/Wp9aJZZJ5XlnkeWV2LO7sWZiepJPU0Q/61PrXCfFO19Am/1r/WnW9vJd3EUFuu+WVwiLkDJJwBk02b/Wv9aZSd7aDVr67Ht2jfCOC10W4TUJx/bFwgCzBdy2xyD8o4yePvfl79d4f0nWdJUQ6lrSatbqML5luVlX0+fdz+INeQaN8UtV07RLjT55GlmWMCzuiAzxEEcNn7wxn3H8qf/C0vFX/QSH/gPH/8TXwlfKs2xbnGrOLV+v6aNr0uv1f7Zg+JuF8shRnh6U4yUdeVvu9J+8lJ31u09Gttl7D4uvLKy1DwzJeukcv9pARsxwQpRg34ZK5/CrXjHw43inQ5NNS4FqzSI4dk3D5T0xXzjqusX+t3P2nVrqS7mxgM56D0A6AfSt/TfiV4k0u2S3hvhNEgwgnjEhUemTz+tVLh/FUoUp0Ki54d9t76aP8AFGcOO8txVXE0sZRl7Gr2tf4VF31W9uj028z3y/ki0rQLh7mQLDbWhVnPGcJj9f61k+EElk8BaYludszWBEZzjDEHHPbmvCdd8Y614kUR6retJCDkQoAiZ9cDr+NXdP8AiN4i0uxgsrK8SO3gTZGpgQ4H1IrP/V3ErDcqknNyTe9tE/LzOj/X7LpY/nlTmqSg4q1uZttN6X0Vlpq2er+AtF8U6Xc3b+Kb1ri3eMCKN7jzjvz1Hpxn869K+Dep6enxQ8WWMUsa3k2nWjsoPLshfd9SA6Zr5jn+KHimeJozqXlhhgtHCit+YHFc5Y6tf6ZqUepade3FrqET+YlzHIVkDdzu689/WvcyvL8Rhse8bXcb2taOx4WM4ty+nhKOEwUJyjCXM3Ua5uuis338u3U+5NK+F2qWHxx1bxxLd2jaVd2nlxxKW80OUjUgjGMfITnPcUeM/hdqniP4u+EvF1ndWkenaTGq3EUhbzCVZ2G0AYOd4HJGMV8sXnx8+Il9p7WU3iSZYmXazxQRxyEf76qCPqKZpfx4+IWkaetjaeJJngRdqGeGOZ1HpvZS35k19n9Yo7Wdr3+Z5X9uZXyunyS5XLn6fFe/fY+pfiXqNsfiv8K9OWVTdreXU7Rg8rGYSoJ+pzj6GrXxo+L8nwmg0eSLSF1X+0WmUhrnytmwKf7pznd+lfE6eM9fXxKniQ6rcya7G+9byUh3BwR/ECMYJGMYFWPFfxA8SeOEtU8V6rJqS2hYwB40XYWxu+6B1wPyqXitJcujf/AOefEi9nWdJOM5NOL0dkklr8k+h9p/FTUv7a+BOtai0Xkm90ZLgx7t23eFbGe+M15t+zZ8Xtb8Q38Pg7W0iu4LSxaS3vCSJQiFVCN2bg8Hg8c5rwO8+LPjPUNAbQbzXZpdIa3W2NsYowDEAAFyFz0A71ieGvFWseDtSOo+Gr59PvTE0RlRVY7CQSMMCOw/KlLE3qKS+ZlW4gUsbSxFPmSSSktNdfWx9TftIfFnXfClynhbw7FHB/aGn+dPejLSqjMylUHReF+9z14x1r5BHA4rpda+IHiXxFqS6lrWqy3d8tsbUSsiKRESSVwABjJNc1XPWqe1nc8PNce8wxDqXduifRBT4f8AWp9aZT4f9an1rE8gJv8AWv8AWmU+b/Wv9aZQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABT4f9an1plPh/1qfWgAm/1r/WmU+b/Wv9aZQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABT4f8AWp9aZT4f9an1oAJv9a/1plPm/wBa/wBaZQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABT4f9an1plPh/1qfWgAm/1r/WmVPNDIZX+RuvpUfkyf3G/KgBlFP8mT+435UeTJ/cb8qAGUU/yZP7jflR5Mn9xvyoAZRT/Jk/uN+VHkyf3G/KgBlFP8mT+435UeTJ/cb8qAGUU/yZP7jflR5Mn9xvyoAZRT/Jk/uN+VHkyf3G/KgBlFP8mT+435UeTJ/cb8qAGUU/yZP7jflR5Mn9xvyoAZT4f9an1o8mT+435VJDDIJU+RuvpQM//Z',
+    protiner: 'data:image/jpeg;base64,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',
+    sinsun:  'data:image/jpeg;base64,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',
+    baetsal: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAQDAwQDAwQEAwQFBAQFBgoHBgYGBg0JCggKDw0QEA8NDw4RExgUERIXEg4PFRwVFxkZGxsbEBQdHx0aHxgaGxr/2wBDAQQFBQYFBgwHBwwaEQ8RGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhr/wAARCACgAKADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD7+ooooAKKKM4oAKiuLmG1iaW5lSGNeruwUD8TXI+JPH1rpTPbaaFvLwcE5/dofc9z7CvMtU1i91mbzdRuGmI+6vRV+g6Cvz7O+NcDlbdGj+8qLonovV/ovwNY03Lc9L1T4ladaFk0+N75x/EPkT8zyfyrkr34ia1dE/Z2hs0PaOME/m2a5OivyPH8Y5zj2/3vJHtHT8d/xN1TijQuNd1O7J+039xJnsZCB+Qqm08jHLOW+vNR0V8pVxNeu71JuT822XZIkWeRTlXK/Q4q5b67qdoR9mv7iPHpIcflWfRRSxFai705uL8m0M6uy+ImtWpHnPDeKOoljAP5rius0z4l6ddFU1GN7Fz/ABffT8xyPyryiivqsBxhnOAa/e867S1/Hf8AEh04s+iLe6gu4lltZUmjboyMCDU1fP2mave6PN5unTtC38QHKt9R0Nem+HPiBbamUttTC2d2eFbP7tz7HsfY1+uZJxtgc0ao1/3VR937r9H+j+9nPKm46o7SikByOKWv0IyCiiigAoooPFADXdY1LOQqqMkk4AFeW+LvHUl80llo0hjtejzqcNJ7D0H86PHXi030smmabJi1Q4mdT/rCP4R7D9a4Wvw/i/i+dScsBgJWitJSXXyXl3fX036adPqwooor8fNwooooAKKKKACiiggg4PBoAKKKKACiiigDt/CXjqTTWjstYdpLPOElJy0X19V/lXqsciyorxsGVhkEHII9a+c67fwL4uOmyppuovmykbETsf8AVMe3+6f0r9e4Q4vnSnHAY6V4vSMn07J+XZ9PTbCpTvqj1eigHIor9yOYK43x94jOk2Is7R9t5dAjI6xp3P1PQfjXW3E6W0Ek0zBI41LMT2A614LrWqSazqdxezZ/eN8g/uqOg/Kvz/jXPJZVgfY0XapU0Xkur/Revka048zKFFFFfzedYUUUUAFFFFABRTJ5Y7WPzLqWO3j/AL0rhB+ZrOHibQ2cRjWtMLk4C/bI8/zraFCrUV4xb+RLnGLs2eV/Gb4pap4b1GHw94U/dXzwCa5uBHvdQ2dqIDkZxyTjuMV5t4S8f+P/AA9PblBd32mxEBrO7QBGTOSFLYKnk4INavxO8PXnif4l3D+FvNvZLiJl2PcqhlkgCiSOL5gSANpA4z823NVbP4Q6/NHJO2l2AHm+XFBcqUu5sg7XEUsgwMjGCQTgkA4r9qwFDKsLldOlWULyinLmSu2/ndWd0ux8VXni6uKlODdk7K21j6fsryHUbO3u7Vt0M8YkQ7geCOmRxkdD9Knrmfh0EXwLoAjgitttqFeKIAIrhiHxj/aBrpq/GcXSjQxFSlHaLa+5n2dKTnTjJ9UgooorlNAooooA9a+H/iQ6nZmwvHzdWyjax6vH2P1HT8q7Svn7SdSl0jUbe9g+9E2SP7y9x+Ir3u1uY7y2iuIG3RSqGU+oIr+juCc7eaYH2FZ3qUrL1j0f6P5dzkqR5Xc5L4kaobPRktIziS8faf8AcHJ/oPxrySuu+I96bnxD5GcpaxKmPc/Mf5iuRr8l4yx7x2c1VfSHur5b/jc3pq0Qooor4s0CiiigA+pAHqe1fO3xG+Pl015PpngR1gtomKPqJUM8pHB8sHhV9G5J7Yr2b4gXE1p4F8STWrFJk06baw6jK4J/ImviADAwK/TODMnwuN58ViI83K7JPa+92uvkfMZ3jauH5aVN2vq2W9R1S+1iYz6teXF9MTkvcStIf1NS6TokurNMyNDbWtuoe4uZ22xxKTgZOCSSeAoBJ7CqCo0jKkas7sQFVRkknoAK6HxGy6VBB4et2U/Y3Mt86nIkuyMMM9xGPkHvvPev1yb5OWnT0v8Agu/6LzZ8fH3rzn/w7Ft/DyTyA+GtbhvtQj+eOBYpLeZivP7osAGYY4AIb0FaHhnwj4p+JepvPZSy3To6JcX91cZ8kY4LEnccDoAPauPhmkgmjmt3aOaNg6OpwVYHIIP1r3LxZrmg+DYND8X+AJ2sPEGtW/mzWaYe3kjIxI0kZ+6fMBwB3BOOK8nH1sRh3GnRXNOd1FtXSa1tK1tGtnbprc7cNClVvOekY2bSe68rnvmgaNB4c0PTtIs2LwWMCwqzDBbHVj9Tk/jWjXFfCrxXqfjPwhFqmuW6QXJnkiV402LMq4w4XtySPTK12tfz3j6Vahi6lOu7zTd359T9DoThUpRlDZrQKKKK4TcKKKKACvV/hrqhutKkspGy9o/y5/uNyPyOa8orrPh3em18RpFnC3MTRn6gbh/L9a+y4Ox7wGc0tdJ+6/nt+NiKivEx/Edx9q17UZs53Ttj6DgfyrLqa7bfdTN/ecn9ahr5fF1XWxFSo95Nv72UtEGM9KMGvPfjbql7o/w9u7rSbuayuRdQKJYHKOAW5GRzzXm3wc+IUiWXigeLfErCT7Kpsvt12SfM2yZ2bj1zt6e1e5hMgrYzLpY6nLZ25bNvdf5/gebWzCnRxKoSW6vfp1PowgjqDSYPpXy38EfFWval8RdKtdT1jULy3kjm8yKe5d1bEZPIJx1FZn/Cb+JB8SPs517Ufs/9ueV5Rum2bPPxt25xjHGK9iXB1eOJnQ9srxipXs+rat+BxrOabpxqcj1dvy/zPrG9sYtSsbqzulLW9zC8MnH8LKQf518M+JfDt54U1y80jU0KT2shUE9HT+Fx6gjBrvvih4u16x+JuuW1hreoW1rDeqscUN0yoo2rwADjFfR/ibwToHjFIR4j06O8eEfu5QxSRQewZSDj26V6eXVpcIxp1K756ddXslrFpJ9Xr8VnscuKpxzhyjT0lTdtev8AVj468IpLFqcupRxlotLt5LqSTHEbBSsZ+vmMmPesEktyxLMepPUmvoL43R6J4K8JWXhbwza29g2oXIuLqOI5kaNB8pckknLHjP8AdOK8s0TSI7Twhf8AiW90hdWhjv4rOISu6xRkqWZn2EE/wKOcZNfoGAzKOMw/13kaU2lFO12r2XW2rb67HzuIwjo1PYc12ld9v6sXPC/wx1PxN4O1vxDaJI32IgWkCJk3JB/e49dq9MdTxUXw5+Ht9471+O0kinh0y3O69uChAjQH7gJ/iPQDtye1eq/B/wCKcuq2uoeHtUW3tLmO2mm0s2sQhRVVCTEFHQrjcD1POcmvINC8d+IxrGltdeI9SEH2uEyl719u3eNxbnGMZzmuGGIzatPF0WowcbOL1dk1pbTXZ/O/TQ6XSwdNUZ6tPf1T/Df7j7Qs7O30+0gtLCFLe1t4xHDEgwEUDAAqaqmn6xputLLLot/a6hDG+xntplkCnrg46cVbr8Aqqopv2ifN1vufoEXFpcuwUUUVmUFFFFABWhoVx9k1mwmHGydT+Geaz6kgYrMjDqDmt8PVdGtCot4tP7mG4+8XZdTL/dcj9agrU8SW/wBk1/UYem2diPoeR/OsurxdJ0cTUpveLa+52EndHmXx+/5Jpef9flv/AOhGvnDwn4E1fxpFqcuiC3K6bEJbjzptnykMeOOfumvo74/nHw0vM/8AP3b/APoRr5k0HxfrHhiO9j0DUXsUvUEdyECnzFGeDkH+8enrX7BwisQ8kl9XaU+d2vt9m+3l+J8TnHs1jl7VO1unzOv+Apz8UdHI/wCec3/otq47xUceKNcOcf8AEwuP/RjV2PwEwfijo4Xn93PwP+ubViYVvieQ4BU+ICCDyP8Aj4r6VS5M2rSttSj/AOlTPMa5sFCPeb/JHLQHdcQknOXXnPvX2L8S/iVZfD7Sl2hLrWrmP/RLQnj/AK6P6IP1PA7kfOPxaRY/it4hWNFRRfLhVUAD5U7Cu8+JPwg8VeIvHl3qGnLFc6ffsjLcS3CoLdQoG1gTnAwcYByK8TNaeBzOrg6uNmoQcZSs3v8AA+W/z9XY78G8RhYV4UFzSul+ep5hpel6/wDE/wAVOkbvfaneP5k9xJ92Ne7Mf4VHQD6AV7x46/sr4T/Cf/hHbQJeXGoK8EYmUfvXbBlmK+i8Y9Dt9K7jwL4M0jwFoy2GmSRyzyYa6umYB539fZR2Hb614t8dfDPiXWvGsNxY2U+pae9vHFZm3G9UP8SnH3TuycnrkeleRDM6We5rTw6fJh6XvJbczjt6Lsu1/l3PCTy/CSqW5qktH1tf+vvOU+Dfh661fxTJfQgraaTaTXE8nbJjZVT6kn8ga87hRpPLSNS7tgKoGST6AV9k+APBcPgzwQ2leZAdTvIXkvHEgwZmQgLn0XIX8z3rwvQvgh4xtNZ0yee1sliguopHYX8TEKrgkgA5PAr3MDxDha+KxNSc1GMeVRu7XS5rv5t/dY8+vltWFGlGMW27t26Xsej/ALOemXum6Drq6jZ3Fm0l7GUE8LRlgE5wCBmvZq53xX8QfD3hG7gh8Sag1rLco0kQ8l5MqDgn5Qcc1gf8Lw8Cf9Bp/wDwDl/+Jr8sx1DMc5xEsbDDytPXRNrRW0dvI+qoTw2CpqhKorx7tI9BoritJ+Lfg7XNTtNN0zVmmvLuQRQobWRdznoMlcD8ar3Hxo8EWtxNBPrLLLE7RuPskpwwOCM7fUV5/wDY+ZOXJ7Cd97cr2+46PrmGtze0VvVHe0V59/wvDwH/ANBtv/AOX/4mug8L+OdB8Zm6Hhu+N4bUKZswvHt3Zx94DPQ1nWyvH4em6lWjKMVu3FpFQxWHqS5YTTfqdDUkC75kUdScVHWhoNubvWrCAfxzqD9M5NcmHpOvWhTW8ml97OnY3/iRZNbeIBcY+S6hVs/7S/Kf5CuQr1z4j6Wb3RVuo1zJZtvP+4eG/ofwryOvruM8A8DnNVpe7U95fPf8bmdN3iMlgjuYzFPCk8bdUkQOp/A1X/sbTkP/ACDLJT/16oP6V598e5ZYfhxcvbvJG4vLc7o2IIG49xXzfpnxH8W6Su3TvEeoxoONrXBkH5NmrybhvE5rgvrFCty6tWd7aW6r/I8fG5nSwlb2c4X0vc+gPiT8WtN+H9/Hp3hzTbC91pebk7AiW6n+ElcEsfTPA61534a8dXPi3xPbwaH8PvDU+sTzed53kOCjZyZWbPAB5J/rXl+k6VqXinWYbHTYpL7UbyQ4yclmPJZmPQdSSa7HxNfS+BLV/DXhv7XaMHH9p6r5bwPeSr/BGxwVhU9P7x+Y9q/Q6WS4PBU44Wkuas1q22vm0mtL7Lr97Xzrx1evJ1paQT2svuWm/d/8BHtniT4FaV4n8R3euX2rX0FzdSLLLFCiFAwAB2kjOOO9dP8AE3TW1bwHrdlHc21m0sKgTXU3lRJh1PzP26Yr5a074s+NNLUC08RXkiL0W4ImH/j4NfRHxGu5dQ+Ct9eXJBmudNtpZCBgFmMZPHbk18hj8tzPBYzBRxVZTippRsttV0svLqz2cPisLXo1nSg07Nvz3Pn3/hXFx38T+Fv/AAdJ/hS/8K5uR08T+Fv/AAdL/hXH2H2T7bB/aYmNl5g8/wAjHmbM87c8Z9M11u74cf8APPxZ/wB923+FfpVb61SaXO36QT/U+Yp+yqK9kvWX/AIb/wABT6fY3F03iHw5cLBGXMVvqyySPjsq45PtWJ4ddh4i0chmBF/B3/6aLXRBvhwOkfiz/vq2/wAKs6fefDqy1GzuY4vFTtBOkiqz22CVYEA45xxUrEVVSlGcJSb/ALtv1G6UXNOMkvnf9DtP2nj/AMVFoXIH+hy4/wC/lcTa638N0toEvPCmsTXCxqJXTVgqs+BuIGOATnivozx54t8FaHfWkXji3gnuZYTLB5un/aMIW5wcHHI6V4h4z+JGkDxHB/whOnaMdE8uPzPO0OLdvyd/3lz0xXyWQ4iviMDRwvsJpRTfMpOMXr3W57GYU6dOvOr7SOrWlk2vvLfgHW/h83jXQE0nwxq1pfNfRiCaXVBIkbk8MVxyPasWLwZ4n0rxXfahL4NOtQfaJ8W93HuicMzYbhgeM5Fey6D4++F15run2+h2VpHqM1wkdqy6R5ZEhOF+bbxyeteE61Y+CotW1JJde17zkuZgwGmRldwc5APm9M98V14GvVrYionSnTvFK01Ober2d00jKvThClFqUZWb+GyXTy1Ow8rW/wDojuif+Az/APxdelfCNdQWXVxqPgyx8Jrti2NaxlDOctkHLHp/Wvl7RU0me5kXxDe3tnbhMxtZwLMxbPQhmXAxnnNfQPwAtdChufEEnh3UdSvWMcKzLe2iwhRliCu12z39K5eI8GsPl1W/l0nbddXNx+81y2u6uIh8+se3ome3V1nw6sjdeI0lxlLaJnJ9yNo/mfyrk69Y+Gulm00iS9kHz3b5X/cXgfrk18VwdgHjs5pae7D3n8tvxsfX1HaJ2U8KXEMkMyho5FKsp7g9a8F1zSpNF1S4spc/u2+Rj/Eh6H8q9+rkPHnhw6vYC6tE3XlsCQB1dO6/XuP/AK9fr3GmSPNcB7Wkr1Kd2vNdV+q9LdTCnLlZ4+QGBDAMD1BGQawtS8EeGdYz/aegabcE9WNsqt/30uDW9RX860q9ag705OL8m1+R0ShCatJJnPeG/Avh7whNcz+HdMjsprgBZH3s7bf7oLE4HsK6CRVmTZMqyp/ddQw/I0tFOriK1ep7SrNyl3bu/vCFOFOPLFJI5rU/h54T1nd/aPh3TpWbq6wCNvzXBrSv/DumanoL6Fe22/SmhSAwh2XCLjaAwOeNo59q06Kt43FPlvUl7rutXo+67EqjSV/dWu+m551/wovwL/0CZv8AwNl/xo/4UX4F/wCgTN/4Gy/416LRXd/beaf9BE//AAJ/5mH1HCf8+4/cjzr/AIUX4F/6BM3/AIGy/wCNKvwM8CqysNJlJBBGbyX/ABr0Sij+280/6CJ/+BP/ADD6jhP+fa+5HM+Jfh/4c8YXMFz4i0/7XNBF5UbCZ02pnOMKR3NYn/CkPAn/AEBD/wCBcv8A8VXoNFZUs2zCjBU6deSitkpNIuWFw85c0qab9EcRp3wg8G6Tf2t/p+kGK7tZVlhf7VKdrqcg4LYPNb0nhDw9NI8s2g6XJI7FmdrKMliepJxWzRWdXMcbWfNUrSb/AMT/AMyo4ejBWjBL5I47xN8ONE1vw/qOnabpel6bd3MWyK6WyTMTZByMAHtjj1rK+Fnwxn+HLaq1zqcOoG+EQAjhKbNm7rknOd1ejUdK2WbY36rPCOd4Sd3fV9Or16Ij6pQ9qq3L7yL2j6XLrOpW9lDnMrfM391e5/KverW2jtLeKCBdsUahEHoAOK5PwB4bOlWRvbxNt3cqMAjlE7D6nqfwrsq/eeCskllWB9tWVqlTV+S6L9X93QVSXMwoPNFFfoJkeXePPCRtJJNU02P/AEdjm4jUfcP94ex7+lcFX0ayh1KsAQRgg968v8XeBHtWkvdEjLwctJAvJT3X1Ht2r8S4v4QnGUsfgI3T1lFdPNeXddN9tumnU6M4Kiiivxw3CiiigAooooAKKKKACiiigAooooAK7nwL4Ra+lj1PUY/9FQ5gRh/rGH8R9h+tHhLwJJfNHe61GY7XqkB4aT3PoP516miCNQqAKoGAAMACv2DhDhCdSccfj42itYxfXs35dl19N8KlToh1FFFfuBzBRRRQAUUUUAch4k8B2msFriyK2d4eSQPkc+49fcV5fqui32iy+XqNu0QJ+VxyjfRq9/qOe3iuYminjSSNuquoIP4V8BnfBeAzVurS/d1H1Wz9V+qt53NY1HE+daK9c1T4caZekvYs9hIeyfMn/fJ/oa5O9+G+sW5P2UwXi/7L7T+Tf41+R4/gzOcC3al7SPeOv4b/AIG6qRZx9Falx4b1e0z9o064QDuE3D8xVFrSdDh4ZFPupFfKVcJiKDtUpuPqmjRO+xDRUy2k7/chkb6KTV238Oatdf8AHvp1w49dmB+ZpU8LiKztTpuT8k2K6RmUV19l8ONZuSPtHkWa9y77j+S/411elfDfTLMh793v5B2b5U/IdfxNfV4DgzOcc1elyLvLT8N/wIdSKPNNL0a+1mby9Ot2mI+83RV+rdK9O8N+AbTSilzqJW8vByOPkjPsO59zXWQW8VtEsVvGkUa8KiLgD8Klr9cyPgrA5VJVq37your2Xov1d/KxhKo5ABiiiiv0AyCiiigD/9k=',
+    tlj:     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAkFBMVEUBaDsAaTsAZzr//8EBaD0AXzX8/7wAUCv1+7MCVzAAUiz+/8FJl1tlp2cPbD8AZzgBYjcvg09ysWsATCj1+7UCWS+q1YY0h0/5/q7y+6ju+6vV6p87hk4PckOWxX+m0ITk9qTG45NXnV8ld0a22Iz//sVHl1ptrmyby38jeUiNw3gARSEkbD59uXHb75rl9ay9KyjCAAABcElEQVQ4je1S63aDIAwmEFHxPqt2VLtet7W29f3fbiTUbee0e4PlBxr4LiFEiP+YA5r4HqZ0GW8Z2kOgBCBu9RydBEZItdSvNkRKUJhV3wxV3g3Neh1I5pi3TalS6Q1EvdkmWpWJUrtwvwcJUgQvUa4qSXQhMYwOea+luvQqXR1zJ4DBNRpUNRdZZrVMdam6urWDysliVnAlOQUswQOCbIEEEGSBbOExhWBA5QA5A2YFRKoC6VrvWjBAMED+tgBay9mCFJAtpOoK3xSuM9UFKTieS+KBFBJnwQC+qlNIGHA0ZXbsvUUhfhSyyKg0+LCux4tt15hPe1IDCHQmSO03rd0vz2O76bO0uqy36fJ8XRrmepvA3qabHafbNE1Wjyt9MLptHBOoEw4DdegCaDFjZLvTTtuQDx+GA+n5Ix2dDf45PxCHcR3QsEh4cuw/8j5ZzwBAXADJv481MAuK5+z7vbl2yT5/oRD86bNj/8DfRRZfX78VgSubbN4AAAAASUVORK5CYII=',
+    paris:   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAALVBMVEVHcEwCNYYCNYYCNYYCNYYCNYYCNYYCNYYCNYYCNYYCNYYCNYYCNYYCNYYCNYZ/YahLAAAADnRSTlMABSWy3JTHpPMSPIFxVzFmZlMAAAUdSURBVHic7ZvbmqsgDEblIIKA7/+4u3Y3HCOihvZm8s3ctDOyhCT8BJimP/uz3Iyd5/nmr7XO+ZWbRwBcbo9NitmvdzEoAN4Qynr2S4A3hF2vM1ACbJte/G8BdoT1twAvm/kdAClumZK6JlBXxgEA5msdB8aY4d6KEsP2B+VDgI8Zb1VGILqHIQDcCuKMQWTD0EtABvCydUlGQnVGAyXAxHwSU6rPD2gBJj4nftBFQAqwm43D0OXY5ACTjwQ9+YAeICGQHaEwAGBy+sIg4ACsy44JAECfxyIO4DqmgWWZ7ZEQCjlJ3ARYtk7TUjhkoMMce94FDwHejcx1K2EQTn2LAGDXYmUzBrrgNBBIAJDM7+Eb9x2ATRYEBqbnMzekAqj62n4+1yczQhNA2qbNQiXzbzH3rPDVST5uAqgTF2ZmnSNCPtphDOxAgNf8O5kwXEVnw8R88pBnALuZIAHyLoA4kG0neA4wMUi8uQbi0DHtZEgBwD9+kIei+Xyq215IABDnnqwpJrFPxwBA5s8dHsKgnQtJACDmc/0hvgjweciS/T0AtBMBCQD/NcDPe8CjPvBFJ8Sj4HthyD7vmqccBoloeCaMWT+TBCEVt0UZAQCHwV6yj1fAGj0ZraE2kvc1SKITTfYUwLhQElD5N8dRyNfEfBOAc26Of/jqkppIIUvD2qT2wXnTiW0NgE02LS+NFeHe0COo5H2sioueZvCI3DOHAehybbQ25MgAAF2V6kEoYkszcgBdV4fDqgCbiYgBlK39POhUNA3C07V8BQH8lgC6x6QSDi1RxNU58mXMMiaxfAyzVHFo3OCJKsjkg8U5AKD/TGFhVYbF4BcAeFI4R2vWgwFMVjWXiB4aC8Cz9vcYrbx0KMAqt9KqzYuRAK5uvy7cDwMwPnG/dKosZupBAGwVSaPSu3T7JOuDEQCMO1W+85q4Y1ZAogZgL2UkcnHy3+9Ysn2SpvpEbyWWPZN32kvS2aXevFw+78ts/MxXALk9VkTR0qppKJim8+JYAOkyh4ujEFsYCaDKTdugDRNxNhBA15k/1M3jCmVkD+illAgsugH/AgAyAcdBAHlkVWpQW8AAtOqxIgqrDdO11EfZxld7bWh6Ns+M4X5O8mA1CkGEYqUKkgrJlO/el54IC3VUolIB7AhHUhQqKOiGOh3AK+1J/E0ZqHRslUAJEJYD+mChiNWrSAFCXxcN8UbFjhQgdEE5BgL/nB4AlkSi+EeYkpCFCi0AJP7S3RsFK1oAcIIyEGFoEBVGDCBwAP81gF/3wJEPAMBwH4Cs/zMnhDctw+1bYcgPtghMY/OEEiAuRAofPAKjBgilqdLZw2SE7F0Q6oG4DCpf9CvTcbI0r1QhvrvdA9CvCZPCRFWbC1W7y5JMLz1WHK2tFyfBNy6L0jtWtx/KhmjZkhqglt5xaVSqhBEAyFHWWDdFdzBJAZSb6pcM0SnRmKID0MqjYxwcFN/EJgHQWi2O4y8YFkwHx9qenKT62H7P5DBjxVc52ESnnY4rCyngcAd3KEBSJTvcQx8KkB5yPnrUQADTdcx7GABLN04aBztHAbC0cF8etxwPwNb0wkWr/TEAfMkq581TLPQAxuel85PLHvgll9sAe71sy2zpPdT6FAC/76Pd2TULAFAuNVhjui6zdt512VaZFv2n60eY9B23TMYBqJ7mhwFo0df8GAD9vvl48SwiXePi2r1LSoBdmPmrl3D5fO+iYXnbpKnLmtZ3oaZlt5r9s9/ZP/9zJ4RbnlxKAAAAAElFTkSuQmCC',
+    coupang: 'data:image/png;base64,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',
+};
+
+// logo: 이미지 키 / mono: 글자 배지 [글자, 색] / emoji
+const DEFAULT_FAVS = [
+    { id:'protiner',   cat:'meal',    name:'프로티너',   item:'박스',     price:12300, logo:'protiner' },
+    { id:'sinsun-sw',  cat:'meal',    name:'신선식탁',   item:'샌드위치', price:8500,  logo:'sinsun' },
+    { id:'sinsun-sd',  cat:'meal',    name:'신선식탁',   item:'샐러드',   price:11000, logo:'sinsun' },
+    { id:'subway',     cat:'meal',    name:'써브웨이',   item:'샌드위치', price:9000,  logo:'subway' },
+    { id:'tlj',        cat:'meal',    name:'뚜레쥬르',   item:'샌드위치', price:7000,  logo:'tlj' },
+    { id:'paris',      cat:'meal',    name:'파리바게뜨', item:'샌드위치', price:7000,  logo:'paris' },
+    { id:'baetsal',    cat:'meal',    name:'뱃살도둑',   item:'샐러드',   price:13000, logo:'baetsal' },
+
+    { id:'coffee',     cat:'snack',   name:'커피',       price:3500, emoji:'☕️' },
+    { id:'gum',        cat:'snack',   name:'껌',         price:600,  emoji:'🫧' },
+    { id:'nuts',       cat:'snack',   name:'견과류',     price:1200, emoji:'🥜' },
+    { id:'zero',       cat:'snack',   name:'제로음료',   price:2000, emoji:'🥤' },
+    { id:'chips',      cat:'snack',   name:'과자',       price:2000, emoji:'🍪' },
+    { id:'candy',      cat:'snack',   name:'사탕',       price:1500, emoji:'🍬' },
+
+    { id:'coupang',    cat:'grocery', name:'쿠팡',       price:24000, logo:'coupang' },
+];
+
+const CATS = [
+    { id:'meal',    label:'식사',   color:'var(--mulled)',   hex:'#3D8F3A' },
+    { id:'snack',   label:'간식',   color:'var(--saffron)',  hex:'#A98E1A' },
+    { id:'grocery', label:'식료품', color:'var(--sky)',      hex:'#5BA3C4' },
+    { id:'etc',     label:'기타',   color:'var(--sherbet)',  hex:'#E2A096' },
+];
+
+const TABS = [
+    { id:'money',   label:'가계부', color:'var(--mulled)',
+      icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg>' },
+    { id:'goal',    label:'목표',   color:'var(--postbox)',
+      icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>' },
+    { id:'event',   label:'일정',   color:'var(--sky)',
+      icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>' },
+    { id:'mood',    label:'기분',   color:'var(--sherbet)',
+      icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8"/><circle cx="9" cy="10" r=".9" fill="currentColor"/><circle cx="15" cy="10" r=".9" fill="currentColor"/></svg>' },
+    { id:'learn',   label:'배운 것', color:'var(--saffron)',
+      icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5C6.5 4.5 9.5 4.5 12 6.5c2.5-2 5.5-2 8-1V18c-2.5-1-5.5-1-8 1-2.5-2-5.5-2-8-1z"/><path d="M12 6.5V19"/></svg>' },
+    { id:'thought', label:'생각',   color:'var(--crepe)',
+      icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16.5V20h3.5L18 9.5 14.5 6z"/><path d="M13 7.5l3.5 3.5"/></svg>' },
+];
+
+const MOODS = [
+    { v:1, emoji:'😣', label:'최악', color:'#74131D' },
+    { v:2, emoji:'😕', label:'별로', color:'#7E2B46' },
+    { v:3, emoji:'😐', label:'보통', color:'#D4AE88' },
+    { v:4, emoji:'🙂', label:'좋음', color:'#A8A35E' },
+    { v:5, emoji:'😆', label:'최고', color:'#3D8F3A' },
+];
+
+/* ════════════════════════════════════════════
+   저장소 (이 기기 브라우저에 저장)
+   ════════════════════════════════════════════ */
+const KEY = 'daylog.v1';
+let store = load();
+function load(){
+    try{
+        const s = JSON.parse(localStorage.getItem(KEY));
+        if(s && s.days) return s;
+    }catch(e){}
+    return { days:{}, favs:null, customLogos:{} };
+}
+// 미리보기·시크릿 창처럼 브라우저가 저장을 막는 환경인지 미리 확인
+const canStore = (() => {
+    try{ localStorage.setItem('daylog.test','1'); localStorage.removeItem('daylog.test'); return true; }
+    catch(e){ return false; }
+})();
+let warned = false;
+// 화면에서 무언가 바뀔 때마다 호출: 바뀐 날짜를 찾아 서버로 보낼 목록에 올리고, 이 기기에도 저장
+function save(){
+    markDirty();
+    persist();
+    schedulePush();
+}
+function persist(){
+    if(!canStore){
+        if(!warned && !user){ warned = true; toast('이 화면에선 기기 저장이 안 돼요 · 로그인하면 서버에 저장돼요'); }
+        return;
+    }
+    try{ localStorage.setItem(KEY, JSON.stringify(store)); }
+    catch(e){ toast('저장 공간이 부족해요 · 로고 사진을 줄여보세요'); }
+}
+
+/* ════════════════════════════════════════════
+   서버 동기화 (Supabase · 표: daylog)
+   한 줄 = 하루치. 'settings' 줄 = 즐겨찾기·로고
+   같은 날짜를 두 기기에서 고치면 나중에 고친 쪽이 남음
+   ════════════════════════════════════════════ */
+// Supabase 대시보드 > Connect 에서 복사. Publishable key 만 (Secret key 절대 금지)
+const SUPABASE_URL = "https://tbvbumvwsjqjskwwycxa.supabase.co";
+const SUPABASE_KEY = "sb_publishable_-KX_irHHRE1LQcu1I2uAoA_SIbLNg8y";
+const db = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+let user = null, pushT = null, pushing = false, channel = null;
+let syncState = 'off';   // off · syncing · ok · error
+
+store.meta ||= {};       // key → { at: 마지막 수정 시각(ms), dirty: 아직 서버에 안 올라감, h: 내용 지문 }
+
+function docsNow(){
+    const m = {};
+    for(const k in store.days) m[k] = store.days[k];
+    if(store.favs || Object.keys(store.customLogos||{}).length || store.meta.settings)
+        m.settings = { favs: store.favs, customLogos: store.customLogos || {} };
+    return m;
+}
+function hash(s){ let h = 5381; for(let i=0;i<s.length;i++) h = (h*33 ^ s.charCodeAt(i)) >>> 0; return h.toString(36) + s.length; }
+
+function markDirty(){
+    const now = Date.now(), docs = docsNow();
+    for(const k in docs){
+        const h = hash(JSON.stringify(docs[k]));
+        const m = store.meta[k];
+        if(!m || m.h !== h) store.meta[k] = { at: now, dirty: true, h };
+    }
+}
+
+function schedulePush(){
+    if(!user) return;
+    clearTimeout(pushT);
+    pushT = setTimeout(push, 700);
+}
+
+async function push(){
+    if(!user || pushing) return;
+    const docs = docsNow();
+    const keys = Object.keys(store.meta).filter(k => store.meta[k].dirty && docs[k]);
+    if(!keys.length){ setSync('ok'); return; }
+    pushing = true; setSync('syncing');
+    const sent = keys.map(k => ({ k, at: store.meta[k].at }));
+    const { error } = await db.from('daylog').upsert(
+        keys.map(k => ({ user_id: user.id, key: k, data: docs[k], updated_at: new Date(store.meta[k].at).toISOString() })),
+        { onConflict: 'user_id,key' }
+    );
+    pushing = false;
+    if(error){ console.error(error); setSync('error'); return; }
+    // 보내는 사이 또 고친 날짜는 dirty 로 남겨 다음 번에 다시 보냄
+    sent.forEach(({k, at}) => { if(store.meta[k]?.at === at) store.meta[k].dirty = false; });
+    persist();
+    if(keys.some(k => store.meta[k].dirty)) schedulePush(); else setSync('ok');
+}
+
+// 서버 줄 하나를 이 기기에 반영 (이 기기 쪽이 더 새것이면 무시)
+function applyRow(row){
+    const at = Date.parse(row.updated_at);
+    const m = store.meta[row.key];
+    if(m && (m.dirty || m.at >= at)) return false;
+    if(row.key === 'settings'){
+        store.favs = row.data.favs || null;
+        store.customLogos = row.data.customLogos || {};
+    }else{
+        store.days[row.key] = row.data;
+    }
+    store.meta[row.key] = { at, dirty:false, h: hash(JSON.stringify(row.key === 'settings' ? { favs: store.favs, customLogos: store.customLogos } : row.data)) };
+    return true;
+}
+
+async function pull(){
+    if(!user) return;
+    setSync('syncing');
+    const { data, error } = await db.from('daylog').select('key,data,updated_at');
+    if(error){ console.error(error); setSync('error'); return; }
+    let changed = false;
+    data.forEach(r => { if(applyRow(r)) changed = true; });
+    persist();
+    if(changed) refresh();
+    push();
+}
+
+// 입력 중인 칸이 있으면 캘린더만 새로 그려서 타이핑이 끊기지 않게
+function refresh(){
+    if(document.activeElement?.matches('#pane input, #pane textarea')) renderCalendar();
+    else render();
+}
+
+function listen(){
+    channel?.unsubscribe();
+    channel = db.channel('daylog-' + user.id)
+        .on('postgres_changes', { event:'*', schema:'public', table:'daylog', filter:`user_id=eq.${user.id}` }, p => {
+            if(p.new?.key && applyRow(p.new)){ persist(); refresh(); }
+        })
+        .subscribe();
+}
+
+async function onUser(u){
+    if(u?.id === user?.id) return;
+    user = u;
+    if(!user){ channel?.unsubscribe(); channel = null; setSync('off'); return; }
+    // 다른 사람이 쓰던 기기면 그 기록이 내 계정에 섞이지 않게 비우고 시작
+    if(store.owner && store.owner !== user.id) store = { days:{}, favs:null, customLogos:{}, meta:{} };
+    store.owner = user.id;
+    persist();
+    listen();
+    await pull();
+}
+
+function setSync(s){
+    syncState = s;
+    const b = $('syncBtn'); if(!b) return;
+    b.dataset.s = s;
+    b.title = { off:'로그인하면 서버에 저장돼요', syncing:'저장 중…', ok:'서버에 저장됨', error:'서버 연결 안 됨 · 나중에 다시 올려요' }[s];
+}
+
+if(db){
+    db.auth.onAuthStateChange((event, session) => {
+        if(['INITIAL_SESSION','SIGNED_IN','SIGNED_OUT'].includes(event))
+            setTimeout(() => onUser(session ? session.user : null), 0);
+    });
+    // 폰에서 앱으로 다시 돌아오거나 인터넷이 다시 연결되면 맞춰보기
+    document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') pull(); });
+    window.addEventListener('online', () => pull());
+}
+function favs(){
+    if(!store.favs) store.favs = DEFAULT_FAVS.map(f => ({...f}));
+    return store.favs;
+}
+function day(key, create){
+    if(!store.days[key]){
+        if(!create) return null;
+        store.days[key] = {};
+    }
+    return store.days[key];
+}
+const uid = () => Math.random().toString(36).slice(2,9);
+
+/* ════════════════════════════════════════════
+   상태
+   ════════════════════════════════════════════ */
+const today = new Date(); today.setHours(0,0,0,0);
+let view = new Date(today.getFullYear(), today.getMonth(), 1);
+let sel = new Date(today);
+let tab = sessionGet('tab') || 'money';
+let moneyCat = 'meal';
+let editFavs = false;
+
+function sessionGet(k){ try{ return localStorage.getItem('daylog.ui.'+k); }catch(e){ return null; } }
+function sessionSet(k,v){ try{ localStorage.setItem('daylog.ui.'+k, v); }catch(e){} }
+
+const pad = n => String(n).padStart(2,'0');
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const won = n => n.toLocaleString('ko-KR');
+const short = n => n >= 10000 ? (Math.round(n/1000)/10).toString().replace(/\.0$/,'') + '만' : won(n);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $ = id => document.getElementById(id);
+
+/* ════════════════════════════════════════════
+   캘린더
+   ════════════════════════════════════════════ */
+function dayTotal(d){ return (d?.spend||[]).reduce((s,e)=>s+e.price,0); }
+
+function renderCalendar(){
+    $('yearLabel').textContent = view.getFullYear() + '년';
+    $('monthLabel').textContent = (view.getMonth()+1) + '월';
+
+    const first = new Date(view);
+    const start = new Date(first); start.setDate(1 - first.getDay());
+    const weeks = Math.ceil((first.getDay() + new Date(view.getFullYear(), view.getMonth()+1, 0).getDate()) / 7);
+    let html = '';
+    for(let i=0; i<weeks*7; i++){
+        const d = new Date(start); d.setDate(start.getDate()+i);
+        const k = keyOf(d);
+        const data = store.days[k];
+        const cls = ['day'];
+        if(d.getMonth() !== view.getMonth()) cls.push('out');
+        if(d.getDay() === 0) cls.push('sun');
+        if(+d === +today) cls.push('today');
+        if(+d === +sel) cls.push('sel');
+
+        let meta = '';
+        if(tab === 'money'){
+            const t = dayTotal(data);
+            if(t) meta = `<div class="meta">${short(t)}</div>`;
+        }else if(tab === 'mood' && data?.mood?.v){
+            meta = `<div class="meta emoji">${MOODS[data.mood.v-1].emoji}</div>`;
+        }
+        if(!meta) meta = `<div class="dots">${dotsFor(data)}</div>`;
+
+        html += `<button class="${cls.join(' ')}" data-k="${k}"><span class="num">${d.getDate()}</span>${meta}</button>`;
+    }
+    $('grid').innerHTML = html;
+}
+
+function dotsFor(d){
+    if(!d) return '';
+    const has = {
+        money: d.spend?.length, goal: d.goals?.length, event: d.events?.length,
+        mood: d.mood?.v, learn: d.learned?.length, thought: d.thought?.trim(),
+    };
+    return TABS.filter(t => has[t.id]).slice(0,4).map(t => `<i style="background:${t.color}"></i>`).join('');
+}
+
+$('grid').addEventListener('click', e => {
+    const b = e.target.closest('.day'); if(!b) return;
+    const [y,m,dd] = b.dataset.k.split('-').map(Number);
+    sel = new Date(y, m-1, dd);
+    if(sel.getMonth() !== view.getMonth()) view = new Date(y, m-1, 1);
+    render();
+});
+$('prevBtn').onclick = () => { view.setMonth(view.getMonth()-1); renderCalendar(); };
+$('nextBtn').onclick = () => { view.setMonth(view.getMonth()+1); renderCalendar(); };
+$('todayBtn').onclick = () => { view = new Date(today.getFullYear(), today.getMonth(), 1); sel = new Date(today); render(); };
+
+// 좌우 스와이프로 월 이동
+(() => {
+    let x0 = null;
+    const cal = document.querySelector('.cal');
+    cal.addEventListener('touchstart', e => x0 = e.touches[0].clientX, {passive:true});
+    cal.addEventListener('touchend', e => {
+        if(x0 === null) return;
+        const dx = e.changedTouches[0].clientX - x0; x0 = null;
+        if(Math.abs(dx) > 50){ view.setMonth(view.getMonth() + (dx<0?1:-1)); renderCalendar(); }
+    });
+})();
+
+/* ════════════════════════════════════════════
+   날짜 헤더 + 탭
+   ════════════════════════════════════════════ */
+function renderHead(){
+    const w = '일월화수목금토'[sel.getDay()];
+    $('dateTitle').textContent = `${sel.getMonth()+1}월 ${sel.getDate()}일 ${w}요일`;
+    const diff = Math.round((sel - today) / 864e5);
+    $('dateSub').textContent = diff === 0 ? '오늘' : diff === -1 ? '어제' : diff === 1 ? '내일' : diff < 0 ? `${-diff}일 전` : `${diff}일 후`;
+}
+
+function renderTabs(){
+    $('tabs').innerHTML = TABS.map(t =>
+        `<button class="tab ${t.id===tab?'on':''}" data-t="${t.id}" style="--c:${t.color}">${t.icon}<span>${t.label}</span></button>`
+    ).join('');
+}
+$('tabs').addEventListener('click', e => {
+    const b = e.target.closest('.tab'); if(!b) return;
+    tab = b.dataset.t; sessionSet('tab', tab); editFavs = false;
+    render(); window.scrollTo({ top: document.querySelector('.date-head').offsetTop - 70, behavior:'smooth' });
+});
+
+/* ════════════════════════════════════════════
+   로고
+   ════════════════════════════════════════════ */
+function logoHTML(f, small){
+    const sz = small ? ' small' : '';
+    const custom = store.customLogos?.[f.id];
+    if(custom) return `<div class="logo${sz}"><img src="${custom}" alt=""></div>`;
+    if(f.emoji) return `<div class="logo tile${sz}">${f.emoji}</div>`;
+    // 예전에 저장된 즐겨찾기도 새 기본 로고를 쓰도록 id로 다시 찾음
+    const lk = f.logo || DEFAULT_FAVS.find(d => d.id === f.id)?.logo;
+    if(lk && LOGO[lk]) return `<div class="logo${sz}"><img src="${LOGO[lk]}" alt="${esc(f.name)}"></div>`;
+    if(f.mono) return `<div class="logo mono${sz}" style="background:${f.mono[1]}">${f.mono[0]}</div>`;
+    if(f.emoji) return `<div class="logo tile${sz}">${f.emoji}</div>`;
+    const c = CATS.find(c => c.id === f.cat) || CATS[3];
+    return `<div class="logo mono${sz}" style="background:${c.hex}">${esc((f.name||'?').slice(0,2))}</div>`;
+}
+
+/* ════════════════════════════════════════════
+   가계부
+   ════════════════════════════════════════════ */
+function renderMoney(){
+    const k = keyOf(sel);
+    const d = day(k);
+    const spend = d?.spend || [];
+    const total = dayTotal(d);
+
+    // 이번 달 합계
+    const ym = k.slice(0,7);
+    let month = 0;
+    for(const key in store.days) if(key.startsWith(ym)) month += dayTotal(store.days[key]);
+
+    const byCat = CATS.map(c => ({...c, sum: spend.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.price,0)}));
+    const bar = total ? byCat.filter(c=>c.sum).map(c => `<i style="width:${c.sum/total*100}%;background:${c.color}"></i>`).join('') : '';
+    const legend = byCat.filter(c=>c.sum).map(c => `<span style="--c:${c.color}">${c.label} ${won(c.sum)}</span>`).join('');
+
+    const catIdx = CATS.findIndex(c => c.id === moneyCat);
+    const list = favs().filter(f => f.cat === moneyCat);
+
+    const favHTML = list.map(f => `
+        <div class="fav" data-fav="${f.id}" role="button">
+            ${editFavs ? `<button class="del" data-delfav="${f.id}">×</button>` : ''}
+            ${logoHTML(f)}
+            <div class="nm">${esc(f.name)}${f.item ? `<small>${esc(f.item)}</small>` : ''}</div>
+            ${editFavs
+                ? `<div class="stepper"><button data-fstep="${f.id}" data-d="-100">−</button><i></i><button data-fstep="${f.id}" data-d="100">+</button></div><div class="pr">${won(f.price)}</div>`
+                : `<div class="pr">${won(f.price)}원</div>`}
+        </div>`).join('') +
+        `<button class="fav add" id="addFav">＋<br>즐겨찾기 추가</button>`;
+
+    const rows = spend.length ? spend.map(e => {
+        const f = favs().find(x => x.id === e.favId) || { name:e.name, cat:e.cat };
+        const c = CATS.find(c => c.id === e.cat);
+        // 즐겨찾기 항목은 '브랜드 / 메뉴 · 분류' 두 줄로
+        const title = e.favId && f.name ? f.name : e.name;
+        const sub = (e.favId && f.item ? esc(f.item) + ' · ' : '') + c.label;
+        return `<div class="row">
+            ${logoHTML({...f, cat:e.cat}, true)}
+            <div class="body"><div class="t">${esc(title)}</div><div class="s" style="color:${c.color}">${sub}</div></div>
+            <div class="stepper"><button data-step="${e.id}" data-d="-100">−</button><i></i><button data-step="${e.id}" data-d="100">+</button></div>
+            <div class="amt">${won(e.price)}</div>
+            <button class="x" data-del="${e.id}" aria-label="삭제">×</button>
+        </div>`;
+    }).join('') : `<div class="empty">아래 즐겨찾기를 누르면 바로 기록돼요</div>`;
+
+    $('pane').innerHTML = `<div class="pane" style="--accent:var(--mulled)">
+        <div class="card total">
+            <div>
+                <div class="k">오늘 쓴 돈</div>
+                <div class="v">${won(total)}<small>원</small></div>
+            </div>
+            <div class="month">${sel.getMonth()+1}월 누적<b>${won(month)}원</b></div>
+        </div>
+        ${total ? `<div style="padding:0 4px"><div class="bar" style="background:var(--fill)">${bar}</div><div class="legend" style="color:var(--ink)">${legend}</div></div>` : ''}
+
+        <div class="section-label">내역 <span>${spend.length ? spend.length + '건' : ''}</span></div>
+        <div class="list">${rows}</div>
+
+        <div class="seg" id="seg">
+            <div class="thumb" style="left:calc(${catIdx} * (100% - 4px) / 4 + 2px);width:calc((100% - 4px) / 4)"></div>
+            ${CATS.map(c => `<button data-cat="${c.id}" class="${c.id===moneyCat?'on':''}">${c.label}</button>`).join('')}
+        </div>
+
+        <div class="section-label">즐겨찾기 <button id="editFavs">${editFavs ? '완료' : '가격 편집'}</button></div>
+        <div class="favs">${favHTML}</div>
+
+        <div class="composer" style="--accent:${CATS[catIdx].color}">
+            <input id="mName" placeholder="${CATS[catIdx].label} 직접 입력" enterkeyhint="next">
+            <input id="mPrice" class="num" inputmode="numeric" placeholder="금액">
+            <button class="go" id="mAdd">추가</button>
+        </div>
+    </div>`;
+
+    const p = $('pane');
+    p.querySelector('#seg').onclick = e => { const b = e.target.closest('[data-cat]'); if(b){ moneyCat = b.dataset.cat; renderMoney(); } };
+    p.querySelector('#editFavs').onclick = () => { editFavs = !editFavs; renderMoney(); };
+    p.querySelector('#addFav').onclick = () => openFavSheet();
+
+    p.querySelector('.favs').addEventListener('click', e => {
+        const del = e.target.closest('[data-delfav]');
+        if(del){ e.stopPropagation(); return deleteFav(del.dataset.delfav); }
+        const st = e.target.closest('[data-fstep]');
+        if(st){ e.stopPropagation(); const f = favs().find(x=>x.id===st.dataset.fstep); f.price = Math.max(0, f.price + +st.dataset.d); save(); renderMoney(); return; }
+        const card = e.target.closest('[data-fav]'); if(!card) return;
+        const f = favs().find(x => x.id === card.dataset.fav);
+        if(editFavs) return openFavSheet(f);
+        addSpend({ favId:f.id, cat:f.cat, name: f.item ? `${f.name} ${f.item}` : f.name, price:f.price });
+        toast(`${f.name} ${won(f.price)}원 기록`, true);
+    });
+
+    p.querySelector('.list').addEventListener('click', e => {
+        const st = e.target.closest('[data-step]');
+        if(st){ const it = spend.find(x=>x.id===st.dataset.step); it.price = Math.max(0, it.price + +st.dataset.d); save(); renderMoney(); renderCalendar(); return; }
+        const del = e.target.closest('[data-del]');
+        if(del){ removeItem('spend', del.dataset.del); }
+    });
+
+    const priceIn = p.querySelector('#mPrice');
+    priceIn.addEventListener('input', () => { const n = priceIn.value.replace(/\D/g,''); priceIn.value = n ? won(+n) : ''; });
+    const addManual = () => {
+        const name = p.querySelector('#mName').value.trim();
+        const price = +priceIn.value.replace(/\D/g,'');
+        if(!price) return priceIn.focus();
+        addSpend({ cat:moneyCat, name: name || CATS[catIdx].label, price });
+    };
+    p.querySelector('#mAdd').onclick = addManual;
+    priceIn.addEventListener('keydown', e => { if(e.key==='Enter') addManual(); });
+    p.querySelector('#mName').addEventListener('keydown', e => { if(e.key==='Enter') priceIn.focus(); });
+}
+
+function addSpend(item){
+    const d = day(keyOf(sel), true);
+    (d.spend ||= []).push({ id:uid(), ...item });
+    save(); renderMoney(); renderCalendar();
+}
+
+let lastRemoved = null;
+function removeItem(field, id){
+    const d = day(keyOf(sel)); if(!d?.[field]) return;
+    const i = d[field].findIndex(x => x.id === id); if(i<0) return;
+    lastRemoved = { key:keyOf(sel), field, i, item:d[field][i] };
+    d[field].splice(i,1);
+    save(); render();
+    toast('삭제했어요', false, true);
+}
+function undo(){
+    if(!lastRemoved) return;
+    const d = day(lastRemoved.key, true);
+    (d[lastRemoved.field] ||= []).splice(lastRemoved.i, 0, lastRemoved.item);
+    lastRemoved = null; save(); render(); hideToast();
+}
+
+function deleteFav(id){
+    const f = favs().find(x=>x.id===id);
+    if(!confirm(`'${f.name}${f.item?' '+f.item:''}' 즐겨찾기를 지울까요?`)) return;
+    store.favs = favs().filter(x => x.id !== id);
+    save(); renderMoney();
+}
+
+/* 즐겨찾기 추가/수정 시트 */
+let pendingLogo; // undefined=변경없음, null=지우기, string=새 이미지
+function openFavSheet(f){
+    const isNew = !f;
+    f = f || { id:'fav-'+uid(), cat:moneyCat, name:'', item:'', price:0 };
+    pendingLogo = undefined;
+    const sheet = $('sheet');
+    sheet.innerHTML = `<div class="grab"></div>
+        <h3>${isNew ? '즐겨찾기 추가' : '즐겨찾기 수정'}</h3>
+        <div class="field">
+            <div class="logo-pick">
+                <div id="logoPreview">${logoHTML(f)}</div>
+                <div>
+                    <div style="font-size:13px;color:var(--muted);margin-bottom:4px">로고 · 이모지</div>
+                    <div class="opts">
+                        <button id="pickImg">사진 선택</button>
+                        ${store.customLogos?.[f.id] ? '<button id="clearImg">기본으로</button>' : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="field" style="margin-top:12px">
+            <label><span>이름</span><input id="fName" value="${esc(f.name)}" placeholder="예: 스타벅스"></label>
+            <label><span>메뉴</span><input id="fItem" value="${esc(f.item||'')}" placeholder="선택 · 예: 샌드위치"></label>
+            <label><span>이모지</span><input id="fEmoji" value="${esc(f.emoji||'')}" placeholder="선택 · 예: 🍙" maxlength="4"></label>
+            <label><span>가격</span><input id="fPrice" inputmode="numeric" value="${f.price?won(f.price):''}" placeholder="0"></label>
+        </div>
+        <div class="actions">
+            <button class="btn" id="fCancel">취소</button>
+            <button class="btn primary" id="fSave">저장</button>
+        </div>`;
+    openSheet();
+
+    const fp = $('fPrice');
+    fp.addEventListener('input', () => { const n = fp.value.replace(/\D/g,''); fp.value = n ? won(+n) : ''; });
+    $('pickImg').onclick = () => $('filePick').click();
+    const clr = $('clearImg'); if(clr) clr.onclick = () => { pendingLogo = null; $('logoPreview').innerHTML = logoHTML({...f, id:'_'}); };
+    $('filePick').onchange = async e => {
+        const file = e.target.files[0]; e.target.value = ''; if(!file) return;
+        pendingLogo = await resizeImage(file, 128);
+        $('logoPreview').innerHTML = `<div class="logo"><img src="${pendingLogo}"></div>`;
+    };
+    $('fCancel').onclick = closeSheet;
+    $('fSave').onclick = () => {
+        const name = $('fName').value.trim();
+        if(!name) return $('fName').focus();
+        const next = { ...f, name, item:$('fItem').value.trim(), emoji:$('fEmoji').value.trim(), price:+fp.value.replace(/\D/g,'') || 0 };
+        if(!next.item) delete next.item;
+        if(!next.emoji) delete next.emoji;
+        if(next.emoji){ delete next.logo; delete next.mono; }
+        store.customLogos ||= {};
+        if(pendingLogo === null) delete store.customLogos[f.id];
+        else if(pendingLogo) store.customLogos[f.id] = pendingLogo;
+        const list = favs();
+        const i = list.findIndex(x => x.id === f.id);
+        if(i >= 0) list[i] = next; else list.push(next);
+        save(); closeSheet(); renderMoney();
+    };
+}
+
+function resizeImage(file, size){
+    return new Promise(res => {
+        const img = new Image();
+        img.onload = () => {
+            const c = document.createElement('canvas'); c.width = c.height = size;
+            const g = c.getContext('2d');
+            g.fillStyle = '#fff'; g.fillRect(0,0,size,size);
+            const s = Math.min(size/img.width, size/img.height);
+            const w = img.width*s, h = img.height*s;
+            g.drawImage(img, (size-w)/2, (size-h)/2, w, h);
+            res(c.toDataURL('image/jpeg', .85));
+            URL.revokeObjectURL(img.src);
+        };
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+/* ════════════════════════════════════════════
+   목표
+   ════════════════════════════════════════════ */
+function renderGoals(){
+    const d = day(keyOf(sel));
+    const goals = d?.goals || [];
+    const done = goals.filter(g=>g.done).length;
+
+    // 직전 기록 날짜의 미완료 목표 가져오기
+    const prevKey = Object.keys(store.days).filter(k => k < keyOf(sel) && store.days[k].goals?.some(g=>!g.done)).sort().pop();
+
+    $('pane').innerHTML = `<div class="pane" style="--accent:var(--postbox)">
+        ${goals.length ? `<div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <b style="font-size:15px">오늘의 목표</b>
+                <span style="font-size:22px;font-weight:800;color:var(--postbox)">${done}<span style="font-size:14px;color:var(--muted);font-weight:600"> / ${goals.length}</span></span>
+            </div>
+            <div class="progress"><i style="width:${goals.length?done/goals.length*100:0}%"></i></div>
+        </div>` : ''}
+        <div class="section-label">목표</div>
+        <div class="list">${goals.length ? goals.map(g => `
+            <div class="row plain ${g.done?'done':''}">
+                <button class="check ${g.done?'on':''}" data-toggle="${g.id}" aria-label="완료"></button>
+                <div class="body"><div class="t">${esc(g.text)}</div></div>
+                <button class="x" data-del="${g.id}">×</button>
+            </div>`).join('') : '<div class="empty">오늘 이루고 싶은 걸 적어보세요</div>'}</div>
+        <div class="composer">
+            <input id="gIn" placeholder="새 목표" enterkeyhint="done">
+            <button class="go" id="gAdd">추가</button>
+        </div>
+        ${prevKey && !goals.length ? `<button class="pill-btn" id="carry" style="margin-top:12px;width:100%;height:44px;color:var(--postbox)">이전 미완료 목표 가져오기</button>` : ''}
+    </div>`;
+
+    const add = () => {
+        const v = $('gIn').value.trim(); if(!v) return;
+        const dd = day(keyOf(sel), true);
+        (dd.goals ||= []).push({ id:uid(), text:v, done:false });
+        save(); render(); $('gIn').focus();
+    };
+    $('gAdd').onclick = add;
+    $('gIn').addEventListener('keydown', e => { if(e.key==='Enter') add(); });
+    $('pane').querySelector('.list').addEventListener('click', e => {
+        const t = e.target.closest('[data-toggle]');
+        if(t){ const g = goals.find(x=>x.id===t.dataset.toggle); g.done = !g.done; save(); render(); return; }
+        const del = e.target.closest('[data-del]'); if(del) removeItem('goals', del.dataset.del);
+    });
+    const carry = $('carry');
+    if(carry) carry.onclick = () => {
+        const dd = day(keyOf(sel), true);
+        dd.goals = store.days[prevKey].goals.filter(g=>!g.done).map(g => ({ id:uid(), text:g.text, done:false }));
+        save(); render();
+    };
+}
+
+/* ════════════════════════════════════════════
+   일정
+   ════════════════════════════════════════════ */
+function renderEvents(){
+    const d = day(keyOf(sel));
+    const evs = (d?.events || []).slice().sort((a,b) => (a.time||'99').localeCompare(b.time||'99'));
+    $('pane').innerHTML = `<div class="pane" style="--accent:var(--sky)">
+        <div class="list">${evs.length ? evs.map(ev => `
+            <div class="row plain">
+                <div class="time">${ev.time || '종일'}</div>
+                <div class="ev-bar"></div>
+                <div class="body"><div class="t">${esc(ev.text)}</div></div>
+                <button class="x" data-del="${ev.id}">×</button>
+            </div>`).join('') : '<div class="empty">일정이 없어요</div>'}</div>
+        <div class="composer">
+            <input id="eTime" type="time">
+            <input id="eIn" placeholder="일정 내용" enterkeyhint="done">
+            <button class="go" id="eAdd">추가</button>
+        </div>
+    </div>`;
+    const add = () => {
+        const v = $('eIn').value.trim(); if(!v) return $('eIn').focus();
+        const dd = day(keyOf(sel), true);
+        (dd.events ||= []).push({ id:uid(), time:$('eTime').value, text:v });
+        save(); render();
+    };
+    $('eAdd').onclick = add;
+    $('eIn').addEventListener('keydown', e => { if(e.key==='Enter') add(); });
+    $('pane').querySelector('.list').addEventListener('click', e => {
+        const del = e.target.closest('[data-del]'); if(del) removeItem('events', del.dataset.del);
+    });
+}
+
+/* ════════════════════════════════════════════
+   기분
+   ════════════════════════════════════════════ */
+function renderMood(){
+    const k = keyOf(sel);
+    const m = day(k)?.mood || {};
+    const ym = k.slice(0,7);
+    const last = new Date(sel.getFullYear(), sel.getMonth()+1, 0).getDate();
+    let strip = '';
+    for(let i=1;i<=last;i++){
+        const v = store.days[`${ym}-${pad(i)}`]?.mood?.v;
+        strip += `<i style="${v?`background:${MOODS[v-1].color}`:''}${i===sel.getDate()?';outline:2px solid var(--ink);outline-offset:1px':''}"></i>`;
+    }
+    $('pane').innerHTML = `<div class="pane" style="--accent:var(--sherbet)">
+        <div class="card">
+            <div class="moods">${MOODS.map(o => `
+                <button class="mood ${m.v===o.v?'on':''}" data-v="${o.v}" style="--mc:${o.color}">
+                    <div class="face">${o.emoji}</div><span>${o.label}</span>
+                </button>`).join('')}</div>
+            <div class="mood-strip" title="${sel.getMonth()+1}월 기분 흐름">${strip}</div>
+        </div>
+        <div class="section-label">한 줄 메모</div>
+        <div class="card"><textarea class="note" id="moodNote" rows="3" placeholder="왜 그런 기분이었나요?">${esc(m.note||'')}</textarea></div>
+        <div class="saved" id="saved"></div>
+    </div>`;
+    $('pane').querySelector('.moods').onclick = e => {
+        const b = e.target.closest('[data-v]'); if(!b) return;
+        const dd = day(k, true); dd.mood ||= {};
+        dd.mood.v = dd.mood.v === +b.dataset.v ? 0 : +b.dataset.v;
+        save(); render();
+    };
+    autosave($('moodNote'), v => { const dd = day(k, true); (dd.mood ||= {}).note = v; });
+}
+
+/* ════════════════════════════════════════════
+   배운 것
+   ════════════════════════════════════════════ */
+function renderLearn(){
+    const d = day(keyOf(sel));
+    const items = d?.learned || [];
+    $('pane').innerHTML = `<div class="pane" style="--accent:var(--saffron)">
+        <div class="list">${items.length ? items.map((it,i) => `
+            <div class="row plain" style="align-items:flex-start">
+                <div style="font-size:13px;font-weight:800;color:var(--saffron);width:18px;padding-top:2px">${i+1}</div>
+                <div class="body"><div class="t" style="white-space:normal;font-weight:500;line-height:1.5">${esc(it.text)}</div></div>
+                <button class="x" data-del="${it.id}">×</button>
+            </div>`).join('') : '<div class="empty">오늘 새로 알게 된 것은?</div>'}</div>
+        <div class="composer">
+            <input id="lIn" placeholder="배운 것 한 줄" enterkeyhint="done">
+            <button class="go" id="lAdd">추가</button>
+        </div>
+    </div>`;
+    const add = () => {
+        const v = $('lIn').value.trim(); if(!v) return;
+        const dd = day(keyOf(sel), true);
+        (dd.learned ||= []).push({ id:uid(), text:v });
+        save(); render(); $('lIn').focus();
+    };
+    $('lAdd').onclick = add;
+    $('lIn').addEventListener('keydown', e => { if(e.key==='Enter') add(); });
+    $('pane').querySelector('.list').addEventListener('click', e => {
+        const del = e.target.closest('[data-del]'); if(del) removeItem('learned', del.dataset.del);
+    });
+}
+
+/* ════════════════════════════════════════════
+   생각
+   ════════════════════════════════════════════ */
+function renderThought(){
+    const k = keyOf(sel);
+    $('pane').innerHTML = `<div class="pane thought" style="--accent:var(--crepe)">
+        <div class="card"><textarea class="note" id="tIn" placeholder="떠오르는 생각을 자유롭게…">${esc(day(k)?.thought||'')}</textarea></div>
+        <div class="saved" id="saved"></div>
+    </div>`;
+    const ta = $('tIn');
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(260, ta.scrollHeight) + 'px'; };
+    ta.addEventListener('input', grow); grow();
+    autosave(ta, v => { day(k, true).thought = v; });
+}
+
+function autosave(el, apply){
+    let t;
+    el.addEventListener('input', () => {
+        clearTimeout(t);
+        $('saved').textContent = '';
+        t = setTimeout(() => { apply(el.value); save(); renderCalendar(); $('saved').textContent = '저장됨'; }, 400);
+    });
+}
+
+/* ════════════════════════════════════════════
+   시트 · 토스트 · 백업
+   ════════════════════════════════════════════ */
+function openSheet(){ $('scrim').classList.add('show'); $('sheet').classList.add('show'); }
+function closeSheet(){ $('scrim').classList.remove('show'); $('sheet').classList.remove('show'); }
+$('scrim').onclick = closeSheet;
+
+let toastT;
+function toast(msg, withUndoLast, isUndo){
+    const t = $('toast');
+    t.innerHTML = esc(msg) + (isUndo || withUndoLast ? '<button id="undoBtn">되돌리기</button>' : '');
+    t.classList.add('show');
+    const b = $('undoBtn');
+    if(b) b.onclick = () => {
+        if(isUndo) return undo();
+        const d = day(keyOf(sel)); d?.spend?.pop(); save(); render(); hideToast();
+    };
+    clearTimeout(toastT); toastT = setTimeout(hideToast, 2600);
+}
+function hideToast(){ $('toast').classList.remove('show'); }
+
+$('backupLink').onclick = e => {
+    e.preventDefault();
+    $('sheet').innerHTML = `<div class="grab"></div><h3>백업 · 복원</h3>
+        <p style="font-size:14px;color:var(--muted);line-height:1.6;text-align:center;margin-bottom:16px">기록은 이 기기의 브라우저에만 저장돼요.<br>폰을 바꾸거나 브라우저 데이터를 지우기 전에 백업하세요.</p>
+        <div class="actions">
+            <button class="btn" id="bExport">백업 파일 저장</button>
+            <button class="btn" id="bImport">백업 불러오기</button>
+        </div>
+        <button class="btn danger" id="bReset" style="width:100%;margin-top:10px">즐겨찾기 기본값으로</button>`;
+    openSheet();
+    $('bExport').onclick = () => {
+        const blob = new Blob([JSON.stringify(store)], { type:'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = `하루기록-${keyOf(today)}.json`; a.click();
+        URL.revokeObjectURL(a.href);
+    };
+    $('bImport').onclick = () => $('jsonPick').click();
+    $('bReset').onclick = () => {
+        if(!confirm('즐겨찾기 목록과 기본 가격을 처음 상태로 되돌릴까요? (기록은 그대로예요)')) return;
+        store.favs = null; store.customLogos = {}; save(); closeSheet(); render(); toast('즐겨찾기를 초기화했어요');
+    };
+};
+/* 계정 시트: 로그인 · 로그아웃 */
+$('syncBtn').onclick = () => {
+    if(!db) return toast('서버에 연결할 수 없어요 (인터넷 확인)');
+    if(!user){
+        $('sheet').innerHTML = `<div class="grab"></div><h3>로그인</h3>
+            <p style="font-size:14px;color:var(--muted);line-height:1.6;text-align:center;margin-bottom:16px">팀 계정으로 로그인하면 기록이 서버에 저장되고<br>폰과 PC에서 실시간으로 같이 보여요.</p>
+            <form id="loginForm">
+                <div class="field">
+                    <label><span>이메일</span><input type="email" id="lEmail" autocomplete="username" required></label>
+                    <label><span>비밀번호</span><input type="password" id="lPw" autocomplete="current-password" required></label>
+                </div>
+                <p id="lErr" style="color:var(--postbox);font-size:13px;text-align:center;margin-top:10px;min-height:16px"></p>
+                <div class="actions" style="margin-top:6px">
+                    <button type="button" class="btn" id="lCancel">취소</button>
+                    <button type="submit" class="btn primary" id="lGo">로그인</button>
+                </div>
+            </form>`;
+        openSheet();
+        $('lCancel').onclick = closeSheet;
+        $('loginForm').onsubmit = async e => {
+            e.preventDefault();
+            $('lGo').disabled = true; $('lErr').textContent = '';
+            const { error } = await db.auth.signInWithPassword({ email: $('lEmail').value.trim(), password: $('lPw').value });
+            $('lGo').disabled = false;
+            if(error){ $('lErr').textContent = '이메일 또는 비밀번호가 맞지 않아요'; return; }
+            closeSheet(); toast('로그인했어요 · 서버와 맞추는 중');
+        };
+        return;
+    }
+    const pending = Object.values(store.meta).filter(m => m.dirty).length;
+    $('sheet').innerHTML = `<div class="grab"></div><h3>계정</h3>
+        <div class="field"><label><span>계정</span><b style="font-weight:600;overflow:hidden;text-overflow:ellipsis">${esc(user.email||'')}</b></label>
+        <label><span>상태</span>${{ ok:'서버에 저장됨', syncing:'저장 중…', error:'서버 연결 안 됨', off:'' }[syncState]}${pending ? ` · 올릴 기록 ${pending}개` : ''}</label></div>
+        <div class="actions">
+            <button class="btn" id="aSync">지금 맞추기</button>
+            <button class="btn danger" id="aOut">로그아웃</button>
+        </div>`;
+    openSheet();
+    $('aSync').onclick = () => { closeSheet(); pull(); };
+    $('aOut').onclick = async () => {
+        const left = Object.values(store.meta).filter(m => m.dirty).length;
+        if(left && !confirm(`아직 서버에 안 올라간 기록이 ${left}개 있어요. 그래도 로그아웃할까요?`)) return;
+        await db.auth.signOut();
+        // 서버에 다 있으니 이 기기 기록은 비움 (다른 사람이 이 기기를 쓸 수도 있어서)
+        store = { days:{}, favs:null, customLogos:{}, meta:{} };
+        persist(); closeSheet(); render(); toast('로그아웃했어요');
+    };
+};
+
+$('jsonPick').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+    try{
+        const s = JSON.parse(await f.text());
+        if(!s.days) throw 0;
+        if(!confirm('지금 기록을 백업 파일 내용으로 바꿀까요?')) return;
+        s.meta ||= {}; s.owner = user?.id || s.owner; store = s; save(); closeSheet(); render(); toast('복원했어요');
+    }catch(err){ toast('올바른 백업 파일이 아니에요'); }
+};
+
+/* ════════════════════════════════════════════ */
+function render(){
+    renderCalendar();
+    renderHead();
+    renderTabs();
+    ({ money:renderMoney, goal:renderGoals, event:renderEvents, mood:renderMood, learn:renderLearn, thought:renderThought })[tab]();
+}
+markDirty(); persist();
+render();
+</script>
+</body>
+</html>

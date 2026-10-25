@@ -76,6 +76,8 @@
 │  ├─ place.html          ← A Place for Today (Visitor, 로그인 없이 누구나)
 │  ├─ blind-date.html     ← Blind Date: 가짜 소개팅 썰 + 상대 4방향 몽타주 (Visitor, 로그인 없이 누구나)
 │  ├─ memo.html           ← 댓글 (Visitor, 누구나 쓰기)
+│  ├─ daylog.html         ← 하루 기록: 캘린더 생활관리 (모바일, 로그인하면 본인 기록만 서버 저장 · 실시간 동기화)
+│  ├─ source/             ← daylog 로고 원본 이미지 (앱에는 줄여서 넣어 둠)
 │  ├─ archhub/            ← Arch Hub: 건축설계 조립형 앱 (Admin). 허브 + 플러그인, 작성법은 archhub/PLUGIN_GUIDE.md
 │  └─ old/                ← 예전 앱 보관
 ├─ supabase/
