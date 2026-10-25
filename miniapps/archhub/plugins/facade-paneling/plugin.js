@@ -17,6 +17,7 @@ ArchHub.registerPlugin({
         const DEF = {
             module: 3.0,                                   // 모듈 폭 (m)
             roofScreen: true,                              // 옥상 위로 입면만 1개 층 더 (코어 가림)
+            countScreen: false,                            // 옥상 입면을 집계(패널·수평 루버 수)에 넣을지
             frameDepth: 150, frameThick: 80,               // 프레임 depth / thickness (mm)
             frameColor: '#2c2c2e', glassColor: '#7fa3c4', glassOpacity: 45,
             hLouver: false, hDepth: 300, hThick: 50, hCount: 2,
@@ -51,6 +52,7 @@ ArchHub.registerPlugin({
             h('section', { class: 'sec' }, h('h3', null, '모듈'),
                 numRow('모듈 폭', 'module', 'm', 0.6, 9, 0.1),
                 check('옥상 위 입면 1개 층 더 (슬라브 없이, 코어 가림)', 'roofScreen'),
+                check('옥상 입면도 집계에 포함', 'countScreen'),
                 h('p', { class: 'hint' }, '면마다 길이를 모듈 폭에 가장 가까운 개수로 똑같이 나눕니다. 층마다 가로로 한 번 더 나눕니다.')),
             h('section', { class: 'sec' }, h('h3', null, 'Inner skin — 프레임 · 유리'),
                 numRow('프레임 깊이', 'frameDepth', 'mm', 0, 600, 10),
@@ -110,7 +112,7 @@ ArchHub.registerPlugin({
                 const t = { x: (c.x - a.x) / L, y: (c.y - a.y) / L };
                 const f = { a, t, n: { x: t.y, y: -t.x } };          // 반시계 폴리곤의 바깥 법선
                 const n = Math.max(1, Math.round(L / s.module)), w = L / n;
-                panels += n * levels.length;
+                panels += n * levels.filter(l => !l.screen || s.countScreen).length;
                 // 면 방위 (바깥 법선이 향하는 쪽, 정북 0°)
                 const az = (Math.atan2(f.n.x, f.n.y) * 180 / Math.PI + 360) % 360;
                 rows.push({ dir: ['북', '북동', '동', '남동', '남', '남서', '서', '북서'][Math.round(az / 45) % 8], L, n, w });
@@ -149,7 +151,7 @@ ArchHub.registerPlugin({
                     zs.push(zTop);
                     zs.forEach(z => {
                         box(louverL, f, 0, L, lStart, lStart + d, Math.max(levels[0].z, z - th / 2), Math.min(zTop, z + th / 2), louverStyle);
-                        hCount++;
+                        if (s.countScreen || z <= roofZ + 1e-6) hCount++;   // 옥상 입면 위 루버는 기본적으로 집계 제외
                     });
                 }
             });
@@ -158,7 +160,7 @@ ArchHub.registerPlugin({
                 h('table', null,
                     h('tr', null, h('td', null, h('b', null, '면')), h('td', null, h('b', null, '길이 · 분할 · 실제 모듈 폭'))),
                     ...rows.map(r => h('tr', null, h('td', null, r.dir), h('td', null, `${fmt(r.L, 2)}m · ${r.n}개 · ${fmt(r.w, 3)}m`))),
-                    h('tr', null, h('td', null, '패널'), h('td', null, `${panels.toLocaleString('ko-KR')}장 (${levels.length}개 층${s.roofScreen ? ', 옥상 입면 포함' : ''})`)),
+                    h('tr', null, h('td', null, '패널'), h('td', null, `${panels.toLocaleString('ko-KR')}장 (${levels.filter(l => !l.screen).length}개 층${s.roofScreen ? (s.countScreen ? ' + 옥상 입면' : ', 옥상 입면 제외') : ''})`)),
                     h('tr', null, h('td', null, '수직 루버'), h('td', null, s.vLouver ? vCount.toLocaleString('ko-KR') + '개 (전체 높이)' : '–')),
                     h('tr', null, h('td', null, '수평 루버'), h('td', null, s.hLouver ? hCount.toLocaleString('ko-KR') + '줄 (면 길이)' : '–'))),
                 h('p', { class: 'hint', style: { marginTop: '6px' } }, `루버 시작면: 유리면에서 ${fmt((gT + fD) * 1000, 0)}mm 바깥`)
