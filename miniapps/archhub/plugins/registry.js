@@ -23,12 +23,7 @@ ArchHub.setRegistry([
         id: 'sun-study', name: '일조',
         src: 'plugins/sun-study/plugin.js',
         glyph: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
-        description: '날짜·시각별 태양 위치와 건물 그림자, 동지 9~15시 누적 일영'
-    },
-    {
-        id: 'template', name: '템플릿',
-        src: 'plugins/_template/plugin.js',
-        glyph: '<rect x="5" y="5" width="14" height="14" rx="3" stroke-dasharray="3 3"/>',
-        description: '새 플러그인을 만들 때 복사해서 시작하는 최소 예제'
+        description: '고른 인접 건물이 내 건물 입면에 드리우는 그림자 — 층별 일조시간 분석'
     }
 ]);
+// 새 플러그인은 plugins/_template 를 복사해서 시작 (목록에는 넣지 않음, PLUGIN_GUIDE.md 참고)

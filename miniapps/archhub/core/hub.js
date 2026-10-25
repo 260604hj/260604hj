@@ -189,7 +189,8 @@
                     h('div', { class: 'row' },
                         h('button', { class: 'btn small', onclick: demolishOnSite }, '대지 안 건물 철거'),
                         h('button', { class: 'btn ghost small', onclick: () => Store.set('site.demolished', [], 'hub') }, '모두 복원')),
-                    h('p', { class: 'hint', style: { marginTop: '8px' } }, 'VWORLD 3D 보기에서, 지도의 건물을 클릭해 한 동씩 철거·복원할 수도 있습니다.')
+                    h('label', { class: 'field', style: { marginTop: '8px' } }, check('view.autoDemolish'), ' 대지를 불러오면 자동 철거'),
+                    h('p', { class: 'hint' }, 'VWORLD 3D 보기에서, 지도의 건물을 클릭해 한 동씩 철거·복원할 수도 있습니다.')
                 )
             ),
             pane('shape',
@@ -333,6 +334,8 @@
         }, 'hub');
         toast(boundary.length ? `대지경계를 불러왔습니다 · ${fmt(area)} ㎡` : '위치로 이동했습니다 (대지경계는 못 가져옴 — 네트워크/VWORLD 확인)', boundary.length ? '' : 'error');
         if (boundary.length) loadNeighbors(true);
+        // 기본: 대지 안 기존 건물 자동 철거 (카메라가 대지로 옮겨 건물 타일이 들어온 뒤)
+        if (boundary.length && Store.get('view.autoDemolish') && activeViewer === 'vworld') setTimeout(() => demolishOnSite(true), 1500);
         return boundary.length > 0;
     }
 
@@ -545,11 +548,13 @@
     }
 
     // 대지 안 기존 건물 철거 — VWORLD 3D 건물 타일에서 대지 안쪽에 걸린 건물을 찾아 숨김
-    async function demolishOnSite() {
+    async function demolishOnSite(auto, retried) {
+        auto = auto === true;   // 대지 불러올 때 자동 실행 — 못 찾아도 오류 안내 안 함
+        const key = JSON.stringify(Store.get('site.origin'));
         const b = Store.get('site.boundary');
-        if (b.length < 3) return toast('먼저 대지를 불러오세요.');
+        if (b.length < 3) return auto || toast('먼저 대지를 불러오세요.');
         const vwv = viewers.vworld;
-        if (!vwv || activeViewer !== 'vworld') return toast('VWORLD 3D 보기에서 쓸 수 있습니다 (간이 3D 에는 기존 건물이 없음).');
+        if (!vwv || activeViewer !== 'vworld') return auto || toast('VWORLD 3D 보기에서 쓸 수 있습니다 (간이 3D 에는 기존 건물이 없음).');
         toast('대지 안 건물을 찾는 중…');
         const inner = G.inset(b, 0.8);   // 경계선에 걸친 옆 대지 건물은 빼려고 살짝 안쪽만
         const ids = await vwv.findBuildingsIn(inner.length >= 3 ? inner : b);
@@ -557,7 +562,10 @@
         const before = cur.size;
         ids.forEach(id => cur.add(id));
         Store.set('site.demolished', Array.from(cur), 'hub');
-        toast(ids.length ? `건물 ${cur.size - before}동을 철거했습니다` : '대지 안에서 건물을 찾지 못했습니다. 대지가 화면에 보이게 한 뒤 다시 눌러 보세요.');
+        if (ids.length) toast(`대지 안 기존 건물 ${cur.size - before}동을 철거했습니다`);
+        else if (!auto) toast('대지 안에서 건물을 찾지 못했습니다. 대지가 화면에 보이게 한 뒤 다시 눌러 보세요.');
+        // 자동 실행인데 못 찾았으면 건물 타일이 늦게 들어온 것일 수 있어 한 번 더 (같은 대지일 때만)
+        else if (!retried) setTimeout(() => { if (JSON.stringify(Store.get('site.origin')) === key) demolishOnSite(true, true); }, 4000);
     }
     function toggleBuilding(id) {
         const list = Store.get('site.demolished');
@@ -795,6 +803,7 @@
     async function restoreActive() {
         let list = [];
         try { list = JSON.parse(localStorage.getItem(ACTIVE_KEY) || '[]'); } catch (e) { /* 무시 */ }
+        list = list.filter(e => e.id !== 'template');   // 예전에 목록에 있던 템플릿은 다시 켜지 않음
         for (const e of list) {
             try { await loadPlugin(e); } catch (err) { toast('플러그인 복원 실패(' + e.id + '): ' + err.message, 'error'); }
         }
@@ -843,6 +852,7 @@
         if (id && !active[id]) id = null;
         currentPlugin = id;
         $('pluginPanel').classList.remove('collapsed');
+        $('pluginPanel').classList.toggle('rail', !id && !devOpen);
         $('library').hidden = !!id;
         Object.values(active).forEach(r => { r.panel.hidden = r.def.id !== id; });
         renderHead();
@@ -859,20 +869,33 @@
     function renderLibrary() {
         const box = $('library'); if (!box) return;
         box.innerHTML = '';
+        // 데스크톱 홈은 아이콘이 세로 한 줄인 좁은 레일 (개발용 주소 칸을 열면 넓게)
+        $('pluginPanel').classList.toggle('rail', !currentPlugin && !devOpen);
         const grid = h('div', { class: 'apps' });
         const entries = registry.slice();
         // registry 밖(개발 중 주소로 불러온) 플러그인도 홈에 보이게
         Object.keys(active).forEach(id => { if (!entries.some(e => e.id === id)) entries.push(entryOf(id)); });
         entries.forEach(e => {
-            const btn = h('button', { class: 'app' + (active[e.id] ? ' on' : ''), title: e.description || e.name },
+            const on = !!active[e.id];
+            const btn = h('button', { class: 'app-open', title: (e.description || e.name) + ' — 눌러서 열기' },
                 h('span', { class: 'tile' }, appGlyph(e)),
-                h('span', { class: 'name' }, e.name),
-                h('span', { class: 'dot' }));
-            btn.onclick = () => openApp(e, btn);
-            grid.append(btn);
+                h('span', { class: 'name' }, e.name));
+            const cell = h('div', { class: 'app' + (on ? ' on' : '') }, btn);
+            btn.onclick = () => openApp(e, cell);
+            // 아이콘 아래 켜기/끄기 — 화면을 열지 않고 플러그인만 켜고 끔 (그림·계산이 지도에 남거나 사라짐)
+            const sw = h('input', { type: 'checkbox', checked: on, 'aria-label': e.name + ' 켜기' });
+            sw.onchange = async () => {
+                sw.disabled = true;
+                try { if (sw.checked) await loadPlugin(e); else deactivatePlugin(e.id); }
+                catch (err) { toast(err.message, 'error'); }
+                renderLibrary();
+            };
+            cell.append(h('label', { class: 'switch', title: on ? '끄기' : '켜기' }, sw, h('span')));
+            grid.append(cell);
         });
-        const add = h('button', { class: 'app add', title: '개발 중 플러그인 불러오기', onclick: () => { devOpen = !devOpen; renderLibrary(); } },
-            h('span', { class: 'tile' }, '+'), h('span', { class: 'name' }, '불러오기'), h('span', { class: 'dot' }));
+        const add = h('div', { class: 'app add' },
+            h('button', { class: 'app-open', title: '개발 중 플러그인 불러오기', onclick: () => { devOpen = !devOpen; renderLibrary(); } },
+                h('span', { class: 'tile' }, '+'), h('span', { class: 'name' }, '불러오기')));
         grid.append(add);
         box.append(grid);
         if (devOpen) {

@@ -23,7 +23,7 @@ miniapps/archhub/
    ├─ seoul-screening/     ← 서울 대지 스크리닝
    ├─ scale-review/        ← 규모검토
    ├─ column-grid/         ← 기둥 위치 스터디
-   └─ sun-study/           ← 일조 시뮬레이션
+   └─ sun-study/           ← 일조 분석 (인접 건물 → 내 건물 입면 그림자)
 ```
 
 ---
@@ -78,7 +78,7 @@ miniapps/archhub/
 개발 중에는 registry 에 넣지 않고 플러그인 홈 화면의 **+ 불러오기** 아이콘을 눌러
 `plugins/my-plugin/plugin.js` 를 넣어 바로 시험할 수 있습니다.
 
-플러그인 아이콘을 누르면 플러그인이 켜지고, 오른쪽 떠 있는 패널 전체가 그 플러그인 화면(`ctx.panel`)이 됩니다.
+플러그인 아이콘을 누르면 플러그인이 켜지고, 오른쪽 떠 있는 패널 전체가 그 플러그인 화면(`ctx.panel`)이 됩니다. 아이콘 아래 스위치는 화면을 열지 않고 켜고 끄기만 합니다.
 ‹ 버튼으로 홈에 돌아가도 플러그인은 계속 켜져 있고(아이콘 아래 파란 점), 화면 위의 **끄기**로 끕니다.
 
 ### 플러그인 파일의 모양
@@ -154,7 +154,7 @@ L.label({ x, y, z }, '텍스트', { color: '#15171c' });                    // �
 | 서울 대지 스크리닝 ✅ | (VWORLD 구 경계·지적도·용도지역도) | 대지 설정은 `ctx.hub.loadSite` |
 | 규모검토 ✅ | site, building, metrics | `site.area`, `site.zoning` |
 | 기둥 위치 스터디 ✅ | footprint, cores, levels | `plugins.column-grid.columns` |
-| 일조 시뮬레이션 ✅ | site.origin, footprint, 높이 | (그리기만) |
+| 일조 분석 ✅ | site.origin, footprint, levels, VWORLD 인접 건물(LT_C_BLDGINFO·LT_C_SPBD) | `plugins.sun-study` (인접 건물, 선택, 높이 수정) |
 | 코어 구획 구체화 | cores, floorsAbove, metrics | `building.cores` (계단·EV 세부는 `plugins.core-detail`) |
 | 입면 모듈화 | footprint, levels | `plugins.facade` (변별 모듈 폭, 패널 타입) |
 | 주차장 계획 | footprint, floorsBelow, `plugins.column-grid.columns` | `plugins.parking` (대수, 배치) |
